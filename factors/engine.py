@@ -6,6 +6,8 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from factors.valuation import score_valuation
+
 
 DEFAULT_FACTORS = {
     "business": 0.35,
@@ -27,28 +29,35 @@ def pct_rank(df: pd.DataFrame, column: str, higher_is_better: bool = True) -> pd
         return pd.Series(50.0, index=df.index)
 
     s = pd.to_numeric(df[column], errors="coerce")
+
     if s.notna().sum() <= 1:
         return pd.Series(50.0, index=df.index)
 
     r = s.rank(method="average", pct=True) * 100
+
     if not higher_is_better:
         r = 100 - r
+
     return r.fillna(50.0)
 
 
 def metric_available(df: pd.DataFrame, column: str) -> pd.Series:
     if column not in df.columns:
         return pd.Series(False, index=df.index)
+
     return pd.to_numeric(df[column], errors="coerce").notna()
 
 
 def features_by_factor(features: dict[str, Any]) -> dict[str, dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
+
     for feature_name, cfg in features.items():
         if not isinstance(cfg, dict):
             continue
+
         factor = str(cfg.get("factor") or cfg.get("engine") or "other").lower()
         grouped.setdefault(factor, {})[feature_name] = cfg
+
     return grouped
 
 
@@ -58,8 +67,10 @@ def score_factor(
     factor: str,
 ) -> tuple[pd.Series, pd.Series, pd.DataFrame]:
     selected = {
-        name: cfg for name, cfg in features.items()
-        if isinstance(cfg, dict) and str(cfg.get("factor") or cfg.get("engine") or "").lower() == factor
+        name: cfg
+        for name, cfg in features.items()
+        if isinstance(cfg, dict)
+        and str(cfg.get("factor") or cfg.get("engine") or "").lower() == factor
     }
 
     if not selected:
@@ -115,28 +126,43 @@ def score_all_factors(
 
     for factor, weight in factor_weights.items():
         factor = str(factor).lower()
-        score, confidence, details = score_factor(result, features, factor)
+
+        if factor == "valuation":
+            score, confidence, details = score_valuation(result)
+        else:
+            score, confidence, details = score_factor(result, features, factor)
+
         col_name = f"{factor.title()} Factor"
         conf_name = f"{factor.title()} Confidence"
+
         result[col_name] = score.round(1)
         result[conf_name] = confidence.round(1)
         result = pd.concat([result, details], axis=1)
+
         factor_scores[factor] = score
         confidence_parts.append(confidence)
 
     total_weight = sum(float(w) for w in factor_weights.values()) or 1.0
+
     investment = pd.Series(0.0, index=result.index)
+
     for factor, weight in factor_weights.items():
-        investment += factor_scores[str(factor).lower()] * float(weight)
+        factor = str(factor).lower()
+        investment += factor_scores[factor] * float(weight)
+
     investment = investment / total_weight
 
     result["Investment Score"] = investment.round(1)
+
     if confidence_parts:
-        result["Model Confidence"] = pd.concat(confidence_parts, axis=1).mean(axis=1).round(1)
+        result["Model Confidence"] = (
+            pd.concat(confidence_parts, axis=1)
+            .mean(axis=1)
+            .round(1)
+        )
     else:
         result["Model Confidence"] = 0.0
 
-    # Compatibility aliases used by current reports/run_all.py
     aliases = {
         "Business Factor": "Business Score",
         "Valuation Factor": "Valuation Score",
@@ -144,6 +170,7 @@ def score_all_factors(
         "Timing Factor": "Timing Score",
         "Model Confidence": "Confidence Score",
     }
+
     for src, dst in aliases.items():
         if src in result.columns:
             result[dst] = result[src]
