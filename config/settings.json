@@ -1,0 +1,7 @@
+{
+  "output_latest": "output/latest.xlsx",
+  "output_history_dir": "output/history",
+  "watchlist_path": "config/watchlist.csv",
+  "history_period": "1y",
+  "history_interval": "1d"
+}

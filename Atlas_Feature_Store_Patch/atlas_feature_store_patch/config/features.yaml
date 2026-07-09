@@ -1,0 +1,145 @@
+# Atlas Feature Store v0.2
+# Cada métrica é configurada aqui. O código lê esta lista e calcula os scores automaticamente.
+
+business:
+  roic:
+    label: ROIC
+    weight: 0.20
+    higher_is_better: true
+    required: false
+  roe:
+    label: ROE
+    weight: 0.15
+    higher_is_better: true
+    required: true
+  f_score_annual:
+    label: Piotroski F-Score
+    weight: 0.15
+    higher_is_better: true
+    required: false
+  gross_margin:
+    label: Gross Margin
+    weight: 0.10
+    higher_is_better: true
+    required: false
+  operating_margin:
+    label: Operating Margin
+    weight: 0.10
+    higher_is_better: true
+    required: false
+  net_margin:
+    label: Net Margin
+    weight: 0.10
+    higher_is_better: true
+    required: true
+  debt_to_equity:
+    label: Debt / Equity
+    weight: 0.10
+    higher_is_better: false
+    required: false
+  current_ratio:
+    label: Current Ratio
+    weight: 0.05
+    higher_is_better: true
+    required: false
+  interest_coverage:
+    label: Interest Coverage
+    weight: 0.05
+    higher_is_better: true
+    required: false
+
+valuation:
+  pe:
+    label: P/E
+    weight: 0.20
+    higher_is_better: false
+    required: true
+  forward_pe:
+    label: Forward P/E
+    weight: 0.15
+    higher_is_better: false
+    required: false
+  ev_to_ebitda:
+    label: EV/EBITDA
+    weight: 0.20
+    higher_is_better: false
+    required: false
+  pb:
+    label: Price / Book
+    weight: 0.15
+    higher_is_better: false
+    required: true
+  peg:
+    label: PEG
+    weight: 0.10
+    higher_is_better: false
+    required: false
+  fcf_yield:
+    label: FCF Yield
+    weight: 0.10
+    higher_is_better: true
+    required: false
+  shareholder_yield:
+    label: Shareholder Yield
+    weight: 0.10
+    higher_is_better: true
+    required: false
+
+financial:
+  net_debt_ebitda:
+    label: Net Debt / EBITDA
+    weight: 0.30
+    higher_is_better: false
+    required: false
+  net_debt_total_equity:
+    label: Net Debt / Total Equity
+    weight: 0.25
+    higher_is_better: false
+    required: false
+  debt_to_equity:
+    label: Debt / Equity
+    weight: 0.20
+    higher_is_better: false
+    required: false
+  current_ratio:
+    label: Current Ratio
+    weight: 0.15
+    higher_is_better: true
+    required: false
+  interest_coverage:
+    label: Interest Coverage
+    weight: 0.10
+    higher_is_better: true
+    required: false
+
+timing:
+  rsi_14:
+    label: RSI 14
+    weight: 0.20
+    higher_is_better: false
+    required: true
+  momentum_3m:
+    label: Momentum 3M
+    weight: 0.15
+    higher_is_better: true
+    required: true
+  momentum_6m:
+    label: Momentum 6M
+    weight: 0.20
+    higher_is_better: true
+    required: true
+  momentum_12m:
+    label: Momentum 12M
+    weight: 0.20
+    higher_is_better: true
+    required: true
+  distance_52w_high:
+    label: Distance 52W High
+    weight: 0.15
+    higher_is_better: false
+    required: true
+  target_upside:
+    label: Target Upside
+    weight: 0.10
+    higher_is_better: true
+    required: false

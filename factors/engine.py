@@ -1,0 +1,151 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+import yaml
+
+
+DEFAULT_FACTORS = {
+    "business": 0.35,
+    "valuation": 0.30,
+    "financial": 0.15,
+    "timing": 0.20,
+}
+
+
+def load_yaml(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return data or {}
+
+
+def pct_rank(df: pd.DataFrame, column: str, higher_is_better: bool = True) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(50.0, index=df.index)
+
+    s = pd.to_numeric(df[column], errors="coerce")
+    if s.notna().sum() <= 1:
+        return pd.Series(50.0, index=df.index)
+
+    r = s.rank(method="average", pct=True) * 100
+    if not higher_is_better:
+        r = 100 - r
+    return r.fillna(50.0)
+
+
+def metric_available(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(False, index=df.index)
+    return pd.to_numeric(df[column], errors="coerce").notna()
+
+
+def features_by_factor(features: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for feature_name, cfg in features.items():
+        if not isinstance(cfg, dict):
+            continue
+        factor = str(cfg.get("factor") or cfg.get("engine") or "other").lower()
+        grouped.setdefault(factor, {})[feature_name] = cfg
+    return grouped
+
+
+def score_factor(
+    df: pd.DataFrame,
+    features: dict[str, Any],
+    factor: str,
+) -> tuple[pd.Series, pd.Series, pd.DataFrame]:
+    selected = {
+        name: cfg for name, cfg in features.items()
+        if isinstance(cfg, dict) and str(cfg.get("factor") or cfg.get("engine") or "").lower() == factor
+    }
+
+    if not selected:
+        neutral = pd.Series(50.0, index=df.index)
+        confidence = pd.Series(0.0, index=df.index)
+        details = pd.DataFrame(index=df.index)
+        return neutral, confidence, details
+
+    weighted_sum = pd.Series(0.0, index=df.index)
+    total_weight = 0.0
+    available_weight = pd.Series(0.0, index=df.index)
+    details = pd.DataFrame(index=df.index)
+
+    for feature_name, cfg in selected.items():
+        column = str(cfg.get("column") or feature_name)
+        label = str(cfg.get("label") or feature_name)
+        weight = float(cfg.get("weight", 0.0))
+        higher = bool(cfg.get("higher_is_better", True))
+
+        score = pct_rank(df, column, higher)
+        available = metric_available(df, column)
+
+        weighted_sum += score * weight
+        total_weight += weight
+        available_weight += available.astype(float) * weight
+
+        safe_label = label.replace("/", "_").replace(" ", "_")
+        details[f"{factor}_{safe_label}_score"] = score.round(1)
+        details[f"{factor}_{safe_label}_available"] = available
+
+    if total_weight <= 0:
+        factor_score = pd.Series(50.0, index=df.index)
+        factor_confidence = pd.Series(0.0, index=df.index)
+    else:
+        factor_score = weighted_sum / total_weight
+        factor_confidence = (available_weight / total_weight * 100).clip(0, 100)
+
+    return factor_score, factor_confidence, details
+
+
+def score_all_factors(
+    df: pd.DataFrame,
+    features_path: Path,
+    model_path: Path | None = None,
+) -> pd.DataFrame:
+    result = df.copy()
+    features = load_yaml(features_path)
+    model = load_yaml(model_path) if model_path else {}
+    factor_weights = model.get("factor_weights", DEFAULT_FACTORS)
+
+    factor_scores: dict[str, pd.Series] = {}
+    confidence_parts: list[pd.Series] = []
+
+    for factor, weight in factor_weights.items():
+        factor = str(factor).lower()
+        score, confidence, details = score_factor(result, features, factor)
+        col_name = f"{factor.title()} Factor"
+        conf_name = f"{factor.title()} Confidence"
+        result[col_name] = score.round(1)
+        result[conf_name] = confidence.round(1)
+        result = pd.concat([result, details], axis=1)
+        factor_scores[factor] = score
+        confidence_parts.append(confidence)
+
+    total_weight = sum(float(w) for w in factor_weights.values()) or 1.0
+    investment = pd.Series(0.0, index=result.index)
+    for factor, weight in factor_weights.items():
+        investment += factor_scores[str(factor).lower()] * float(weight)
+    investment = investment / total_weight
+
+    result["Investment Score"] = investment.round(1)
+    if confidence_parts:
+        result["Model Confidence"] = pd.concat(confidence_parts, axis=1).mean(axis=1).round(1)
+    else:
+        result["Model Confidence"] = 0.0
+
+    # Compatibility aliases used by current reports/run_all.py
+    aliases = {
+        "Business Factor": "Business Score",
+        "Valuation Factor": "Valuation Score",
+        "Financial Factor": "Financial Score",
+        "Timing Factor": "Timing Score",
+        "Model Confidence": "Confidence Score",
+    }
+    for src, dst in aliases.items():
+        if src in result.columns:
+            result[dst] = result[src]
+
+    return result
