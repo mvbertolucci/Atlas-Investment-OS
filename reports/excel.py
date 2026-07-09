@@ -30,7 +30,11 @@ def _format_sheet(writer: pd.ExcelWriter, sheet_name: str) -> None:
         worksheet.column_dimensions[col_letter].width = min(max_length + 2, 40)
 
 
-def write_latest_and_history(df: pd.DataFrame, output_dir: Path) -> tuple[Path, Path | None]:
+def write_latest_and_history(
+    df: pd.DataFrame,
+    output_dir: Path,
+) -> tuple[Path, Path | None]:
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     history_dir = output_dir / "history"
@@ -41,10 +45,13 @@ def write_latest_and_history(df: pd.DataFrame, output_dir: Path) -> tuple[Path, 
     latest_file = output_dir / "latest.xlsx"
 
     summary_cols = [
-        c for c in [
+        c
+        for c in [
             "symbol",
             "name",
             "Investment Score",
+            "Opportunity Score",
+            "Opportunity Rating",
             "Business Score",
             "Valuation Score",
             "Financial Score",
@@ -55,22 +62,86 @@ def write_latest_and_history(df: pd.DataFrame, output_dir: Path) -> tuple[Path, 
         if c in df.columns
     ]
 
+    opportunity_cols = [
+        c
+        for c in [
+            "symbol",
+            "name",
+            "Opportunity Base",
+            "Opportunity Bonus",
+            "Opportunity Penalty",
+            "Opportunity Score",
+            "Opportunity Rating",
+            "Opportunity Drivers",
+        ]
+        if c in df.columns
+    ]
+
     explainability_df = build_explainability(df)
     diagnostics_df = build_diagnostics(df)
 
     with pd.ExcelWriter(history_file, engine="openpyxl") as writer:
-        df.to_excel(writer, sheet_name="Ranking", index=False)
 
+        # ------------------------------------------------------------------
+        # Ranking
+        # ------------------------------------------------------------------
+        df.to_excel(
+            writer,
+            sheet_name="Ranking",
+            index=False,
+        )
+
+        # ------------------------------------------------------------------
+        # Summary
+        # ------------------------------------------------------------------
         if summary_cols:
-            df[summary_cols].to_excel(writer, sheet_name="Summary", index=False)
+            df[summary_cols].to_excel(
+                writer,
+                sheet_name="Summary",
+                index=False,
+            )
 
-        explainability_df.to_excel(writer, sheet_name="Explainability", index=False)
+        # ------------------------------------------------------------------
+        # Opportunity Analysis
+        # ------------------------------------------------------------------
+        if opportunity_cols:
+            (
+                df[opportunity_cols]
+                .sort_values(
+                    "Opportunity Score",
+                    ascending=False,
+                )
+                .to_excel(
+                    writer,
+                    sheet_name="Opportunity Analysis",
+                    index=False,
+                )
+            )
 
+        # ------------------------------------------------------------------
+        # Explainability
+        # ------------------------------------------------------------------
+        explainability_df.to_excel(
+            writer,
+            sheet_name="Explainability",
+            index=False,
+        )
+
+        # ------------------------------------------------------------------
+        # Diagnostics
+        # ------------------------------------------------------------------
         if not diagnostics_df.empty:
-            diagnostics_df.to_excel(writer, sheet_name="Diagnostics", index=False)
+            diagnostics_df.to_excel(
+                writer,
+                sheet_name="Diagnostics",
+                index=False,
+            )
 
-        for sheet_name in writer.sheets:
-            _format_sheet(writer, sheet_name)
+        # ------------------------------------------------------------------
+        # Formatting
+        # ------------------------------------------------------------------
+        for sheet in writer.sheets:
+            _format_sheet(writer, sheet)
 
     copied = None
 
