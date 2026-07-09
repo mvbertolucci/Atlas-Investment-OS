@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
-
-from factors.engine import pct_rank, metric_available
 
 
 VALUATION_FEATURES = {
@@ -17,6 +13,28 @@ VALUATION_FEATURES = {
     "shareholder_yield": {"label": "Shareholder Yield", "weight": 0.05, "higher": True},
     "fcf_yield": {"label": "FCF Yield", "weight": 0.05, "higher": True},
 }
+
+
+def pct_rank(df: pd.DataFrame, column: str, higher_is_better: bool = True) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(50.0, index=df.index)
+
+    s = pd.to_numeric(df[column], errors="coerce")
+    if s.notna().sum() <= 1:
+        return pd.Series(50.0, index=df.index)
+
+    r = s.rank(method="average", pct=True) * 100
+    if not higher_is_better:
+        r = 100 - r
+
+    return r.fillna(50.0)
+
+
+def metric_available(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(False, index=df.index)
+
+    return pd.to_numeric(df[column], errors="coerce").notna()
 
 
 def score_valuation(df: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.DataFrame]:
@@ -33,7 +51,7 @@ def score_valuation(df: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.DataFram
         weighted_sum += score * cfg["weight"]
         available_weight += available.astype(float) * cfg["weight"]
 
-        safe_label = cfg["label"].replace(" ", "_")
+        safe_label = cfg["label"].replace(" ", "_").replace("/", "_")
         details[f"valuation_{safe_label}_score"] = score.round(1)
         details[f"valuation_{safe_label}_available"] = available
 
