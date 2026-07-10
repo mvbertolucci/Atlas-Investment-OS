@@ -41,3 +41,10 @@ data/*.sqlite3
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Pacotes e relatórios temporários de desenvolvimento
+Atlas_Source*.zip
+TEST_REPORT_PR*.txt
+
+# Pacotes locais de release
+PR-*.zip
