@@ -1,0 +1,4 @@
+symbol,quantity,average_price,current_price,currency,sector,country,notes
+MSFT,10,410.50,450.00,USD,Technology,USA,Core holding
+GOOGL,8,175.20,180.00,USD,Communication Services,USA,
+BUD,20,58.10,62.00,USD,Consumer Defensive,Belgium,
