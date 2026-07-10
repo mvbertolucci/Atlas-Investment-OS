@@ -1,8 +1,34 @@
-# Rollback
+# Release Rollback
 
-If any issue occurs:
+## Before tagging
 
+Restore individual files:
+
+```cmd
+git status
+git restore <file>
+```
+
+## After the release commit
+
+```cmd
 git log --oneline
-git checkout <previous_commit>
+git revert <release_commit>
+```
 
-or restore the previous release package.
+## Remove a local tag
+
+```cmd
+git tag -d v0.9.0
+```
+
+## Remove a remote tag
+
+Use only when necessary:
+
+```cmd
+git push origin :refs/tags/v0.9.0
+```
+
+Runtime data under `data/`, `logs/` and `output/` is local and is not changed
+by Git rollback.
