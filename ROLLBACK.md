@@ -3,8 +3,8 @@
 Antes do commit:
 
 ```cmd
-git restore reports/morning_brief.py
-del tests\\test_morning_brief_domain.py
+git restore reports/excel.py
+del tests\test_excel_domain.py
 ```
 
 Depois do commit:

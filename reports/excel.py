@@ -12,7 +12,81 @@ from reports.history_report import (
     build_historical_trends,
     build_history_summary,
 )
+from reports.report_engine import build_company_reports
+from reports.report_models import CompanyReport
 
+
+
+def _join_items(items: tuple[str, ...]) -> str:
+    return "; ".join(items)
+
+
+def _company_reports_dataframe(
+    reports: list[CompanyReport],
+) -> pd.DataFrame:
+    """
+    Converte objetos CompanyReport em uma tabela de apresentação.
+
+    Esta função isola o Excel do DataFrame bruto do pipeline para
+    a aba Decision Analysis.
+    """
+
+    rows: list[dict[str, object]] = []
+
+    for report in reports:
+        rows.append(
+            {
+                "symbol": report.symbol,
+                "name": report.company_name,
+                "Decision": report.decision,
+                "Decision Rating": report.decision_rating,
+                "Suggested Action": report.suggested_action,
+                "Decision Confidence": report.decision_confidence,
+                "Decision Drivers": _join_items(
+                    report.decision_drivers
+                ),
+                "Investment Thesis": report.investment_thesis,
+                "Thesis Strengths": _join_items(report.strengths),
+                "Thesis Risks": _join_items(report.risks),
+                "Thesis Catalysts": _join_items(report.catalysts),
+                "Opportunity Score": report.opportunity_score,
+                "Conviction Score": report.conviction_score,
+                "Investment Score": report.investment_score,
+                "Business Score": report.business_score,
+                "Valuation Score": report.valuation_score,
+                "Financial Score": report.financial_score,
+                "Timing Score": report.timing_score,
+                "Confidence Score": report.confidence_score,
+                "Risk Penalty": report.risk_penalty,
+                "Deal Breakers": _join_items(
+                    report.deal_breakers
+                ),
+            }
+        )
+
+    result = pd.DataFrame(rows)
+
+    if result.empty:
+        return result
+
+    sort_columns = [
+        column
+        for column in [
+            "Opportunity Score",
+            "Conviction Score",
+            "Investment Score",
+        ]
+        if column in result.columns
+    ]
+
+    if sort_columns:
+        result = result.sort_values(
+            sort_columns,
+            ascending=[False] * len(sort_columns),
+            na_position="last",
+        )
+
+    return result.reset_index(drop=True)
 
 def _format_sheet(
     writer: pd.ExcelWriter,
@@ -202,6 +276,11 @@ def write_latest_and_history(
         if column in df.columns
     ]
 
+    company_reports = build_company_reports(df)
+    decision_analysis_df = _company_reports_dataframe(
+        company_reports
+    )
+
     explainability_df = build_explainability(df)
     diagnostics_df = build_diagnostics(df)
 
@@ -258,50 +337,8 @@ def write_latest_and_history(
         # --------------------------------------------------------------
         # Decision Analysis
         # --------------------------------------------------------------
-        if decision_columns:
-            decision_df = df[
-                decision_columns
-            ].copy()
-
-            sort_columns = [
-                column
-                for column in [
-                    "Decision Priority",
-                    "Opportunity Score",
-                    "Conviction Score",
-                ]
-                if column in df.columns
-            ]
-
-            if sort_columns:
-                decision_df = decision_df.join(
-                    df[
-                        [
-                            column
-                            for column in sort_columns
-                            if column not in decision_df.columns
-                        ]
-                    ]
-                )
-
-                ascending = [
-                    True if column == "Decision Priority" else False
-                    for column in sort_columns
-                ]
-
-                decision_df = decision_df.sort_values(
-                    sort_columns,
-                    ascending=ascending,
-                    na_position="last",
-                )
-
-                if "Decision Priority" not in decision_columns:
-                    decision_df = decision_df.drop(
-                        columns=["Decision Priority"],
-                        errors="ignore",
-                    )
-
-            decision_df.to_excel(
+        if not decision_analysis_df.empty:
+            decision_analysis_df.to_excel(
                 writer,
                 sheet_name="Decision Analysis",
                 index=False,
