@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -24,7 +25,7 @@ from scoring.investment import score_dataframe
 from storage.history_db import HistoryDatabase
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "config"
 OUTPUT = ROOT / "output"
 DATA = ROOT / "data"
@@ -34,10 +35,10 @@ HISTORY_DATABASE = DATA / "atlas_history.db"
 MORNING_BRIEF_FILE = OUTPUT / "morning_brief.md"
 EXECUTION_METRICS_FILE = LOGS / "execution_metrics.csv"
 
-logger = get_logger("run_all")
+logger = get_logger("atlas.pipeline")
 
 
-def load_settings() -> dict:
+def load_settings() -> dict[str, Any]:
     settings_path = CONFIG / "settings.json"
 
     if not settings_path.exists():
@@ -45,18 +46,25 @@ def load_settings() -> dict:
             f"Arquivo de configuração não encontrado: {settings_path}"
         )
 
-    return json.loads(
-        settings_path.read_text(encoding="utf-8")
-    )
+    data = json.loads(settings_path.read_text(encoding="utf-8"))
+
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"settings.json deve conter um objeto JSON: {settings_path}"
+        )
+
+    return data
 
 
 def load_watchlist(
-    settings: dict,
+    settings: dict[str, Any],
 ) -> tuple[Path, pd.DataFrame]:
-    watchlist_path = ROOT / settings.get(
+    configured_path = settings.get(
         "watchlist_path",
         "config/watchlist.csv",
     )
+
+    watchlist_path = ROOT / str(configured_path)
 
     if not watchlist_path.exists():
         raise FileNotFoundError(
@@ -74,7 +82,7 @@ def load_watchlist(
 
 
 def collect_market_data(
-    settings: dict,
+    settings: dict[str, Any],
     watchlist: pd.DataFrame,
 ) -> pd.DataFrame:
     logger.info(
@@ -84,27 +92,27 @@ def collect_market_data(
 
     rows = fetch_watchlist(
         watchlist,
-        period=settings.get("history_period", "1y"),
-        interval=settings.get("history_interval", "1d"),
+        period=str(settings.get("history_period", "1y")),
+        interval=str(settings.get("history_interval", "1d")),
     )
 
-    enriched = [
+    enriched_rows = [
         enrich_technicals(row)
         for row in rows
     ]
 
-    df = pd.DataFrame(
+    frame = pd.DataFrame(
         [
             {
                 key: value
                 for key, value in row.items()
                 if key != "history"
             }
-            for row in enriched
+            for row in enriched_rows
         ]
     )
 
-    if df.empty:
+    if frame.empty:
         raise RuntimeError(
             "Nenhum dado foi coletado. "
             "Verifique a watchlist ou a conexão."
@@ -112,16 +120,16 @@ def collect_market_data(
 
     logger.info(
         "Coleta concluída: %s empresas retornadas.",
-        len(df),
+        len(frame),
     )
 
-    return df
+    return frame
 
 
-def build_scores(df: pd.DataFrame) -> pd.DataFrame:
+def build_scores(frame: pd.DataFrame) -> pd.DataFrame:
     logger.info("Iniciando normalização e scoring.")
 
-    result = normalize_columns(df)
+    result = normalize_columns(frame)
     result = add_confidence_score(result)
 
     result = score_dataframe(
@@ -138,14 +146,14 @@ def build_scores(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def save_history_snapshot(df: pd.DataFrame) -> str:
+def save_history_snapshot(frame: pd.DataFrame) -> str:
     snapshot_date = datetime.now().isoformat(
         timespec="seconds"
     )
 
     with HistoryDatabase(HISTORY_DATABASE) as database:
         database.save_snapshot(
-            df=df,
+            df=frame,
             snapshot_date=snapshot_date,
         )
 
@@ -158,12 +166,12 @@ def save_history_snapshot(df: pd.DataFrame) -> str:
 
 
 def generate_excel_reports(
-    df: pd.DataFrame,
+    frame: pd.DataFrame,
 ) -> tuple[Path, Path | None]:
     logger.info("Gerando relatórios Excel.")
 
     history_file, latest_file = write_latest_and_history(
-        df,
+        frame,
         OUTPUT,
     )
 
@@ -176,31 +184,31 @@ def generate_excel_reports(
 
 
 def generate_morning_brief(
-    df: pd.DataFrame,
+    frame: pd.DataFrame,
 ) -> tuple[Path, str]:
     logger.info("Gerando Morning Brief.")
 
-    brief_path = write_morning_brief(
-        current_df=df,
+    brief_file = write_morning_brief(
+        current_df=frame,
         database_path=HISTORY_DATABASE,
         output_path=MORNING_BRIEF_FILE,
     )
 
     brief_text = render_morning_brief(
-        current_df=df,
+        current_df=frame,
         database_path=HISTORY_DATABASE,
     )
 
     logger.info(
         "Morning Brief gerado em %s.",
-        brief_path,
+        brief_file,
     )
 
-    return brief_path, brief_text
+    return brief_file, brief_text
 
 
-def print_console_table(df: pd.DataFrame) -> None:
-    columns = [
+def print_console_table(frame: pd.DataFrame) -> None:
+    preferred_columns = [
         "symbol",
         "Investment Score",
         "Opportunity Score",
@@ -214,17 +222,17 @@ def print_console_table(df: pd.DataFrame) -> None:
         "Recommendation",
     ]
 
-    available_columns = [
+    columns = [
         column
-        for column in columns
-        if column in df.columns
+        for column in preferred_columns
+        if column in frame.columns
     ]
 
     print()
 
-    if available_columns:
+    if columns:
         print(
-            df[available_columns]
+            frame[columns]
             .head(20)
             .to_string(index=False)
         )
@@ -236,7 +244,32 @@ def print_console_table(df: pd.DataFrame) -> None:
     print()
 
 
-def main() -> None:
+def print_generated_files(
+    snapshot_date: str,
+    history_file: Path,
+    latest_file: Path | None,
+    brief_file: Path,
+) -> None:
+    print("=" * 70)
+    print("ARQUIVOS GERADOS")
+    print("=" * 70)
+    print(f"Snapshot        : {snapshot_date}")
+    print(f"SQLite          : {HISTORY_DATABASE}")
+    print(f"Excel histórico : {history_file}")
+
+    if latest_file is not None:
+        print(f"Latest.xlsx     : {latest_file}")
+    else:
+        print(
+            "Latest.xlsx     : não atualizado "
+            "(arquivo provavelmente aberto)"
+        )
+
+    print(f"Morning Brief   : {brief_file}")
+    print("=" * 70)
+
+
+def run_atlas() -> None:
     metrics = ExecutionMetrics()
 
     logger.info("Iniciando Atlas.")
@@ -246,10 +279,7 @@ def main() -> None:
         print_health_report(health_report)
 
         settings = load_settings()
-
-        watchlist_path, watchlist = load_watchlist(
-            settings
-        )
+        watchlist_path, watchlist = load_watchlist(settings)
 
         print()
         print("=" * 70)
@@ -261,54 +291,39 @@ def main() -> None:
         print()
 
         with StageTimer(metrics, "download_time"):
-            df = collect_market_data(
+            frame = collect_market_data(
                 settings,
                 watchlist,
             )
 
-        metrics.companies = len(df)
+        metrics.companies = len(frame)
 
         with StageTimer(metrics, "scoring_time"):
-            df = build_scores(df)
+            frame = build_scores(frame)
 
         with StageTimer(metrics, "history_time"):
-            snapshot_date = save_history_snapshot(df)
+            snapshot_date = save_history_snapshot(frame)
 
         with StageTimer(metrics, "reports_time"):
-            history_file, latest_file = (
-                generate_excel_reports(df)
+            history_file, latest_file = generate_excel_reports(
+                frame
             )
 
-        with StageTimer(
-            metrics,
-            "morning_brief_time",
-        ):
-            brief_file, brief_text = (
-                generate_morning_brief(df)
+        with StageTimer(metrics, "morning_brief_time"):
+            brief_file, brief_text = generate_morning_brief(
+                frame
             )
 
-        print_console_table(df)
-
+        print_console_table(frame)
         print(brief_text)
         print()
 
-        print("=" * 70)
-        print("ARQUIVOS GERADOS")
-        print("=" * 70)
-        print(f"Snapshot        : {snapshot_date}")
-        print(f"SQLite          : {HISTORY_DATABASE}")
-        print(f"Excel histórico : {history_file}")
-
-        if latest_file is not None:
-            print(f"Latest.xlsx     : {latest_file}")
-        else:
-            print(
-                "Latest.xlsx     : não atualizado "
-                "(arquivo provavelmente aberto)"
-            )
-
-        print(f"Morning Brief   : {brief_file}")
-        print("=" * 70)
+        print_generated_files(
+            snapshot_date=snapshot_date,
+            history_file=history_file,
+            latest_file=latest_file,
+            brief_file=brief_file,
+        )
 
         save_execution_metrics(
             metrics,
@@ -339,7 +354,3 @@ def main() -> None:
             "Falha durante a execução do Atlas."
         )
         raise
-
-
-if __name__ == "__main__":
-    main()
