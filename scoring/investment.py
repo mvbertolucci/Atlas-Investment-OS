@@ -7,15 +7,26 @@ import pandas as pd
 import yaml
 
 from factors.engine import score_all_factors
+from models.conviction_model import apply_conviction
 from models.investment_model import apply_recommendation
 from models.opportunity_model import apply_opportunity
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
+    """
+    Carrega um arquivo YAML.
+
+    Retorna um dicionário vazio quando o arquivo não existe
+    ou não contém configuração.
+    """
+
     if not path.exists():
         return {}
 
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data = yaml.safe_load(
+        path.read_text(encoding="utf-8")
+    )
+
     return data or {}
 
 
@@ -23,20 +34,34 @@ def apply_deal_breakers(
     df: pd.DataFrame,
     deal_breakers_path: Path,
 ) -> pd.DataFrame:
-    result = df.copy()
+    """
+    Aplica penalidades de risco ao Investment Score.
 
+    As regras são carregadas de deal_breakers.json/YAML.
+    """
+
+    result = df.copy()
     rules = load_yaml(deal_breakers_path)
 
-    if not rules:
-        return result
-
     score = pd.to_numeric(
-        result.get("Investment Score"),
+        result.get(
+            "Investment Score",
+            pd.Series(50.0, index=result.index),
+        ),
         errors="coerce",
     ).fillna(50.0)
 
-    penalties = pd.Series(0.0, index=result.index)
-    notes = pd.Series("", index=result.index, dtype="object")
+    penalties = pd.Series(
+        0.0,
+        index=result.index,
+        dtype="float64",
+    )
+
+    notes = pd.Series(
+        "",
+        index=result.index,
+        dtype="object",
+    )
 
     def add_penalty(
         condition: pd.Series,
@@ -47,7 +72,10 @@ def apply_deal_breakers(
 
         condition = condition.fillna(False)
 
-        penalties += condition.astype(float) * penalty
+        penalties += (
+            condition.astype(float)
+            * float(penalty)
+        )
 
         notes = notes.where(
             ~condition,
@@ -56,52 +84,87 @@ def apply_deal_breakers(
 
     max_net_debt_ebitda = rules.get(
         "net_debt_ebitda_max",
-        rules.get("max_net_debt_ebitda", 4),
+        rules.get(
+            "max_net_debt_ebitda",
+            4,
+        ),
     )
 
     min_current_ratio = rules.get(
         "current_ratio_min",
-        rules.get("min_current_ratio", 1),
+        rules.get(
+            "min_current_ratio",
+            1,
+        ),
     )
 
     min_f_score = rules.get(
         "piotroski_min",
-        rules.get("min_piotroski", 4),
+        rules.get(
+            "min_piotroski",
+            4,
+        ),
     )
 
     max_short_float = rules.get(
         "short_float_max",
-        rules.get("max_short_float", 20),
+        rules.get(
+            "max_short_float",
+            20,
+        ),
     )
 
     if "net_debt_ebitda" in result.columns:
-        s = pd.to_numeric(result["net_debt_ebitda"], errors="coerce")
+        values = pd.to_numeric(
+            result["net_debt_ebitda"],
+            errors="coerce",
+        )
+
         add_penalty(
-            s > float(max_net_debt_ebitda),
+            values > float(max_net_debt_ebitda),
             15,
             "Net Debt/EBITDA alto",
         )
 
+    liquidity_column = None
+
     if "current_ratio" in result.columns:
-        s = pd.to_numeric(result["current_ratio"], errors="coerce")
+        liquidity_column = "current_ratio"
+    elif "current_liquidity" in result.columns:
+        liquidity_column = "current_liquidity"
+
+    if liquidity_column is not None:
+        values = pd.to_numeric(
+            result[liquidity_column],
+            errors="coerce",
+        )
+
         add_penalty(
-            s < float(min_current_ratio),
+            values < float(min_current_ratio),
             10,
             "Liquidez corrente baixa",
         )
 
     if "f_score_annual" in result.columns:
-        s = pd.to_numeric(result["f_score_annual"], errors="coerce")
+        values = pd.to_numeric(
+            result["f_score_annual"],
+            errors="coerce",
+        )
+
         add_penalty(
-            s < float(min_f_score),
+            values < float(min_f_score),
             15,
             "Piotroski baixo",
         )
 
     if "short_float" in result.columns:
-        s = pd.to_numeric(result["short_float"], errors="coerce")
+        values = pd.to_numeric(
+            result["short_float"],
+            errors="coerce",
+        )
+
         add_penalty(
-            s > float(max_short_float),
+            values > float(max_short_float),
             10,
             "Short float alto",
         )
@@ -109,7 +172,8 @@ def apply_deal_breakers(
     result["Risk Penalty"] = penalties.round(1)
 
     result["Deal Breakers"] = (
-        notes.str.strip("; ")
+        notes
+        .str.strip("; ")
         .replace("", "Nenhum")
     )
 
@@ -129,13 +193,27 @@ def score_dataframe(
     deal_breakers_path: Path,
 ) -> pd.DataFrame:
     """
-    Pipeline principal de scoring do Atlas.
+    Executa o pipeline de decisão do Atlas.
+
+    Ordem:
+
+    1. Factor Engine
+    2. Deal Breakers
+    3. Opportunity Engine
+    4. Conviction Engine
+    5. Recommendation
+    6. Ordenação final
     """
 
     config_dir = weights_path.parent
 
     features_path = config_dir / "features.yaml"
     model_path = config_dir / "model.yaml"
+
+    if not features_path.exists():
+        raise FileNotFoundError(
+            f"Feature Store não encontrada: {features_path}"
+        )
 
     if not model_path.exists():
         model_path = weights_path
@@ -153,13 +231,25 @@ def score_dataframe(
 
     result = apply_opportunity(result)
 
+    result = apply_conviction(result)
+
     result = apply_recommendation(result)
 
-    # Mantemos o ranking principal por Investment Score.
-    # Opportunity Score é um modelo complementar nesta versão.
-    result = result.sort_values(
-        "Investment Score",
-        ascending=False,
-    ).reset_index(drop=True)
+    sort_columns = [
+        column
+        for column in [
+            "Opportunity Score",
+            "Conviction Score",
+            "Investment Score",
+        ]
+        if column in result.columns
+    ]
 
-    return result
+    if sort_columns:
+        result = result.sort_values(
+            sort_columns,
+            ascending=[False] * len(sort_columns),
+            na_position="last",
+        )
+
+    return result.reset_index(drop=True)
