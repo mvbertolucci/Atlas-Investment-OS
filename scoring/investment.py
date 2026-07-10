@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from decision.engine import apply_decision
 from factors.engine import score_all_factors
 from models.conviction_model import apply_conviction
 from models.investment_model import apply_recommendation
@@ -201,8 +202,9 @@ def score_dataframe(
     2. Deal Breakers
     3. Opportunity Engine
     4. Conviction Engine
-    5. Recommendation
-    6. Ordenação final
+    5. Decision Engine
+    6. Recommendation legada
+    7. Ordenação final
     """
 
     config_dir = weights_path.parent
@@ -230,14 +232,16 @@ def score_dataframe(
     )
 
     result = apply_opportunity(result)
-
     result = apply_conviction(result)
+    result = apply_decision(result)
 
+    # Mantida por compatibilidade com relatórios e integrações existentes.
     result = apply_recommendation(result)
 
     sort_columns = [
         column
         for column in [
+            "Decision Priority",
             "Opportunity Score",
             "Conviction Score",
             "Investment Score",
@@ -246,9 +250,14 @@ def score_dataframe(
     ]
 
     if sort_columns:
+        ascending = [
+            True if column == "Decision Priority" else False
+            for column in sort_columns
+        ]
+
         result = result.sort_values(
             sort_columns,
-            ascending=[False] * len(sort_columns),
+            ascending=ascending,
             na_position="last",
         )
 
