@@ -1,44 +1,43 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Virtual environments
+# Ambiente virtual
 .venv/
 venv/
 env/
 
-# Pytest and coverage
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
+# Logs e métricas geradas
+logs/*
+!logs/.gitkeep
 
-# Logs
-logs/
-*.log
+# Relatórios gerados
+output/*
+!output/.gitkeep
+!output/history/
+output/history/*
+!output/history/.gitkeep
 
-# Atlas generated outputs
-output/
+# Banco local do usuário
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+!data/.gitkeep
 
-# Excel temporary files
+# Arquivos temporários do Excel
 ~$*.xlsx
 ~$*.xls
 
-# Environment files
+# Configurações locais e segredos
 .env
 .env.*
 
-# IDEs and editors
+# Editores e sistema operacional
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# Operating system files
 .DS_Store
 Thumbs.db
 desktop.ini

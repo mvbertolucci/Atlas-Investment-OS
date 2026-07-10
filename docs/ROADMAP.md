@@ -1,25 +1,18 @@
-# Roadmap
+# Atlas Investment OS Roadmap
 
-## Sprint 1
-- Atlas Core
-- Provider layer with Yahoo Finance
-- Data mapper
-- Confidence score
-- Modular scoring
-- Excel output
+## Release 0.9.0
+- [x] Business Engine
+- [x] Valuation Engine
+- [x] Financial Engine
+- [x] Timing Engine
+- [x] Investment Engine
+- [x] Opportunity Engine
+- [x] Conviction Engine
+- [x] Decision Policy
+- [x] Decision Engine
+- [x] Investment Thesis Engine
+- [ ] Thesis Integration (PR-015.4B)
+- [ ] Decision Report (PR-015.5)
 
-## Sprint 2
-- SQLite persistence
-- Data quality report
-- Historical score deltas
-
-## Sprint 3
-- Quality and valuation enhancements
-- Piotroski F-Score
-- Altman Z
-- Net Debt/EBITDA improvements
-
-## Sprint 4
-- Portfolio engine
-- Dashboard
-- AI explanations
+## Next
+Release 1.0: Portfolio Intelligence
