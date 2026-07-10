@@ -89,6 +89,16 @@ def build_top_opportunities(
             "name",
             "Opportunity Score",
             "Opportunity Rating",
+            "Conviction Score",
+            "Conviction Rating",
+            "Decision",
+            "Decision Rating",
+            "Suggested Action",
+            "Decision Confidence",
+            "Investment Thesis",
+            "Thesis Strengths",
+            "Thesis Risks",
+            "Thesis Catalysts",
             "Investment Score",
             "Business Score",
             "Valuation Score",
@@ -482,11 +492,20 @@ def build_morning_brief_dataframe(
     top_opportunities = data["top_opportunities"]
 
     for _, row in top_opportunities.iterrows():
+        details = " | ".join(
+            part
+            for part in [
+                str(row.get("Decision Rating", "")).strip(),
+                str(row.get("Investment Thesis", "")).strip(),
+            ]
+            if part and part.lower() not in {"nan", "none"}
+        )
+
         add_row(
             "Top Opportunities",
             f"{int(row.get('Rank', 0))}. {row.get('symbol', '')}",
             _safe_number(row.get("Opportunity Score")),
-            str(row.get("Opportunity Drivers", "")),
+            details or str(row.get("Opportunity Drivers", "")),
         )
 
     improving = data["improving"]
@@ -613,9 +632,48 @@ def render_morning_brief(
                 f"{_safe_number(row.get('Opportunity Score'))}"
             )
 
+            decision = str(
+                row.get("Decision Rating", "")
+            ).strip()
+
+            conviction = _safe_number(
+                row.get("Conviction Score")
+            )
+
+            thesis = str(
+                row.get("Investment Thesis", "")
+            ).strip()
+
+            risks = str(
+                row.get("Thesis Risks", "")
+            ).strip()
+
+            action = str(
+                row.get("Suggested Action", "")
+            ).strip()
+
             drivers = str(
                 row.get("Opportunity Drivers", "")
             ).strip()
+
+            if decision and decision.lower() not in {"nan", "none"}:
+                lines.append(f"   Decisão: {decision}")
+
+            if conviction != "-":
+                lines.append(f"   Conviction: {conviction}")
+
+            if thesis and thesis.lower() not in {"nan", "none"}:
+                lines.append(f"   Tese: {thesis}")
+
+            if (
+                risks
+                and risks.lower() not in {"nan", "none"}
+                and risks != "Nenhum risco crítico identificado"
+            ):
+                lines.append(f"   Riscos: {risks}")
+
+            if action and action.lower() not in {"nan", "none"}:
+                lines.append(f"   Ação: {action}")
 
             if drivers and drivers != "Nenhum":
                 lines.append(f"   Drivers: {drivers}")

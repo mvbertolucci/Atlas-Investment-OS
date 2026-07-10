@@ -7,6 +7,7 @@ import pandas as pd
 import yaml
 
 from decision.engine import apply_decision
+from decision.thesis import apply_investment_thesis
 from factors.engine import score_all_factors
 from models.conviction_model import apply_conviction
 from models.investment_model import apply_recommendation
@@ -203,8 +204,9 @@ def score_dataframe(
     3. Opportunity Engine
     4. Conviction Engine
     5. Decision Engine
-    6. Recommendation legada
-    7. Ordenação final
+    6. Investment Thesis Engine
+    7. Recommendation legada
+    8. Ordenação final
     """
 
     config_dir = weights_path.parent
@@ -234,6 +236,7 @@ def score_dataframe(
     result = apply_opportunity(result)
     result = apply_conviction(result)
     result = apply_decision(result)
+    result = apply_investment_thesis(result)
 
     # Mantida por compatibilidade com relatórios e integrações existentes.
     result = apply_recommendation(result)

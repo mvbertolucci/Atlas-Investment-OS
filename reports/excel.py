@@ -93,6 +93,7 @@ def write_latest_and_history(
     - Ranking
     - Summary
     - Opportunity Analysis
+    - Decision Analysis
     - Explainability
     - Diagnostics
     - Historical Trends
@@ -133,6 +134,12 @@ def write_latest_and_history(
             "Investment Score",
             "Opportunity Score",
             "Opportunity Rating",
+            "Conviction Score",
+            "Conviction Rating",
+            "Decision",
+            "Decision Rating",
+            "Suggested Action",
+            "Decision Confidence",
             "Business Score",
             "Valuation Score",
             "Financial Score",
@@ -155,6 +162,34 @@ def write_latest_and_history(
             "Opportunity Score",
             "Opportunity Rating",
             "Opportunity Drivers",
+            "Investment Score",
+            "Business Score",
+            "Valuation Score",
+            "Financial Score",
+            "Timing Score",
+            "Confidence Score",
+            "Risk Penalty",
+            "Deal Breakers",
+        ]
+        if column in df.columns
+    ]
+
+    decision_columns = [
+        column
+        for column in [
+            "symbol",
+            "name",
+            "Decision",
+            "Decision Rating",
+            "Suggested Action",
+            "Decision Confidence",
+            "Decision Drivers",
+            "Investment Thesis",
+            "Thesis Strengths",
+            "Thesis Risks",
+            "Thesis Catalysts",
+            "Opportunity Score",
+            "Conviction Score",
             "Investment Score",
             "Business Score",
             "Valuation Score",
@@ -216,6 +251,59 @@ def write_latest_and_history(
             opportunity_df.to_excel(
                 writer,
                 sheet_name="Opportunity Analysis",
+                index=False,
+            )
+
+
+        # --------------------------------------------------------------
+        # Decision Analysis
+        # --------------------------------------------------------------
+        if decision_columns:
+            decision_df = df[
+                decision_columns
+            ].copy()
+
+            sort_columns = [
+                column
+                for column in [
+                    "Decision Priority",
+                    "Opportunity Score",
+                    "Conviction Score",
+                ]
+                if column in df.columns
+            ]
+
+            if sort_columns:
+                decision_df = decision_df.join(
+                    df[
+                        [
+                            column
+                            for column in sort_columns
+                            if column not in decision_df.columns
+                        ]
+                    ]
+                )
+
+                ascending = [
+                    True if column == "Decision Priority" else False
+                    for column in sort_columns
+                ]
+
+                decision_df = decision_df.sort_values(
+                    sort_columns,
+                    ascending=ascending,
+                    na_position="last",
+                )
+
+                if "Decision Priority" not in decision_columns:
+                    decision_df = decision_df.drop(
+                        columns=["Decision Priority"],
+                        errors="ignore",
+                    )
+
+            decision_df.to_excel(
+                writer,
+                sheet_name="Decision Analysis",
                 index=False,
             )
 
