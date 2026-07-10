@@ -1,10 +1,10 @@
 # Rollback
 
-Para desfazer o PR antes do commit:
+Antes do commit:
 
 ```cmd
-git restore scoring/investment.py reports/excel.py reports/morning_brief.py run_all.py
-del tests\test_thesis_integration.py
+del reports\report_models.py
+del tests\test_report_models.py
 ```
 
 Depois do commit:
