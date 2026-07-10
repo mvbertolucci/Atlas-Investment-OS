@@ -9,30 +9,46 @@ import pandas as pd
 from analytics.indicators import enrich_technicals
 from analytics.mapper import normalize_columns
 from analytics.validator import add_confidence_score
+
 from providers.yahoo import fetch_watchlist
+
 from reports.excel import write_latest_and_history
+from reports.morning_brief import (
+    render_morning_brief,
+    write_morning_brief,
+)
+
 from scoring.investment import score_dataframe
+
 from storage.history_db import HistoryDatabase
 
 
 ROOT = Path(__file__).resolve().parent
+
 CONFIG = ROOT / "config"
 OUTPUT = ROOT / "output"
 DATA = ROOT / "data"
+
 HISTORY_DATABASE = DATA / "atlas_history.db"
 
+MORNING_BRIEF_FILE = OUTPUT / "morning_brief.md"
 
-def save_history_snapshot(df: pd.DataFrame) -> str:
+
+def save_history_snapshot(
+    df: pd.DataFrame,
+) -> str:
     """
-    Salva no SQLite o resultado completo dos scores da execução atual.
-
-    O horário faz parte da chave do snapshot, permitindo mais de uma
-    execução no mesmo dia sem substituir registros anteriores.
+    Salva o snapshot atual no banco SQLite.
     """
 
-    snapshot_date = datetime.now().isoformat(timespec="seconds")
+    snapshot_date = datetime.now().isoformat(
+        timespec="seconds"
+    )
 
-    with HistoryDatabase(HISTORY_DATABASE) as database:
+    with HistoryDatabase(
+        HISTORY_DATABASE
+    ) as database:
+
         database.save_snapshot(
             df=df,
             snapshot_date=snapshot_date,
@@ -41,17 +57,25 @@ def save_history_snapshot(df: pd.DataFrame) -> str:
     return snapshot_date
 
 
-def main() -> None:
+def load_settings() -> dict:
+
     settings_path = CONFIG / "settings.json"
 
     if not settings_path.exists():
         raise FileNotFoundError(
-            f"Arquivo de configuração não encontrado: {settings_path}"
+            f"Arquivo não encontrado: {settings_path}"
         )
 
-    settings = json.loads(
-        settings_path.read_text(encoding="utf-8")
+    return json.loads(
+        settings_path.read_text(
+            encoding="utf-8"
+        )
     )
+
+
+def load_watchlist(
+    settings: dict,
+) -> tuple[Path, pd.DataFrame]:
 
     watchlist_path = ROOT / settings.get(
         "watchlist_path",
@@ -63,31 +87,46 @@ def main() -> None:
             f"Watchlist não encontrada: {watchlist_path}"
         )
 
-    watchlist = pd.read_csv(watchlist_path)
+    watchlist = pd.read_csv(
+        watchlist_path
+    )
 
-    print("=" * 70)
-    print("ATLAS – INVESTMENT DECISION OS")
-    print("=" * 70)
-    print(f"Watchlist: {watchlist_path}")
-    print(f"Banco histórico: {HISTORY_DATABASE}")
+    return (
+        watchlist_path,
+        watchlist,
+    )
+
+
+def collect_market_data(
+    settings: dict,
+    watchlist: pd.DataFrame,
+) -> pd.DataFrame:
 
     rows = fetch_watchlist(
         watchlist,
-        period=settings.get("history_period", "1y"),
-        interval=settings.get("history_interval", "1d"),
+        period=settings.get(
+            "history_period",
+            "1y",
+        ),
+        interval=settings.get(
+            "history_interval",
+            "1d",
+        ),
     )
 
     enriched = [
-        enrich_technicals(row)
+        enrich_technicals(
+            row
+        )
         for row in rows
     ]
 
     df = pd.DataFrame(
         [
             {
-                key: value
-                for key, value in row.items()
-                if key != "history"
+                k: v
+                for k, v in row.items()
+                if k != "history"
             }
             for row in enriched
         ]
@@ -95,11 +134,18 @@ def main() -> None:
 
     if df.empty:
         raise RuntimeError(
-            "Nenhum dado foi coletado. "
-            "Verifique a watchlist ou a conexão."
+            "Nenhum dado foi coletado."
         )
 
+    return df
+
+
+def build_scores(
+    df: pd.DataFrame,
+) -> pd.DataFrame:
+
     df = normalize_columns(df)
+
     df = add_confidence_score(df)
 
     df = score_dataframe(
@@ -108,14 +154,14 @@ def main() -> None:
         CONFIG / "deal_breakers.json",
     )
 
-    snapshot_date = save_history_snapshot(df)
+    return df
 
-    history_file, latest_file = write_latest_and_history(
-        df,
-        OUTPUT,
-    )
 
-    display_columns = [
+def print_console_table(
+    df: pd.DataFrame,
+) -> None:
+
+    columns = [
         "symbol",
         "Investment Score",
         "Opportunity Score",
@@ -129,32 +175,151 @@ def main() -> None:
         "Recommendation",
     ]
 
-    available_display_columns = [
-        column
-        for column in display_columns
-        if column in df.columns
+    columns = [
+        c
+        for c in columns
+        if c in df.columns
     ]
 
     print()
+
     print(
-        df[available_display_columns]
+        df[columns]
         .head(20)
         .to_string(index=False)
     )
-    print()
-    print(f"Snapshot histórico salvo em: {snapshot_date}")
-    print(f"Banco SQLite atualizado em: {HISTORY_DATABASE}")
-    print(f"Excel histórico salvo em: {history_file}")
 
-    if latest_file:
-        print(f"Latest atualizado em: {latest_file}")
-    else:
-        print(
-            "[AVISO] latest.xlsx não foi atualizado. "
-            "Provavelmente o arquivo está aberto no Excel."
+    print()
+
+
+def generate_reports(
+    df: pd.DataFrame,
+):
+    """
+    Gera Excel e Morning Brief.
+    """
+
+    history_file, latest_file = (
+        write_latest_and_history(
+            df,
+            OUTPUT,
+        )
+    )
+
+    brief_path = write_morning_brief(
+        current_df=df,
+        database_path=HISTORY_DATABASE,
+        output_path=MORNING_BRIEF_FILE,
+    )
+
+    return (
+        history_file,
+        latest_file,
+        brief_path,
+    )
+
+
+def main() -> None:
+
+    settings = load_settings()
+
+    (
+        watchlist_path,
+        watchlist,
+    ) = load_watchlist(
+        settings
+    )
+
+    print("=" * 70)
+    print("ATLAS DECISION INTELLIGENCE PLATFORM")
+    print("=" * 70)
+
+    print(
+        f"Watchlist: {watchlist_path}"
+    )
+
+    print(
+        f"History DB: {HISTORY_DATABASE}"
+    )
+
+    df = collect_market_data(
+        settings,
+        watchlist,
+    )
+
+    df = build_scores(df)
+
+    snapshot = save_history_snapshot(
+        df
+    )
+
+    (
+        history_file,
+        latest_file,
+        brief_file,
+    ) = generate_reports(
+        df
+    )
+    print_console_table(df)
+
+    print("-" * 70)
+    print("ATLAS MORNING BRIEF")
+    print("-" * 70)
+    print()
+
+    try:
+        brief_text = render_morning_brief(
+            current_df=df,
+            database_path=HISTORY_DATABASE,
         )
 
-    print("Concluído.")
+        print(brief_text)
+
+    except Exception as exc:
+        print(
+            "[AVISO] Não foi possível gerar o Morning Brief:"
+        )
+        print(exc)
+
+    print()
+    print("=" * 70)
+
+    print(
+        f"Snapshot salvo : {snapshot}"
+    )
+
+    print(
+        f"SQLite         : {HISTORY_DATABASE}"
+    )
+
+    print(
+        f"Histórico Excel: {history_file}"
+    )
+
+    if latest_file is not None:
+
+        print(
+            f"Latest.xlsx    : {latest_file}"
+        )
+
+    else:
+
+        print(
+            "Latest.xlsx não atualizado "
+            "(arquivo aberto)."
+        )
+
+    print(
+        f"Morning Brief  : {brief_file}"
+    )
+
+    print("=" * 70)
+
+    print()
+
+    print(
+        "Atlas finalizado com sucesso."
+    )
 
 
 if __name__ == "__main__":
