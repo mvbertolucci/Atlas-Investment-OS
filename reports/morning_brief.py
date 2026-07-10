@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import pandas as pd
 
 from analytics.alerts import build_alerts
 from reports.history_report import build_history_summary
+from reports.report_engine import build_company_reports
+from reports.report_models import CompanyReport
 
 
 DEFAULT_TOP_COUNT = 5
@@ -74,79 +76,74 @@ def _count_alert_type(
     )
 
 
+def _top_company_reports(
+    reports: Sequence[CompanyReport],
+    top_count: int,
+) -> list[CompanyReport]:
+    candidates = [
+        report
+        for report in reports
+        if report.opportunity_score is not None
+    ]
+
+    return sorted(
+        candidates,
+        key=lambda report: report.opportunity_score or 0.0,
+        reverse=True,
+    )[:max(int(top_count), 0)]
+
+
 def build_top_opportunities(
     current_df: pd.DataFrame,
     top_count: int = DEFAULT_TOP_COUNT,
 ) -> pd.DataFrame:
     """
-    Retorna as principais oportunidades da execução atual.
+    Interface legada mantida para compatibilidade.
+
+    A seleção é feita por objetos CompanyReport e convertida
+    novamente em DataFrame apenas para consumidores antigos.
     """
 
-    columns = [
-        column
-        for column in [
-            "symbol",
-            "name",
-            "Opportunity Score",
-            "Opportunity Rating",
-            "Conviction Score",
-            "Conviction Rating",
-            "Decision",
-            "Decision Rating",
-            "Suggested Action",
-            "Decision Confidence",
-            "Investment Thesis",
-            "Thesis Strengths",
-            "Thesis Risks",
-            "Thesis Catalysts",
-            "Investment Score",
-            "Business Score",
-            "Valuation Score",
-            "Financial Score",
-            "Timing Score",
-            "Confidence Score",
-            "Opportunity Drivers",
-        ]
-        if column in current_df.columns
-    ]
+    reports = build_company_reports(current_df)
+    top_reports = _top_company_reports(reports, top_count)
 
-    if current_df.empty or "Opportunity Score" not in current_df.columns:
-        return pd.DataFrame(columns=columns)
+    rows: list[dict[str, Any]] = []
 
-    result = current_df[columns].copy()
-
-    result["Opportunity Score"] = pd.to_numeric(
-        result["Opportunity Score"],
-        errors="coerce",
-    )
-
-    result = (
-        result.dropna(subset=["Opportunity Score"])
-        .sort_values(
-            "Opportunity Score",
-            ascending=False,
+    for rank, report in enumerate(top_reports, start=1):
+        rows.append(
+            {
+                "Rank": rank,
+                "symbol": report.symbol,
+                "name": report.company_name,
+                "Opportunity Score": report.opportunity_score,
+                "Conviction Score": report.conviction_score,
+                "Decision": report.decision,
+                "Decision Rating": report.decision_rating,
+                "Suggested Action": report.suggested_action,
+                "Decision Confidence": report.decision_confidence,
+                "Investment Thesis": report.investment_thesis,
+                "Thesis Strengths": "; ".join(report.strengths),
+                "Thesis Risks": "; ".join(report.risks),
+                "Thesis Catalysts": "; ".join(report.catalysts),
+                "Investment Score": report.investment_score,
+                "Business Score": report.business_score,
+                "Valuation Score": report.valuation_score,
+                "Financial Score": report.financial_score,
+                "Timing Score": report.timing_score,
+                "Confidence Score": report.confidence_score,
+                "Decision Drivers": "; ".join(
+                    report.decision_drivers
+                ),
+            }
         )
-        .head(max(int(top_count), 0))
-        .reset_index(drop=True)
-    )
 
-    result.insert(
-        0,
-        "Rank",
-        range(1, len(result) + 1),
-    )
-
-    return result
+    return pd.DataFrame(rows)
 
 
 def build_improving_companies(
     alerts: pd.DataFrame,
     max_items: int = 5,
 ) -> pd.DataFrame:
-    """
-    Seleciona alertas relacionados a melhora.
-    """
-
     columns = [
         "symbol",
         "Alert Type",
@@ -215,10 +212,6 @@ def build_weakening_companies(
     alerts: pd.DataFrame,
     max_items: int = 5,
 ) -> pd.DataFrame:
-    """
-    Seleciona alertas relacionados a deterioração.
-    """
-
     columns = [
         "symbol",
         "Alert Type",
@@ -284,10 +277,6 @@ def build_brief_summary(
     alerts: pd.DataFrame,
     database_path: Path,
 ) -> dict[str, Any]:
-    """
-    Produz os indicadores gerais usados pelo Morning Brief.
-    """
-
     history_summary = build_history_summary(database_path)
 
     snapshot_count = 0
@@ -322,15 +311,16 @@ def build_brief_summary(
                 errors="coerce",
             ).max()
 
-    opportunity = _numeric_series(
-        current_df,
-        "Opportunity Score",
-        default=0.0,
-    )
+    reports = build_company_reports(current_df)
+    opportunities = [
+        report.opportunity_score
+        for report in reports
+        if report.opportunity_score is not None
+    ]
 
     return {
         "Generated At": datetime.now(),
-        "Companies Analysed": int(len(current_df)),
+        "Companies Analysed": len(reports),
         "New Opportunities": _count_alert_type(
             alerts,
             "New Opportunity",
@@ -349,13 +339,13 @@ def build_brief_summary(
         ),
         "Total Alerts": int(len(alerts)),
         "Average Opportunity": (
-            round(float(opportunity.mean()), 1)
-            if len(opportunity)
+            round(sum(opportunities) / len(opportunities), 1)
+            if opportunities
             else None
         ),
         "Maximum Opportunity": (
-            round(float(opportunity.max()), 1)
-            if len(opportunity)
+            round(max(opportunities), 1)
+            if opportunities
             else None
         ),
         "Historical Symbols": historical_symbols,
@@ -371,45 +361,39 @@ def build_morning_brief_tables(
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
 ) -> dict[str, Any]:
-    """
-    Constrói todos os dados do Morning Brief.
-    """
-
     alerts = build_alerts(
         database_path=database_path,
         period_days=period_days,
     )
 
-    summary = build_brief_summary(
-        current_df=current_df,
-        alerts=alerts,
-        database_path=database_path,
+    company_reports = build_company_reports(current_df)
+    top_reports = _top_company_reports(
+        company_reports,
+        top_count,
     )
-
-    top_opportunities = build_top_opportunities(
-        current_df=current_df,
-        top_count=top_count,
-    )
-
-    improving = build_improving_companies(
-        alerts=alerts,
-        max_items=top_count,
-    )
-
-    weakening = build_weakening_companies(
-        alerts=alerts,
-        max_items=top_count,
-    )
-
-    important_alerts = alerts.head(10).copy()
 
     return {
-        "summary": summary,
-        "top_opportunities": top_opportunities,
-        "improving": improving,
-        "weakening": weakening,
+        "summary": build_brief_summary(
+            current_df=current_df,
+            alerts=alerts,
+            database_path=database_path,
+        ),
+        "company_reports": company_reports,
+        "top_reports": top_reports,
+        "top_opportunities": build_top_opportunities(
+            current_df=current_df,
+            top_count=top_count,
+        ),
+        "improving": build_improving_companies(
+            alerts=alerts,
+            max_items=top_count,
+        ),
+        "weakening": build_weakening_companies(
+            alerts=alerts,
+            max_items=top_count,
+        ),
         "alerts": alerts,
-        "important_alerts": important_alerts,
+        "important_alerts": alerts.head(10).copy(),
     }
 
 
@@ -419,10 +403,6 @@ def build_morning_brief_dataframe(
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
 ) -> pd.DataFrame:
-    """
-    Produz uma tabela vertical adequada para uma aba do Excel.
-    """
-
     data = build_morning_brief_tables(
         current_df=current_df,
         database_path=database_path,
@@ -451,7 +431,9 @@ def build_morning_brief_dataframe(
     add_row(
         "Overview",
         "Generated At",
-        summary["Generated At"].strftime("%Y-%m-%d %H:%M:%S"),
+        summary["Generated At"].strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
     )
     add_row(
         "Overview",
@@ -489,28 +471,27 @@ def build_morning_brief_dataframe(
         summary["Maximum Opportunity"],
     )
 
-    top_opportunities = data["top_opportunities"]
-
-    for _, row in top_opportunities.iterrows():
+    for rank, report in enumerate(
+        data["top_reports"],
+        start=1,
+    ):
         details = " | ".join(
             part
             for part in [
-                str(row.get("Decision Rating", "")).strip(),
-                str(row.get("Investment Thesis", "")).strip(),
+                report.decision_rating,
+                report.investment_thesis,
             ]
-            if part and part.lower() not in {"nan", "none"}
+            if part
         )
 
         add_row(
             "Top Opportunities",
-            f"{int(row.get('Rank', 0))}. {row.get('symbol', '')}",
-            _safe_number(row.get("Opportunity Score")),
-            details or str(row.get("Opportunity Drivers", "")),
+            f"{rank}. {report.symbol}",
+            _safe_number(report.opportunity_score),
+            details,
         )
 
-    improving = data["improving"]
-
-    for _, row in improving.iterrows():
+    for _, row in data["improving"].iterrows():
         add_row(
             "Improving",
             str(row.get("symbol", "")),
@@ -520,9 +501,7 @@ def build_morning_brief_dataframe(
             str(row.get("Alert Message", "")),
         )
 
-    weakening = data["weakening"]
-
-    for _, row in weakening.iterrows():
+    for _, row in data["weakening"].iterrows():
         add_row(
             "Weakening",
             str(row.get("symbol", "")),
@@ -532,9 +511,7 @@ def build_morning_brief_dataframe(
             str(row.get("Alert Message", "")),
         )
 
-    important_alerts = data["important_alerts"]
-
-    for _, row in important_alerts.iterrows():
+    for _, row in data["important_alerts"].iterrows():
         add_row(
             "Important Alerts",
             str(row.get("symbol", "")),
@@ -559,7 +536,9 @@ def build_morning_brief_dataframe(
         "History",
         "First Snapshot",
         (
-            summary["First Snapshot"].strftime("%Y-%m-%d %H:%M:%S")
+            summary["First Snapshot"].strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             if pd.notna(summary["First Snapshot"])
             else "-"
         ),
@@ -568,7 +547,9 @@ def build_morning_brief_dataframe(
         "History",
         "Latest Snapshot",
         (
-            summary["Latest Snapshot"].strftime("%Y-%m-%d %H:%M:%S")
+            summary["Latest Snapshot"].strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             if pd.notna(summary["Latest Snapshot"])
             else "-"
         ),
@@ -577,16 +558,55 @@ def build_morning_brief_dataframe(
     return pd.DataFrame(rows)
 
 
+def _append_company_report(
+    lines: list[str],
+    rank: int,
+    report: CompanyReport,
+) -> None:
+    lines.append(
+        f"{rank}. {report.symbol:<8} "
+        f"{_safe_number(report.opportunity_score)}"
+    )
+
+    if report.decision_rating:
+        lines.append(
+            f"   Decisão: {report.decision_rating}"
+        )
+
+    if report.conviction_score is not None:
+        lines.append(
+            "   Conviction: "
+            f"{_safe_number(report.conviction_score)}"
+        )
+
+    if report.investment_thesis:
+        lines.append(
+            f"   Tese: {report.investment_thesis}"
+        )
+
+    if report.risks:
+        lines.append(
+            "   Riscos: " + "; ".join(report.risks)
+        )
+
+    if report.suggested_action:
+        lines.append(
+            f"   Ação: {report.suggested_action}"
+        )
+
+    if report.decision_drivers:
+        lines.append(
+            "   Drivers: "
+            + "; ".join(report.decision_drivers)
+        )
+
+
 def render_morning_brief(
     current_df: pd.DataFrame,
     database_path: Path,
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
 ) -> str:
-    """
-    Gera o Morning Brief em formato de texto/Markdown.
-    """
-
     data = build_morning_brief_tables(
         current_df=current_df,
         database_path=database_path,
@@ -595,88 +615,41 @@ def render_morning_brief(
     )
 
     summary = data["summary"]
-    lines: list[str] = []
+    lines: list[str] = [
+        "=" * 70,
+        "ATLAS MORNING BRIEF",
+        "=" * 70,
+        "",
+        f"Gerado em: {summary['Generated At']:%Y-%m-%d %H:%M:%S}",
+        f"Empresas analisadas: {summary['Companies Analysed']}",
+        f"Novas oportunidades: {summary['New Opportunities']}",
+        f"Oportunidades fortes: {summary['Strong Opportunities']}",
+        f"Alertas HIGH: {summary['High Alerts']}",
+        f"Alertas MEDIUM: {summary['Medium Alerts']}",
+        (
+            "Opportunity médio: "
+            f"{_safe_number(summary['Average Opportunity'])}"
+        ),
+        "",
+        "-" * 70,
+        "TOP OPPORTUNITIES",
+        "-" * 70,
+    ]
 
-    lines.extend(
-        [
-            "=" * 70,
-            "ATLAS MORNING BRIEF",
-            "=" * 70,
-            "",
-            f"Gerado em: {summary['Generated At']:%Y-%m-%d %H:%M:%S}",
-            f"Empresas analisadas: {summary['Companies Analysed']}",
-            f"Novas oportunidades: {summary['New Opportunities']}",
-            f"Oportunidades fortes: {summary['Strong Opportunities']}",
-            f"Alertas HIGH: {summary['High Alerts']}",
-            f"Alertas MEDIUM: {summary['Medium Alerts']}",
-            (
-                "Opportunity médio: "
-                f"{_safe_number(summary['Average Opportunity'])}"
-            ),
-            "",
-            "-" * 70,
-            "TOP OPPORTUNITIES",
-            "-" * 70,
-        ]
-    )
+    top_reports = data["top_reports"]
 
-    top_opportunities = data["top_opportunities"]
-
-    if top_opportunities.empty:
+    if not top_reports:
         lines.append("Nenhuma oportunidade disponível.")
     else:
-        for _, row in top_opportunities.iterrows():
-            lines.append(
-                f"{int(row['Rank'])}. "
-                f"{row.get('symbol', ''):<8} "
-                f"{_safe_number(row.get('Opportunity Score'))}"
+        for rank, report in enumerate(
+            top_reports,
+            start=1,
+        ):
+            _append_company_report(
+                lines,
+                rank,
+                report,
             )
-
-            decision = str(
-                row.get("Decision Rating", "")
-            ).strip()
-
-            conviction = _safe_number(
-                row.get("Conviction Score")
-            )
-
-            thesis = str(
-                row.get("Investment Thesis", "")
-            ).strip()
-
-            risks = str(
-                row.get("Thesis Risks", "")
-            ).strip()
-
-            action = str(
-                row.get("Suggested Action", "")
-            ).strip()
-
-            drivers = str(
-                row.get("Opportunity Drivers", "")
-            ).strip()
-
-            if decision and decision.lower() not in {"nan", "none"}:
-                lines.append(f"   Decisão: {decision}")
-
-            if conviction != "-":
-                lines.append(f"   Conviction: {conviction}")
-
-            if thesis and thesis.lower() not in {"nan", "none"}:
-                lines.append(f"   Tese: {thesis}")
-
-            if (
-                risks
-                and risks.lower() not in {"nan", "none"}
-                and risks != "Nenhum risco crítico identificado"
-            ):
-                lines.append(f"   Riscos: {risks}")
-
-            if action and action.lower() not in {"nan", "none"}:
-                lines.append(f"   Ação: {action}")
-
-            if drivers and drivers != "Nenhum":
-                lines.append(f"   Drivers: {drivers}")
 
     lines.extend(
         [
@@ -690,7 +663,9 @@ def render_morning_brief(
     improving = data["improving"]
 
     if improving.empty:
-        lines.append("Nenhuma melhora relevante detectada.")
+        lines.append(
+            "Nenhuma melhora relevante detectada."
+        )
     else:
         for _, row in improving.iterrows():
             lines.append(
@@ -710,7 +685,9 @@ def render_morning_brief(
     weakening = data["weakening"]
 
     if weakening.empty:
-        lines.append("Nenhuma deterioração relevante detectada.")
+        lines.append(
+            "Nenhuma deterioração relevante detectada."
+        )
     else:
         for _, row in weakening.iterrows():
             lines.append(
@@ -773,10 +750,6 @@ def write_morning_brief(
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
 ) -> Path:
-    """
-    Salva o Morning Brief em arquivo Markdown.
-    """
-
     output_path = Path(output_path)
 
     output_path.parent.mkdir(
