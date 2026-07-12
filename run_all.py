@@ -11,6 +11,7 @@ from analytics.feature_audit import (
     format_coverage_report,
     phantom_weight_summary,
 )
+from analytics.fundamentals import compute_fundamentals
 from analytics.indicators import enrich_technicals
 from analytics.mapper import normalize_columns
 from analytics.validator import add_confidence_score
@@ -94,7 +95,7 @@ def collect_market_data(
     )
 
     enriched = [
-        enrich_technicals(row)
+        compute_fundamentals(enrich_technicals(row))
         for row in rows
     ]
 

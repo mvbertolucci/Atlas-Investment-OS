@@ -40,4 +40,9 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         price = pd.to_numeric(out["price"], errors="coerce")
         out["target_upside"] = (target / price.replace(0, pd.NA) - 1) * 100
 
+    if {"enterprise_value", "ebit"}.issubset(out.columns):
+        ev = pd.to_numeric(out["enterprise_value"], errors="coerce")
+        ebit = pd.to_numeric(out["ebit"], errors="coerce")
+        out["ev_ebit"] = ev / ebit.replace(0, pd.NA)
+
     return out

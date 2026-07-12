@@ -93,19 +93,30 @@ def apply_deal_breakers(
     )
 
     min_current_ratio = rules.get(
-        "current_ratio_min",
+        "current_liquidity_min",
         rules.get(
-            "min_current_ratio",
-            1,
+            "current_ratio_min",
+            rules.get(
+                "min_current_ratio",
+                1,
+            ),
         ),
     )
 
     min_f_score = rules.get(
-        "piotroski_min",
+        "f_score_annual_min",
         rules.get(
-            "min_piotroski",
-            4,
+            "piotroski_min",
+            rules.get(
+                "min_piotroski",
+                4,
+            ),
         ),
+    )
+
+    min_altman_z = rules.get(
+        "altman_z_min",
+        1.8,
     )
 
     max_short_float = rules.get(
@@ -157,6 +168,18 @@ def apply_deal_breakers(
             values < float(min_f_score),
             15,
             "Piotroski baixo",
+        )
+
+    if "altman_z" in result.columns:
+        values = pd.to_numeric(
+            result["altman_z"],
+            errors="coerce",
+        )
+
+        add_penalty(
+            values < float(min_altman_z),
+            15,
+            "Altman Z baixo (risco de insolvencia)",
         )
 
     if "short_float" in result.columns:

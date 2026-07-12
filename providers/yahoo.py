@@ -16,6 +16,19 @@ def _safe_float(value: Any):
         return None
 
 
+def _safe_statement(ticker: "yf.Ticker", attr: str):
+    """Busca uma demonstração financeira anual (balance_sheet/financials/
+    cashflow). Alguns tickers (ETFs, ADRs sem cobertura) não têm essas
+    demonstrações; nesse caso retorna None em vez de propagar exceção."""
+    try:
+        statement = getattr(ticker, attr)
+        if statement is None or statement.empty:
+            return None
+        return statement
+    except Exception:
+        return None
+
+
 def fetch_symbol(symbol: str, name_hint: str = "", period: str = "1y", interval: str = "1d") -> dict:
     """Fetch one ticker from Yahoo Finance and return raw data for Atlas.
 
@@ -89,7 +102,10 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "1y", interval:
         "insider_own": _safe_float(info.get("heldPercentInsiders")),
         "inst_own": _safe_float(info.get("heldPercentInstitutions")),
         "history": hist.reset_index().to_dict("records"),
-        "source": "Yahoo Finance"
+        "source": "Yahoo Finance",
+        "_balance_sheet": _safe_statement(t, "balance_sheet"),
+        "_income_statement": _safe_statement(t, "financials"),
+        "_cashflow": _safe_statement(t, "cashflow"),
     }
 
 

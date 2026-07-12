@@ -3,11 +3,12 @@ Testes de contrato entre a coleta de dados e o modelo de scoring.
 
 Diferente dos demais testes (que exercitam a mecânica com DataFrames
 sintéticos já contendo as colunas), estes verificam o contrato real:
-provider Yahoo -> enrich_technicals -> normalize_columns -> features.
+provider Yahoo -> enrich_technicals -> compute_fundamentals ->
+normalize_columns -> features.
 
 Sem rede: o schema do provider é reproduzido a partir de
 providers/yahoo.py::fetch_symbol. Se aquele dicionário mudar, atualize
-RAW_PROVIDER_COLUMNS e TECHNICAL_COLUMNS aqui.
+RAW_PROVIDER_COLUMNS, TECHNICAL_COLUMNS e FUNDAMENTAL_COLUMNS aqui.
 """
 
 from __future__ import annotations
@@ -52,26 +53,28 @@ TECHNICAL_COLUMNS = [
     "distance_52w_high", "distance_52w_low",
 ]
 
-# Features hoje sem coluna produzível. Quando forem derivados no mapper
-# (ou removidos do config), retire-os daqui: o xfail é estrito, então o
-# teste passa a FALHAR se o feature começar a resolver, lembrando de
-# limpar este marcador.
-KNOWN_PHANTOM_FEATURES = {
-    ("business", "roic"),
-    ("business", "f_score_annual"),
-    ("business", "interest_coverage"),
-    ("financial", "interest_coverage"),
-    ("valuation", "ev_ebit"),
-}
+# Colunas adicionadas por analytics/fundamentals.py::compute_fundamentals
+# (derivadas dos financials brutos do Yahoo; "ev_ebit" nasce depois disso
+# no mapper, a partir de "enterprise_value" + "ebit").
+FUNDAMENTAL_COLUMNS = [
+    "ebit", "roic", "f_score_annual", "altman_z", "interest_coverage",
+]
+
+# PR-017.0 encontrou 5 features fantasmas (roic, f_score_annual,
+# interest_coverage x2, ev_ebit). PR-017.1 derivou todos a partir dos
+# financials do Yahoo (analytics/fundamentals.py) e do EBIT no mapper, então
+# não há mais fantasmas conhecidos. Se um novo feature entrar no config sem
+# coluna produzível, adicione aqui e o xfail estrito vai flagar.
+KNOWN_PHANTOM_FEATURES: set[tuple[str, str]] = set()
 
 # Estado atual conhecido do peso fantasma. Trava contra regressão: se um
-# novo feature sem coluna entrar no modelo, este número muda e o teste
-# quebra. Ao derivar as métricas ausentes, atualize (deve cair para 0.0).
-EXPECTED_PHANTOM_INVESTMENT_SHARE = 20.0
+# novo feature sem coluna entrar no modelo, este número sobe e o teste
+# quebra.
+EXPECTED_PHANTOM_INVESTMENT_SHARE = 0.0
 EXPECTED_DEAD_WEIGHT_BY_FACTOR = {
-    "business": 40.0,
-    "financial": 10.0,
-    "valuation": 15.0,
+    "business": 0.0,
+    "financial": 0.0,
+    "valuation": 0.0,
 }
 
 
@@ -81,7 +84,7 @@ def _sample_frame(rows: int = 3) -> pd.DataFrame:
     populadas numericamente (cenário de dados completos).
     """
 
-    columns = RAW_PROVIDER_COLUMNS + TECHNICAL_COLUMNS
+    columns = RAW_PROVIDER_COLUMNS + TECHNICAL_COLUMNS + FUNDAMENTAL_COLUMNS
     records = []
     for index in range(rows):
         record = {column: float(index + 1) for column in columns}

@@ -11,10 +11,11 @@ from factors.valuation import VALUATION_FEATURES
 
 
 # Colunas que o pipeline consegue de fato produzir de ponta a ponta:
-# provider Yahoo -> enrich_technicals -> normalize_columns (mapper).
-# Serve como "contrato" de schema para detectar features órfãos sem
-# depender de rede. Mantenha em sincronia com providers/yahoo.py,
-# analytics/indicators.py e analytics/mapper.py.
+# provider Yahoo -> enrich_technicals -> compute_fundamentals ->
+# normalize_columns (mapper). Serve como "contrato" de schema para
+# detectar features órfãos sem depender de rede. Mantenha em sincronia
+# com providers/yahoo.py, analytics/indicators.py,
+# analytics/fundamentals.py e analytics/mapper.py.
 PRODUCIBLE_COLUMNS: frozenset[str] = frozenset(
     {
         # --- Provider bruto (providers/yahoo.py::fetch_symbol) ---
@@ -32,8 +33,10 @@ PRODUCIBLE_COLUMNS: frozenset[str] = frozenset(
         # --- Técnicos (analytics/indicators.py::enrich_technicals) ---
         "rsi_14", "momentum_3m", "momentum_6m", "momentum_12m",
         "distance_52w_high", "distance_52w_low",
+        # --- Fundamentalistas (analytics/fundamentals.py::compute_fundamentals) ---
+        "ebit", "roic", "f_score_annual", "altman_z", "interest_coverage",
         # --- Derivados (analytics/mapper.py::normalize_columns) ---
-        "ev_ebitda", "net_debt_total_equity", "current_liquidity",
+        "ev_ebitda", "ev_ebit", "net_debt_total_equity", "current_liquidity",
         "consensus_target", "operating_margin_proxy", "net_debt",
         "net_debt_ebitda", "fcf_yield", "shareholder_yield", "target_upside",
     }
