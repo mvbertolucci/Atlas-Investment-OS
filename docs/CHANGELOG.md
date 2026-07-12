@@ -1,5 +1,27 @@
 # Changelog
 
+## PR-019.3 — Horizon return evaluation
+
+### Added
+
+- Immutable `OutcomeResult` with due date, evaluation lag and price return.
+- Additive `outcome_results` SQLite table keyed by decision, symbol and horizon.
+- Evaluation of matured decisions using current-cycle Atlas prices.
+- Pending-horizon and missing-price visibility.
+- First-observation immutability through insert-once persistence.
+- Domain, repository, pipeline and orchestration regression tests.
+
+### Methodology
+
+- A horizon is evaluated on the first successful run at or after its due time.
+- Returns are simple price returns and exclude dividends, fees, taxes and
+  currency conversion.
+
+### Validation
+
+- 253 automated tests passed.
+- 87.11% production coverage overall.
+
 ## PR-019.2 — Configurable horizons and automatic decision capture
 
 ### Added

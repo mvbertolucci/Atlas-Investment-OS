@@ -104,11 +104,12 @@ conditional Excel sheets and the Morning Brief.
 
 - `outcomes/models.py`
 - `outcomes/pipeline.py`
-- `storage/history_db.py` (`outcome_snapshots` table)
+- `storage/history_db.py` (`outcome_snapshots` and `outcome_results` tables)
 
 The main pipeline captures outcome snapshots after the company decision is
-available. Configured horizons are normalized and carried by the capture result.
-Future-price evaluation and derived return metrics remain separate later stages.
+available. On later runs, matured horizons use the current valid Atlas price to
+create an immutable result. The first observation on or after the due date wins,
+and evaluation lag remains explicit.
 
 ### Operational layer
 

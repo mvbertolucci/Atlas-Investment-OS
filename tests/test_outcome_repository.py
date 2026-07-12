@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from outcomes.models import OutcomeSnapshot
+from outcomes.models import OutcomeResult, OutcomeSnapshot
 from storage.history_db import HistoryDatabase
 
 
@@ -107,3 +107,41 @@ def test_outcome_repository_validates_type(
     with HistoryDatabase(tmp_path / "history.db") as database:
         with pytest.raises(TypeError):
             database.save_outcome_snapshot(object())
+
+
+def test_outcome_result_repository_is_immutable_per_horizon(
+    tmp_path: Path,
+) -> None:
+    first = OutcomeResult(
+        decision_date="2026-01-01T10:00:00",
+        symbol="AAA",
+        horizon_days=30,
+        evaluation_date="2026-01-31T10:00:00",
+        decision_price=100,
+        outcome_price=110,
+    )
+    duplicate = OutcomeResult(
+        decision_date="2026-01-01T10:00:00",
+        symbol="AAA",
+        horizon_days=30,
+        evaluation_date="2026-02-02T10:00:00",
+        decision_price=100,
+        outcome_price=120,
+    )
+
+    with HistoryDatabase(tmp_path / "history.db") as database:
+        database.save_outcome_result(first)
+        database.save_outcome_result(duplicate)
+        rows = database.load_outcome_results("aaa")
+
+    assert len(rows) == 1
+    assert rows.loc[0, "outcome_price"] == 110.0
+    assert rows.loc[0, "return_pct"] == 10.0
+
+
+def test_outcome_result_repository_validates_type(
+    tmp_path: Path,
+) -> None:
+    with HistoryDatabase(tmp_path / "history.db") as database:
+        with pytest.raises(TypeError):
+            database.save_outcome_result(object())

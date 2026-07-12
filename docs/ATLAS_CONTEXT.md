@@ -1,9 +1,9 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-019.2`
+**Last synchronized baseline:** `PR-019.3`
 **Declared release:** `1.0.0`  
-**Validation baseline:** 238 tests passing / 86.85% production coverage
+**Validation baseline:** 253 tests passing / 87.11% production coverage
 
 ## 1. Product mission
 
@@ -66,7 +66,7 @@ Excel + Morning Brief + execution metrics
 | Portfolio Intelligence | `portfolio/` | Integrated into main pipeline and Excel |
 | Morning Brief | `reports/morning_brief.py` | Company and portfolio intelligence integrated |
 | Operational health | `health/`, `metrics/`, `atlas_logger.py` | Integrated; 100% direct coverage |
-| Outcome Analytics | `outcomes/`, `storage/history_db.py` | Automatic decision capture; return evaluation pending |
+| Outcome Analytics | `outcomes/`, `storage/history_db.py` | Automatic capture and horizon returns; calibration pending |
 
 ## 4. Authoritative configuration
 
@@ -107,7 +107,8 @@ Current functional milestone:
 - **v1.2 — Outcome Analytics.**
 - PR-019.1 decision snapshot and persistence foundation is complete.
 - PR-019.2 configurable horizons and automatic decision capture is complete.
-- Next: PR-019.3 future-price evaluation and horizon returns.
+- PR-019.3 future-price evaluation and horizon returns is complete.
+- Next: PR-019.4 hit rate and score calibration metrics.
 
 ## 7. Definition of done
 
@@ -128,7 +129,8 @@ A task is complete only when:
   `scoring/investment.py` are the executable scoring path.
 - Scoring semantics are financially material and must not be refactored casually.
 - External Yahoo data can be incomplete or unstable; tests should not depend on live network access.
-- Outcome returns still require future-price evaluation at each configured horizon.
+- Outcome returns use the first valid Atlas price observed on or after each due
+  date; evaluation lag remains explicit.
 
 ## 9. First actions for a new Codex session
 
@@ -141,6 +143,6 @@ A task is complete only when:
 Recommended first prompt:
 
 > Read AGENTS.md and docs/ATLAS_CONTEXT.md. Verify the repository baseline,
-> coverage gate and tests. Then implement PR-019.3 future-price evaluation and
-> horizon returns without live-network dependencies in tests, preserving
-> existing history and governed financial configuration.
+> coverage gate and tests. Then implement PR-019.4 hit rate and calibration
+> metrics from persisted Outcome Results, preserving existing history and
+> governed financial configuration.

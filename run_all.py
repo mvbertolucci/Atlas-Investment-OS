@@ -24,7 +24,9 @@ from metrics.execution import (
 )
 from outcomes.pipeline import (
     OutcomeCaptureResult,
+    OutcomeEvaluationResult,
     capture_outcome_snapshots,
+    evaluate_due_outcomes,
 )
 from portfolio.pipeline import (
     build_portfolio_intelligence,
@@ -232,6 +234,36 @@ def save_outcome_decisions(
     return result
 
 
+def evaluate_outcome_decisions(
+    df: pd.DataFrame,
+    snapshot_date: str,
+    settings: dict,
+) -> OutcomeEvaluationResult | None:
+    if not settings.get(
+        "outcome_analytics_enabled",
+        True,
+    ):
+        return None
+
+    with HistoryDatabase(HISTORY_DATABASE) as database:
+        result = evaluate_due_outcomes(
+            database,
+            df,
+            evaluation_date=snapshot_date,
+            horizons_days=settings.get(
+                "outcome_horizons_days"
+            ),
+        )
+
+    logger.info(
+        "Outcome results avaliados: %s; pendentes: %s; sem preço: %s.",
+        result.evaluated_count,
+        result.pending_count,
+        len(result.missing_price_symbols),
+    )
+    return result
+
+
 def generate_excel_reports(
     df: pd.DataFrame,
     portfolio_report: PortfolioReport | None = None,
@@ -404,6 +436,11 @@ def main() -> None:
                 snapshot_date,
                 settings,
             )
+            outcome_evaluation = evaluate_outcome_decisions(
+                df,
+                snapshot_date,
+                settings,
+            )
 
         portfolio_result = generate_portfolio_intelligence(
             df,
@@ -467,6 +504,20 @@ def main() -> None:
                     "Outcome Skipped : "
                     + ", ".join(
                         outcome_capture.skipped_symbols
+                    )
+                )
+
+        if outcome_evaluation is not None:
+            print(
+                "Outcome Results : "
+                f"{outcome_evaluation.evaluated_count} avaliados; "
+                f"{outcome_evaluation.pending_count} pendentes"
+            )
+            if outcome_evaluation.missing_price_symbols:
+                print(
+                    "Outcome Prices  : ausentes para "
+                    + ", ".join(
+                        outcome_evaluation.missing_price_symbols
                     )
                 )
 

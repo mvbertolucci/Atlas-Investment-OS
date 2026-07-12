@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from reports.report_models import CompanyReport
@@ -179,4 +179,118 @@ class OutcomeSnapshot:
             "decision_confidence": self.decision_confidence,
             "risk_penalty": self.risk_penalty,
             "has_deal_breaker": self.has_deal_breaker,
+        }
+
+
+@dataclass(frozen=True)
+class OutcomeResult:
+    """Retorno observado para uma decisão e horizonte específicos."""
+
+    decision_date: datetime | str
+    symbol: str
+    horizon_days: int
+    evaluation_date: datetime | str
+    decision_price: float
+    outcome_price: float
+
+    def __post_init__(self) -> None:
+        decision_date = _normalize_datetime(self.decision_date)
+        evaluation_date = _normalize_datetime(self.evaluation_date)
+        symbol = str(self.symbol).strip().upper()
+
+        if not symbol:
+            raise ValueError(
+                "OutcomeResult exige um símbolo válido."
+            )
+
+        if isinstance(self.horizon_days, bool):
+            raise ValueError(
+                "horizon_days deve ser inteiro positivo."
+            )
+
+        try:
+            horizon_days = int(self.horizon_days)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "horizon_days deve ser inteiro positivo."
+            ) from exc
+
+        if horizon_days <= 0 or float(self.horizon_days) != horizon_days:
+            raise ValueError(
+                "horizon_days deve ser inteiro positivo."
+            )
+
+        prices: dict[str, float] = {}
+        for field_name in ("decision_price", "outcome_price"):
+            try:
+                price = float(getattr(self, field_name))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"{field_name} deve ser numérico e positivo."
+                ) from exc
+
+            if price != price or price <= 0:
+                raise ValueError(
+                    f"{field_name} deve ser numérico e positivo."
+                )
+            prices[field_name] = round(price, 6)
+
+        due_date = decision_date + timedelta(days=horizon_days)
+        if evaluation_date < due_date:
+            raise ValueError(
+                "evaluation_date não pode anteceder o horizonte."
+            )
+
+        object.__setattr__(self, "decision_date", decision_date)
+        object.__setattr__(self, "evaluation_date", evaluation_date)
+        object.__setattr__(self, "symbol", symbol)
+        object.__setattr__(self, "horizon_days", horizon_days)
+        object.__setattr__(
+            self,
+            "decision_price",
+            prices["decision_price"],
+        )
+        object.__setattr__(
+            self,
+            "outcome_price",
+            prices["outcome_price"],
+        )
+
+    @property
+    def due_date(self) -> datetime:
+        return self.decision_date + timedelta(
+            days=self.horizon_days
+        )
+
+    @property
+    def evaluation_lag_days(self) -> int:
+        return (
+            self.evaluation_date.date()
+            - self.due_date.date()
+        ).days
+
+    @property
+    def return_pct(self) -> float:
+        return round(
+            (self.outcome_price / self.decision_price - 1) * 100,
+            6,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "decision_date": self.decision_date.isoformat(
+                timespec="seconds"
+            ),
+            "symbol": self.symbol,
+            "horizon_days": self.horizon_days,
+            "due_date": self.due_date.isoformat(
+                timespec="seconds"
+            ),
+            "evaluation_date": self.evaluation_date.isoformat(
+                timespec="seconds"
+            ),
+            "evaluation_lag_days": self.evaluation_lag_days,
+            "decision_price": self.decision_price,
+            "outcome_price": self.outcome_price,
+            "return_pct": self.return_pct,
         }

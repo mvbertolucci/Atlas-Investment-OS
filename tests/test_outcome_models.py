@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from outcomes.models import OutcomeSnapshot
+from outcomes.models import OutcomeResult, OutcomeSnapshot
 from reports.report_models import CompanyReport
 
 
@@ -97,3 +97,50 @@ def test_outcome_snapshot_requires_company_report() -> None:
             object(),
             decision_price=10,
         )
+
+
+def test_outcome_result_calculates_return_and_lag() -> None:
+    result = OutcomeResult(
+        decision_date="2026-01-01T10:00:00",
+        symbol=" aaa ",
+        horizon_days=30,
+        evaluation_date="2026-02-02T09:00:00",
+        decision_price=100,
+        outcome_price=115,
+    )
+
+    assert result.symbol == "AAA"
+    assert result.due_date.isoformat() == "2026-01-31T10:00:00"
+    assert result.evaluation_lag_days == 2
+    assert result.return_pct == 15.0
+    assert result.to_dict()["return_pct"] == 15.0
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("symbol", ""),
+        ("horizon_days", 0),
+        ("horizon_days", 30.5),
+        ("horizon_days", True),
+        ("decision_price", 0),
+        ("outcome_price", "invalid"),
+        ("evaluation_date", "2026-01-15T10:00:00"),
+    ],
+)
+def test_outcome_result_rejects_invalid_contract(
+    field: str,
+    value,
+) -> None:
+    values = {
+        "decision_date": "2026-01-01T10:00:00",
+        "symbol": "AAA",
+        "horizon_days": 30,
+        "evaluation_date": "2026-02-01T10:00:00",
+        "decision_price": 100,
+        "outcome_price": 110,
+    }
+    values[field] = value
+
+    with pytest.raises(ValueError):
+        OutcomeResult(**values)

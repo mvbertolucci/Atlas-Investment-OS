@@ -38,18 +38,25 @@ Horizons must be unique positive integer days. They are normalized and sorted.
 Assets without a valid positive decision price are reported as skipped without
 preventing valid assets from being stored.
 
+## PR-019.3 horizon returns
+
+Each main-pipeline run evaluates stored decisions whose configured horizon has
+matured. The first valid Atlas price observed on or after the due timestamp is
+stored as an immutable `OutcomeResult`.
+
+Each result records decision date, symbol, horizon, due date, evaluation date,
+evaluation lag, both prices and the simple percentage return. The
+`outcome_results` table is keyed by decision, symbol and horizon, so later runs
+do not overwrite the first observation. Missing prices can be evaluated later.
+
+Returns do not include dividends, fees, taxes or currency conversion.
+
 ## Deliberate boundaries
 
-PR-019.1 does not:
-
-- fetch future prices;
-- calculate performance at the configured horizons;
-- calculate returns, hit rate or calibration;
-- attribute performance to factors or rules.
-
-These boundaries keep the decision event separate from later evaluation.
+Outcome Analytics does not yet calculate hit rate, score calibration or factor
+attribution. These derived metrics consume persisted results in later stages.
 
 ## Next increment
 
-PR-019.3 should evaluate future prices and persist returns for each configured
-horizon. Live provider access must remain outside deterministic tests.
+PR-019.4 should calculate hit rate and Opportunity/Conviction calibration from
+persisted results. Live provider access must remain outside deterministic tests.

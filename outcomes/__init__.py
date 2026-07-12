@@ -1,3 +1,3 @@
-from outcomes.models import OutcomeSnapshot
+from outcomes.models import OutcomeResult, OutcomeSnapshot
 
-__all__ = ["OutcomeSnapshot"]
+__all__ = ["OutcomeResult", "OutcomeSnapshot"]

@@ -41,7 +41,7 @@
 - [x] Decision snapshot model and persistence foundation
 - [x] Configurable evaluation horizons
 - [x] Automatic decision capture
-- [ ] Decision outcome tracking over configurable horizons
+- [x] Decision outcome tracking over configurable horizons
 - [ ] Hit rate
 - [ ] Opportunity calibration
 - [ ] Conviction calibration

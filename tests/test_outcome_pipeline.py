@@ -9,6 +9,7 @@ from outcomes.pipeline import (
     DEFAULT_OUTCOME_HORIZONS_DAYS,
     build_outcome_snapshots,
     capture_outcome_snapshots,
+    evaluate_due_outcomes,
     normalize_outcome_horizons,
 )
 from storage.history_db import HistoryDatabase
@@ -88,4 +89,73 @@ def test_capture_outcome_snapshots_requires_history_database() -> None:
             object(),
             _analysis_frame(),
             decision_date="2026-07-12T10:00:00",
+        )
+
+
+def test_evaluate_due_outcomes_persists_mature_horizons_once(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "history.db"
+    initial = _analysis_frame().iloc[[0]].copy()
+    current = initial.copy()
+    current["price"] = [12.0]
+
+    with HistoryDatabase(database_path) as database:
+        capture_outcome_snapshots(
+            database,
+            initial,
+            decision_date="2026-01-01T10:00:00",
+            horizons_days=[30, 90],
+        )
+        first = evaluate_due_outcomes(
+            database,
+            current,
+            evaluation_date="2026-02-02T10:00:00",
+            horizons_days=[30, 90],
+        )
+        second = evaluate_due_outcomes(
+            database,
+            current,
+            evaluation_date="2026-02-03T10:00:00",
+            horizons_days=[30, 90],
+        )
+        saved = database.load_outcome_results("AAA")
+
+    assert first.evaluated_count == 1
+    assert first.pending_count == 1
+    assert first.results[0].return_pct == 20.0
+    assert second.evaluated_count == 0
+    assert second.pending_count == 1
+    assert len(saved) == 1
+
+
+def test_evaluate_due_outcomes_reports_missing_prices(
+    tmp_path: Path,
+) -> None:
+    with HistoryDatabase(tmp_path / "history.db") as database:
+        capture_outcome_snapshots(
+            database,
+            _analysis_frame().iloc[[0]],
+            decision_date="2026-01-01T10:00:00",
+            horizons_days=[30],
+        )
+        result = evaluate_due_outcomes(
+            database,
+            pd.DataFrame(
+                {"symbol": ["AAA"], "price": [None]}
+            ),
+            evaluation_date="2026-02-02T10:00:00",
+            horizons_days=[30],
+        )
+
+    assert result.evaluated_count == 0
+    assert result.missing_price_symbols == ("AAA",)
+
+
+def test_evaluate_due_outcomes_requires_history_database() -> None:
+    with pytest.raises(TypeError):
+        evaluate_due_outcomes(
+            object(),
+            _analysis_frame(),
+            evaluation_date="2026-02-02T10:00:00",
         )

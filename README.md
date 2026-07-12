@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.0.0`
 
-Development baseline: `PR-019.2`.
+Development baseline: `PR-019.3`.
 
 ## Main capabilities
 
@@ -38,7 +38,7 @@ Providers -> Factors -> Scores -> Decision -> Thesis -> History -> Reports
 Portfolio Intelligence is integrated into the main pipeline, Excel outputs and
 Morning Brief. Operational coverage is hardened with an enforced 80% CI floor.
 Outcome Analytics captures decision snapshots automatically using configurable
-evaluation horizons.
+evaluation horizons and persists realized returns when horizons mature.
 
 ## Quick start
 

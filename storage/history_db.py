@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from outcomes.models import OutcomeSnapshot
+from outcomes.models import OutcomeResult, OutcomeSnapshot
 
 
 class HistoryDatabase:
@@ -51,6 +51,29 @@ class HistoryDatabase:
                 PRIMARY KEY (
                     snapshot_date,
                     symbol
+                )
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS outcome_results
+            (
+                decision_date       TEXT NOT NULL,
+                symbol              TEXT NOT NULL,
+                horizon_days        INTEGER NOT NULL,
+                due_date            TEXT NOT NULL,
+                evaluation_date     TEXT NOT NULL,
+                evaluation_lag_days INTEGER NOT NULL,
+                decision_price      REAL NOT NULL,
+                outcome_price       REAL NOT NULL,
+                return_pct          REAL NOT NULL,
+
+                PRIMARY KEY (
+                    decision_date,
+                    symbol,
+                    horizon_days
                 )
             )
             """
@@ -169,6 +192,80 @@ class HistoryDatabase:
             ].astype(bool)
 
         return result
+
+    def save_outcome_result(
+        self,
+        result: OutcomeResult,
+    ) -> None:
+        if not isinstance(result, OutcomeResult):
+            raise TypeError(
+                "result deve ser OutcomeResult."
+            )
+
+        data = result.to_dict()
+        self.connection.execute(
+            """
+            INSERT OR IGNORE INTO outcome_results
+            (
+                decision_date,
+                symbol,
+                horizon_days,
+                due_date,
+                evaluation_date,
+                evaluation_lag_days,
+                decision_price,
+                outcome_price,
+                return_pct
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                data["decision_date"],
+                data["symbol"],
+                data["horizon_days"],
+                data["due_date"],
+                data["evaluation_date"],
+                data["evaluation_lag_days"],
+                data["decision_price"],
+                data["outcome_price"],
+                data["return_pct"],
+            ),
+        )
+        self.connection.commit()
+
+    def save_outcome_results(
+        self,
+        results: list[OutcomeResult],
+    ) -> None:
+        for result in results:
+            self.save_outcome_result(result)
+
+    def load_outcome_results(
+        self,
+        symbol: str | None = None,
+    ) -> pd.DataFrame:
+        if symbol is None:
+            query = """
+                SELECT *
+                FROM outcome_results
+                ORDER BY decision_date, symbol, horizon_days
+            """
+            return pd.read_sql_query(
+                query,
+                self.connection,
+            )
+
+        query = """
+            SELECT *
+            FROM outcome_results
+            WHERE symbol = ?
+            ORDER BY decision_date, horizon_days
+        """
+        return pd.read_sql_query(
+            query,
+            self.connection,
+            params=(str(symbol).strip().upper(),),
+        )
 
     def save_snapshot(
         self,
