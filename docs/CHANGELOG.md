@@ -1,5 +1,44 @@
 # Changelog
 
+## Unreleased — v1.1
+
+### PR-018.0 — Baseline and documentation synchronization
+
+#### Added
+
+- Repository-wide line-ending policy in `.gitattributes`.
+- Current-state technical audit in `docs/ATLAS_AUDIT_CURRENT_STATUS.md`.
+- Explicit integration status for Portfolio Intelligence.
+
+#### Changed
+
+- README now reports the correct release, v1.0.0.
+- Roadmap and Backlog now reflect completed Portfolio Intelligence work.
+- Architecture now documents both company and portfolio flows.
+- Release notes now describe the v1.0.0 baseline and PR-018 integration track.
+
+#### Validation
+
+- Existing automated suite remains the regression gate.
+- Baseline audit recorded 182 passing tests and 74% measured coverage.
+
+## 1.0.0
+
+### Added
+
+- Portfolio import and validation.
+- Holding and Portfolio domain models.
+- Allocation and concentration analysis.
+- Portfolio quality, ranking and advisory rebalance suggestions.
+- PortfolioReport domain output and portfolio tests.
+
+### Improved
+
+- Derived fundamental-feature coverage.
+- Momentum and shareholder-yield calculations.
+- Valuation configuration ownership through `features.yaml`.
+- Short-float and sector-aware Deal Breaker behavior.
+
 ## 0.9.0
 
 ### Added
@@ -21,12 +60,7 @@
 
 ### Changed
 
-- Morning Brief now uses `CompanyReport`.
-- Decision Analysis now uses domain reports.
+- Morning Brief uses `CompanyReport`.
+- Decision Analysis uses domain reports.
 - Runtime artifacts are excluded from Git.
 - `run_all.py` delegates execution to the pipeline layer.
-
-### Compatibility
-
-- Existing scoring and reporting interfaces remain available.
-- Existing Excel and Morning Brief workflows remain supported.

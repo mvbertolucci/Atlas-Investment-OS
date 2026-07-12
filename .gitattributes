@@ -1,0 +1,17 @@
+# Keep repository text files normalized and prevent Windows CRLF noise.
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.xlsx binary
+*.xls binary
+*.zip binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary

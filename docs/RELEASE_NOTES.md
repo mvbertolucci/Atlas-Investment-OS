@@ -1,47 +1,51 @@
-# Release Notes — Atlas v0.9.0
+# Release Notes — Atlas v1.0.0
 
-Atlas v0.9.0 introduces the complete Decision Intelligence layer.
+Atlas v1.0.0 establishes the Portfolio Intelligence domain while preserving
+the complete Decision Intelligence pipeline delivered in v0.9.0.
 
 ## Highlights
 
-### Decision Engine
+### Decision and feature intelligence
 
-Atlas interprets Opportunity, Conviction, risk penalties and Deal Breakers
-to produce a structured decision.
+Atlas produces transparent Investment, Opportunity and Conviction scores,
+sector-aware Deal Breakers, structured decisions and investment theses.
+Derived financial metrics now include ROIC, F-Score, Altman Z, Interest
+Coverage and EV/EBIT when source data permits.
 
-### Investment Thesis
+### Portfolio Intelligence domain
 
-Each company receives:
+The release includes:
 
-- Investment Thesis
-- Strengths
-- Risks
-- Catalysts
-- Suggested Action
+- portfolio import and validation;
+- Holding and Portfolio models;
+- allocation and concentration analysis;
+- portfolio quality and position ranking;
+- advisory-only rebalance suggestions;
+- PortfolioReport domain output.
 
-### Historical Intelligence
+The portfolio engine is implemented and tested. Integration into `run_all.py`,
+Excel and Morning Brief is scheduled for the v1.1 PR-018 track.
 
-SQLite snapshots enable comparisons, trends and alerts over time.
+### Historical and reporting intelligence
 
-### Reporting architecture
+SQLite snapshots support comparisons, trends and alerts. `CompanyReport`
+remains the common presentation contract used by Excel and Morning Brief.
 
-`CompanyReport` becomes the common domain model for presentation layers,
-reducing direct coupling between reports and pandas DataFrames.
+## Validated baseline
 
-## Validation before tagging
+At PR-018.0, the repository baseline validates with:
 
-Run:
+- 182 automated tests passing;
+- 74% total measured coverage;
+- no known functional regression;
+- normalized repository line endings.
+
+## Validation commands
 
 ```cmd
 pytest
 python run_all.py
 ```
 
-Confirm:
-
-- all tests pass;
-- `output/latest.xlsx` is generated;
-- `Decision Analysis` exists;
-- Morning Brief includes decision, conviction, thesis and action;
-- SQLite history is updated;
-- logs and metrics are created.
+Confirm that existing artifacts remain available, including
+`output/latest.xlsx`, Morning Brief output, SQLite history, logs and metrics.
