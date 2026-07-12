@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.0.0`
 
-Development baseline: `PR-018.0`.
+Development baseline: `PR-018.2`.
 
 ## Main capabilities
 

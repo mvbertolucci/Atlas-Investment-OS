@@ -51,7 +51,7 @@
 - [ ] Preserve successful company reports when portfolio input is absent or invalid
 - [ ] Add integration and regression tests
 
-### PR-018.2 — Excel integration
+### PR-018.2 — Excel integration ✅
 
 - [ ] Add Portfolio Summary sheet
 - [ ] Add Holdings Analysis sheet

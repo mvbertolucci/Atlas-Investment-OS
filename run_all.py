@@ -26,10 +26,6 @@ from portfolio.pipeline import (
     build_portfolio_intelligence,
     write_portfolio_report,
 )
-from portfolio.pipeline import (
-    build_portfolio_intelligence,
-    write_portfolio_report,
-)
 from portfolio.report import PortfolioReport
 from providers.yahoo import fetch_watchlist
 from reports.excel import write_latest_and_history
@@ -47,7 +43,6 @@ LOGS = ROOT / "logs"
 HISTORY_DATABASE = DATA / "atlas_history.db"
 MORNING_BRIEF_FILE = OUTPUT / "morning_brief.md"
 EXECUTION_METRICS_FILE = LOGS / "execution_metrics.csv"
-PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
 PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
 
 logger = get_logger("run_all")
@@ -205,12 +200,14 @@ def save_history_snapshot(df: pd.DataFrame) -> str:
 
 def generate_excel_reports(
     df: pd.DataFrame,
+    portfolio_report: PortfolioReport | None = None,
 ) -> tuple[Path, Path | None]:
     logger.info("Gerando relatórios Excel.")
 
     history_file, latest_file = write_latest_and_history(
         df,
         OUTPUT,
+        portfolio_report=portfolio_report,
     )
 
     logger.info(
@@ -243,47 +240,6 @@ def generate_morning_brief(
     )
 
     return brief_path, brief_text
-
-
-
-def generate_portfolio_intelligence(
-    df: pd.DataFrame,
-    settings: dict,
-) -> tuple[Path, PortfolioReport] | None:
-    portfolio_path = ROOT / settings.get(
-        "portfolio_path",
-        "config/portfolio.csv",
-    )
-
-    if not portfolio_path.exists():
-        logger.info(
-            "Portfolio Intelligence ignorado: arquivo não encontrado em %s.",
-            portfolio_path,
-        )
-        return None
-
-    logger.info(
-        "Executando Portfolio Intelligence com %s.",
-        portfolio_path,
-    )
-
-    report = build_portfolio_intelligence(
-        portfolio_path,
-        df,
-        portfolio_name=settings.get("portfolio_name"),
-        cash=float(settings.get("portfolio_cash", 0.0)),
-        currency=settings.get("portfolio_currency", "BRL"),
-    )
-    report_path = write_portfolio_report(
-        report,
-        PORTFOLIO_REPORT_FILE,
-    )
-
-    logger.info(
-        "Portfolio Intelligence concluído em %s.",
-        report_path,
-    )
-    return report_path, report
 
 
 
@@ -407,9 +363,22 @@ def main() -> None:
         with StageTimer(metrics, "history_time"):
             snapshot_date = save_history_snapshot(df)
 
+        portfolio_result = generate_portfolio_intelligence(
+            df,
+            settings,
+        )
+        portfolio_report = (
+            portfolio_result[1]
+            if portfolio_result is not None
+            else None
+        )
+
         with StageTimer(metrics, "reports_time"):
             history_file, latest_file = (
-                generate_excel_reports(df)
+                generate_excel_reports(
+                    df,
+                    portfolio_report=portfolio_report,
+                )
             )
 
         with StageTimer(
@@ -419,11 +388,6 @@ def main() -> None:
             brief_file, brief_text = (
                 generate_morning_brief(df)
             )
-
-        portfolio_result = generate_portfolio_intelligence(
-            df,
-            settings,
-        )
 
         print_console_table(df)
 

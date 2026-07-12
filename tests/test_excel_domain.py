@@ -86,3 +86,78 @@ def test_excel_decision_analysis_is_generated(
     assert "Thesis Strengths" in sheet.columns
     assert "Thesis Risks" in sheet.columns
     assert "Thesis Catalysts" in sheet.columns
+
+
+def test_excel_portfolio_sheets_are_generated(
+    tmp_path: Path,
+) -> None:
+    from portfolio.pipeline import build_portfolio_intelligence
+
+    portfolio_path = tmp_path / "portfolio.csv"
+    pd.DataFrame(
+        {
+            "symbol": ["AAA"],
+            "quantity": [10],
+            "average_price": [10],
+            "current_price": [12],
+            "currency": ["USD"],
+            "sector": ["Technology"],
+            "country": ["USA"],
+        }
+    ).to_csv(portfolio_path, index=False)
+
+    report = build_portfolio_intelligence(
+        portfolio_path,
+        _frame().assign(
+            price=12.0,
+            sector="Technology",
+            country="USA",
+        ),
+        portfolio_name="Test Portfolio",
+        cash=100.0,
+        currency="BRL",
+    )
+
+    _, latest_file = write_latest_and_history(
+        _frame(),
+        tmp_path / "output",
+        portfolio_report=report,
+    )
+
+    assert latest_file is not None
+    workbook = pd.ExcelFile(latest_file)
+
+    expected = {
+        "Portfolio Summary",
+        "Portfolio Allocation",
+        "Portfolio Concentration",
+        "Portfolio Quality",
+        "Portfolio Rebalance",
+        "Portfolio Warnings",
+    }
+    assert expected.issubset(set(workbook.sheet_names))
+
+    allocation = pd.read_excel(
+        latest_file,
+        sheet_name="Portfolio Allocation",
+    )
+    assert {"Dimension", "Name", "Weight"}.issubset(
+        allocation.columns
+    )
+    assert "AAA" in allocation["Name"].values
+
+
+def test_excel_without_portfolio_preserves_previous_sheets(
+    tmp_path: Path,
+) -> None:
+    _, latest_file = write_latest_and_history(
+        _frame(),
+        tmp_path / "output",
+    )
+
+    assert latest_file is not None
+    workbook = pd.ExcelFile(latest_file)
+    assert not any(
+        name.startswith("Portfolio ")
+        for name in workbook.sheet_names
+    )

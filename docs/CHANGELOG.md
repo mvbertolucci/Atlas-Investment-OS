@@ -1,5 +1,23 @@
 # Changelog
 
+## PR-018.2 — Portfolio Intelligence in Excel
+
+### Added
+
+- Conditional portfolio worksheets in historical snapshots and `latest.xlsx`.
+- Portfolio-specific percentage, score and monetary formatting.
+- Regression tests for Excel generation with and without a portfolio report.
+
+### Changed
+
+- Portfolio Intelligence now runs before Excel generation so the same
+  `PortfolioReport` feeds JSON and workbook outputs.
+- Duplicate portfolio declarations in `run_all.py` were removed.
+
+### Validation
+
+- 187 automated tests passed.
+
 ## PR-018.1 — Integrated Portfolio Pipeline
 
 ### Added
