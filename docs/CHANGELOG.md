@@ -1,5 +1,16 @@
 # Changelog
 
+## Repository consolidation — 2026-07-12
+
+- Removed patch ZIPs and expanded historical source copies already preserved by Git.
+- Removed per-PR README, rollback and changelog fragments after consolidation into living documents.
+- Removed local pytest cache and obsolete release-package helper files.
+- Removed the unused alternate database, empty dashboard scaffold and empty data subpackages.
+- Removed unreferenced legacy feature/scoring engines, leaving one executable scoring path.
+- Declared the missing `yfinance` runtime dependency used by the Yahoo provider.
+- Updated the canonical release notes, checklist and rollback guide.
+- No production, scoring or configuration behavior changed.
+
 ## Codex transition foundation — 2026-07-12
 
 - Added root `AGENTS.md` following the repository-instruction model used by Codex.

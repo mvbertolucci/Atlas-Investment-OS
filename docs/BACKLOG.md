@@ -85,10 +85,10 @@
 
 ### PR-018.5 — Consolidation
 
-- [ ] Review duplicate or legacy database responsibilities
-- [ ] Remove or migrate remaining orphaned code
-- [ ] Document configuration ownership and authoritative sources
-- [ ] Review package boundaries and public interfaces
+- [x] Review duplicate or legacy database responsibilities
+- [x] Remove or migrate remaining orphaned code
+- [x] Document configuration ownership and authoritative sources
+- [x] Review package boundaries and public interfaces
 
 ## Next milestone — v1.2 Outcome Analytics
 

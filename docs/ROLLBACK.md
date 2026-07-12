@@ -19,7 +19,7 @@ git revert <release_commit>
 ## Remove a local tag
 
 ```cmd
-git tag -d v0.9.0
+git tag -d <version>
 ```
 
 ## Remove a remote tag
@@ -27,7 +27,7 @@ git tag -d v0.9.0
 Use only when necessary:
 
 ```cmd
-git push origin :refs/tags/v0.9.0
+git push origin :refs/tags/<version>
 ```
 
 Runtime data under `data/`, `logs/` and `output/` is local and is not changed

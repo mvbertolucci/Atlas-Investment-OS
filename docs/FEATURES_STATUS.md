@@ -19,7 +19,7 @@
 | Health check and execution metrics | Yes | Yes | N/A | N/A | Operational; direct tests pending |
 | Outcome Analytics | No | No | No | No | Planned v1.2 |
 | Backtesting | No | No | No | No | Future milestone |
-| Dashboard/API | Scaffold/roadmap | No | No | No | Future platform |
+| Dashboard/API | No | No | No | No | Future platform |
 
 ## Conditional outputs
 

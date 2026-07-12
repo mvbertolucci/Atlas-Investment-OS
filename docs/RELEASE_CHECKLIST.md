@@ -1,16 +1,17 @@
-# Release Checklist — v0.9.0
+# Release Checklist
 
 ## Repository
 
 - [ ] Working tree is clean
 - [ ] Runtime artifacts are ignored
 - [ ] No temporary files remain in the root
-- [ ] No patch ZIPs remain in the source tree
+- [ ] No patch ZIPs, caches or generated reports remain in the source tree
 
 ## Tests
 
 - [ ] `pytest` passes
 - [ ] `python run_all.py` passes
+- [ ] The declared test baseline in `docs/ATLAS_CONTEXT.md` is current
 
 ## Outputs
 
@@ -31,12 +32,18 @@
 - [ ] Historical Trends
 - [ ] History Summary
 
+## Documentation
+
+- [ ] `docs/ATLAS_CONTEXT.md` reflects the delivered baseline
+- [ ] `docs/CHANGELOG.md` records the change
+- [ ] `docs/FEATURES_STATUS.md` and `docs/BACKLOG.md` are synchronized
+
 ## Release
 
 ```cmd
 git add .
-git commit -m "release: Atlas v0.9.0"
-git tag -a v0.9.0 -m "Atlas Investment OS v0.9.0"
+git commit -m "release: Atlas <version>"
+git tag -a <version> -m "Atlas Investment OS <version>"
 git status
 ```
 
@@ -44,5 +51,5 @@ For a configured remote:
 
 ```cmd
 git push
-git push origin v0.9.0
+git push origin <version>
 ```

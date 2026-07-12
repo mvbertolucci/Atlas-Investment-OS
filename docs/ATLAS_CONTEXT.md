@@ -54,7 +54,7 @@ SQLite history + Excel + Morning Brief + execution metrics
 
 | Area | Main locations | Status |
 |---|---|---|
-| Providers and mapping | `providers/`, `analytics/mapper.py`, `analytics/validator.py` | Integrated |
+| Providers and mapping | `providers/`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |
 | Decision and thesis | `decision/` | Integrated |
@@ -121,7 +121,9 @@ A task is complete only when:
 
 - Some operational modules have low or no direct test coverage.
 - Documentation created before PR-018.1 may describe Portfolio Intelligence as domain-only; prefer this document and current code.
-- Database responsibilities in `database/` and `storage/` require consolidation review.
+- Historical persistence has a single owner: `storage/history_db.py`.
+- Legacy feature and scoring engines were removed; `factors/engine.py` and
+  `scoring/investment.py` are the executable scoring path.
 - Scoring semantics are financially material and must not be refactored casually.
 - External Yahoo data can be incomplete or unstable; tests should not depend on live network access.
 

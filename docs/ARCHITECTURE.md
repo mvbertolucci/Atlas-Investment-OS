@@ -58,11 +58,11 @@ PR-018.3 will add the same intelligence to the Morning Brief.
 
 - `providers/`
 - `analytics/mapper.py`
-- `analytics/validator.py`
+- `analytics/fundamentals.py`
+- `analytics/indicators.py`
 
 ### Feature and scoring layer
 
-- `analytics/feature_engine.py`
 - `factors/`
 - `scoring/`
 - `models/`
@@ -105,7 +105,6 @@ PR-018.3 will add the same intelligence to the Morning Brief.
 - `health/`
 - `metrics/`
 - `atlas_logger.py`
-- `pipeline/`
 - `run_all.py`
 
 ## Architectural rules

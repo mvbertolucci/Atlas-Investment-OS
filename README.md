@@ -64,7 +64,6 @@ Start with:
 - `docs/CODEX_TRANSITION.md` (step-by-step migration)
 - `docs/QUICKSTART.md`
 - `docs/ARCHITECTURE.md`
-- `docs/ATLAS_AUDIT_CURRENT_STATUS.md`
 - `docs/ROADMAP.md`
 - `docs/BACKLOG.md`
 - `docs/CHANGELOG.md`

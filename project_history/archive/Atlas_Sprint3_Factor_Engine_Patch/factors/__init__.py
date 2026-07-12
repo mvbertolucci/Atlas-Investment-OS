@@ -1,1 +1,0 @@
-"""Atlas Factor Engine package."""
