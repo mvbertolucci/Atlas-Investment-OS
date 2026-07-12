@@ -51,11 +51,6 @@ do not overwrite the first observation. Missing prices can be evaluated later.
 
 Returns do not include dividends, fees, taxes or currency conversion.
 
-## Deliberate boundaries
-
-Outcome Analytics does not yet calculate factor, rule or Deal Breaker
-attribution. Those derived metrics consume persisted results in a later stage.
-
 ## PR-019.4 hit rate and calibration
 
 Directional hit rate uses the following explicit expectations:
@@ -92,7 +87,15 @@ return and positive-return rate for:
 Attribution is descriptive and does not establish causality. Multiple Deal
 Breakers on one decision contribute one observation to each applicable group.
 
-## Next increment
+## PR-019.6 reporting
 
-PR-019.6 should publish outcome summaries in machine-readable and presentation
-reports. Live provider access must remain outside deterministic tests.
+Each enabled main-pipeline run publishes `output/outcome_report.json` as the
+machine-readable analytical contract. The Excel workbook conditionally adds
+`Outcome Summary`, `Outcome Calibration` and `Outcome Attribution` worksheets.
+Morning Brief adds the directional hit rate, mature results by horizon and the
+calibration bands with the largest samples.
+
+When no directional result has matured, the report explicitly states that the
+sample is insufficient. Reporting is descriptive and does not modify weights,
+thresholds, Deal Breakers or final decisions. Live provider access remains
+outside deterministic tests.

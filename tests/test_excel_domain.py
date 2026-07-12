@@ -9,6 +9,7 @@ from reports.excel import (
     write_latest_and_history,
 )
 from reports.report_engine import build_company_reports
+from tests.test_outcome_report import build_report
 
 
 def _frame() -> pd.DataFrame:
@@ -161,3 +162,27 @@ def test_excel_without_portfolio_preserves_previous_sheets(
         name.startswith("Portfolio ")
         for name in workbook.sheet_names
     )
+
+
+def test_excel_outcome_sheets_are_generated(
+    tmp_path: Path,
+) -> None:
+    _, latest_file = write_latest_and_history(
+        _frame(),
+        tmp_path / "output",
+        outcome_report=build_report(),
+    )
+
+    assert latest_file is not None
+    workbook = pd.ExcelFile(latest_file)
+    assert {
+        "Outcome Summary",
+        "Outcome Calibration",
+        "Outcome Attribution",
+    }.issubset(set(workbook.sheet_names))
+
+    summary = pd.read_excel(
+        latest_file,
+        sheet_name="Outcome Summary",
+    )
+    assert summary.loc[0, "Hit Rate"] == 100.0

@@ -7,6 +7,7 @@ from typing import Any, Sequence
 import pandas as pd
 
 from analytics.alerts import build_alerts
+from outcomes.analytics import OutcomeAnalyticsReport
 from portfolio.report import PortfolioReport
 from reports.history_report import build_history_summary
 from reports.report_engine import build_company_reports
@@ -483,6 +484,7 @@ def build_morning_brief_tables(
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
     portfolio_report: PortfolioReport | None = None,
+    outcome_report: OutcomeAnalyticsReport | None = None,
 ) -> dict[str, Any]:
     alerts = build_alerts(
         database_path=database_path,
@@ -528,6 +530,7 @@ def build_morning_brief_tables(
         if portfolio_report is not None
         else None
     )
+    result["outcome"] = outcome_report
 
     return result
 
@@ -538,6 +541,7 @@ def build_morning_brief_dataframe(
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
     portfolio_report: PortfolioReport | None = None,
+    outcome_report: OutcomeAnalyticsReport | None = None,
 ) -> pd.DataFrame:
     data = build_morning_brief_tables(
         current_df=current_df,
@@ -545,6 +549,7 @@ def build_morning_brief_dataframe(
         period_days=period_days,
         top_count=top_count,
         portfolio_report=portfolio_report,
+        outcome_report=outcome_report,
     )
 
     summary = data["summary"]
@@ -691,6 +696,30 @@ def build_morning_brief_dataframe(
                 str(action.get("reason", "")),
             )
 
+    outcome = data["outcome"]
+
+    if outcome is not None:
+        hit_rate = outcome.hit_rate
+        add_row(
+            "Outcome Analytics",
+            "Directional Hit Rate",
+            hit_rate.hit_rate,
+            f"{hit_rate.hit_count}/{hit_rate.eligible_count}",
+        )
+        add_row(
+            "Outcome Analytics",
+            "Excluded Decisions",
+            hit_rate.excluded_count,
+            "HOLD and WATCH",
+        )
+        for row in hit_rate.by_horizon:
+            add_row(
+                "Outcome by Horizon",
+                f"{row['horizon_days']} days",
+                row["hit_rate"],
+                f"n={row['eligible_count']}",
+            )
+
     add_row(
         "History",
         "Historical Rows",
@@ -776,6 +805,7 @@ def render_morning_brief(
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
     portfolio_report: PortfolioReport | None = None,
+    outcome_report: OutcomeAnalyticsReport | None = None,
 ) -> str:
     data = build_morning_brief_tables(
         current_df=current_df,
@@ -783,6 +813,7 @@ def render_morning_brief(
         period_days=period_days,
         top_count=top_count,
         portfolio_report=portfolio_report,
+        outcome_report=outcome_report,
     )
 
     summary = data["summary"]
@@ -996,6 +1027,65 @@ def render_morning_brief(
             for warning in portfolio["warnings"][:top_count]:
                 lines.append(f"- {warning}")
 
+    outcome = data["outcome"]
+
+    if outcome is not None:
+        hit_rate = outcome.hit_rate
+        lines.extend(
+            [
+                "",
+                "-" * 70,
+                "OUTCOME ANALYTICS",
+                "-" * 70,
+            ]
+        )
+
+        if hit_rate.eligible_count == 0:
+            lines.append(
+                "Amostra insuficiente: nenhum resultado direcional maduro."
+            )
+        else:
+            lines.append(
+                "Hit rate direcional: "
+                f"{_safe_number(hit_rate.hit_rate)}% "
+                f"({hit_rate.hit_count}/{hit_rate.eligible_count})"
+            )
+            lines.append(
+                "Decisões excluídas: "
+                f"{hit_rate.excluded_count} (HOLD/WATCH)"
+            )
+            lines.append("Por horizonte:")
+            for row in hit_rate.by_horizon[:top_count]:
+                lines.append(
+                    f"- {row['horizon_days']} dias: "
+                    f"{_safe_number(row['hit_rate'])}% "
+                    f"(n={row['eligible_count']})"
+                )
+
+            calibration = [
+                *outcome.opportunity_calibration,
+                *outcome.conviction_calibration,
+            ]
+            calibration = sorted(
+                calibration,
+                key=lambda row: (
+                    row.get("count", 0),
+                    row.get("average_return_pct", 0.0),
+                ),
+                reverse=True,
+            )[:top_count]
+            if calibration:
+                lines.append("Faixas com maior amostra:")
+                for row in calibration:
+                    lines.append(
+                        f"- {row['score']} "
+                        f"{row['bucket_min']}-{row['bucket_max']} | "
+                        f"{row['horizon_days']} dias | "
+                        f"retorno médio "
+                        f"{_safe_number(row['average_return_pct'])}% | "
+                        f"n={row['count']}"
+                    )
+
     lines.extend(
         [
             "",
@@ -1029,6 +1119,7 @@ def write_morning_brief(
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
     portfolio_report: PortfolioReport | None = None,
+    outcome_report: OutcomeAnalyticsReport | None = None,
 ) -> Path:
     output_path = Path(output_path)
 
@@ -1043,6 +1134,7 @@ def write_morning_brief(
         period_days=period_days,
         top_count=top_count,
         portfolio_report=portfolio_report,
+        outcome_report=outcome_report,
     )
 
     output_path.write_text(

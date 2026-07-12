@@ -7,6 +7,12 @@ import shutil
 import pandas as pd
 from openpyxl.styles import Font, PatternFill
 
+from outcomes.analytics import OutcomeAnalyticsReport
+from outcomes.report import (
+    outcome_attribution_dataframe,
+    outcome_calibration_dataframe,
+    outcome_summary_dataframe,
+)
 from reports.diagnostics import build_diagnostics
 from reports.explainability import build_explainability
 from reports.history_report import (
@@ -335,6 +341,7 @@ def write_latest_and_history(
     df: pd.DataFrame,
     output_dir: Path,
     portfolio_report: PortfolioReport | None = None,
+    outcome_report: OutcomeAnalyticsReport | None = None,
 ) -> tuple[Path, Path | None]:
     """
     Gera o arquivo Excel histórico da execução e atualiza latest.xlsx.
@@ -355,6 +362,9 @@ def write_latest_and_history(
     - Portfolio Quality (quando disponível)
     - Portfolio Rebalance (quando disponível)
     - Portfolio Warnings (quando disponível)
+    - Outcome Summary (quando disponível)
+    - Outcome Calibration (quando disponível)
+    - Outcome Attribution (quando disponível)
     """
 
     output_dir.mkdir(
@@ -592,6 +602,34 @@ def write_latest_and_history(
                     {"Warning": list(portfolio_report.warnings)}
                 ).to_excel(
                     writer, sheet_name="Portfolio Warnings", index=False
+                )
+
+        # --------------------------------------------------------------
+        # Outcome Analytics
+        # --------------------------------------------------------------
+        if outcome_report is not None:
+            outcome_summary_dataframe(outcome_report).to_excel(
+                writer,
+                sheet_name="Outcome Summary",
+                index=False,
+            )
+            calibration_df = outcome_calibration_dataframe(
+                outcome_report
+            )
+            if not calibration_df.empty:
+                calibration_df.to_excel(
+                    writer,
+                    sheet_name="Outcome Calibration",
+                    index=False,
+                )
+            attribution_df = outcome_attribution_dataframe(
+                outcome_report
+            )
+            if not attribution_df.empty:
+                attribution_df.to_excel(
+                    writer,
+                    sheet_name="Outcome Attribution",
+                    index=False,
                 )
 
         # --------------------------------------------------------------

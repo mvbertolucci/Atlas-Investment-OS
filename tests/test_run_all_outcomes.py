@@ -129,6 +129,12 @@ def test_generate_outcome_analytics_reads_persisted_results(
         "HISTORY_DATABASE",
         database_path,
     )
+    output_path = tmp_path / "outcome_report.json"
+    monkeypatch.setattr(
+        run_all,
+        "OUTCOME_REPORT_FILE",
+        output_path,
+    )
     snapshot = OutcomeSnapshot(
         decision_date="2026-01-01T10:00:00",
         symbol="AAA",
@@ -159,6 +165,7 @@ def test_generate_outcome_analytics_reads_persisted_results(
 
     assert report is not None
     assert report.hit_rate.hit_rate == 100.0
+    assert output_path.exists()
 
 
 def test_generate_outcome_analytics_can_be_disabled() -> None:

@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from portfolio.report import PortfolioReport
+from tests.test_outcome_report import build_report
 from reports.morning_brief import (
     build_morning_brief_dataframe,
     build_morning_brief_tables,
@@ -218,3 +219,18 @@ def test_write_morning_brief_persists_portfolio_section(
 
     assert "PORTFOLIO INTELLIGENCE" in content
     assert "Rebalanceamento consultivo" in content
+
+
+def test_render_brief_includes_outcome_analytics(
+    tmp_path: Path,
+) -> None:
+    text = render_morning_brief(
+        current_df=_frame(),
+        database_path=tmp_path / "history.db",
+        outcome_report=build_report(),
+    )
+
+    assert "OUTCOME ANALYTICS" in text
+    assert "Hit rate direcional: 100.0% (2/2)" in text
+    assert "- 30 dias: 100.0% (n=2)" in text
+    assert "opportunity_score 80-100" in text

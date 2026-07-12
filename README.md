@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.0.0`
 
-Development baseline: `PR-019.5`.
+Development baseline: `PR-019.6`.
 
 ## Main capabilities
 
@@ -42,6 +42,8 @@ evaluation horizons, persists realized returns and calculates directional hit
 rate plus Opportunity/Conviction calibration.
 Outcome attribution also relates returns to factor-score bands, final decisions
 and named Deal Breakers.
+Outcome summaries are published to JSON, conditional Excel worksheets and the
+Morning Brief without changing scoring or decision semantics.
 
 ## Quick start
 

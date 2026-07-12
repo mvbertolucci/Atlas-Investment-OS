@@ -105,6 +105,7 @@ conditional Excel sheets and the Morning Brief.
 - `outcomes/models.py`
 - `outcomes/pipeline.py`
 - `outcomes/analytics.py`
+- `outcomes/report.py`
 - `storage/history_db.py` (`outcome_snapshots` and `outcome_results` tables)
 
 The main pipeline captures outcome snapshots after the company decision is
@@ -114,6 +115,8 @@ and evaluation lag remains explicit. Analytics joins immutable decisions and
 results to calculate directional hit rate and score calibration by horizon.
 Attribution uses the same joined dataset to relate returns to factor-score
 bands, final decision rules and named Deal Breakers.
+The main pipeline serializes the analytical contract to JSON and passes the
+same report object to conditional Excel worksheets and Morning Brief rendering.
 
 ### Operational layer
 

@@ -32,6 +32,7 @@ from outcomes.pipeline import (
     capture_outcome_snapshots,
     evaluate_due_outcomes,
 )
+from outcomes.report import write_outcome_report
 from portfolio.pipeline import (
     build_portfolio_intelligence,
     write_portfolio_report,
@@ -54,6 +55,7 @@ HISTORY_DATABASE = DATA / "atlas_history.db"
 MORNING_BRIEF_FILE = OUTPUT / "morning_brief.md"
 EXECUTION_METRICS_FILE = LOGS / "execution_metrics.csv"
 PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
+OUTCOME_REPORT_FILE = OUTPUT / "outcome_report.json"
 
 logger = get_logger("run_all")
 
@@ -290,6 +292,11 @@ def generate_outcome_analytics(
             ),
         )
 
+    write_outcome_report(
+        report,
+        OUTCOME_REPORT_FILE,
+    )
+
     logger.info(
         "Outcome Analytics: %s resultados elegíveis; hit rate %s.",
         report.hit_rate.eligible_count,
@@ -301,6 +308,7 @@ def generate_outcome_analytics(
 def generate_excel_reports(
     df: pd.DataFrame,
     portfolio_report: PortfolioReport | None = None,
+    outcome_report: OutcomeAnalyticsReport | None = None,
 ) -> tuple[Path, Path | None]:
     logger.info("Gerando relatórios Excel.")
 
@@ -308,6 +316,7 @@ def generate_excel_reports(
         df,
         OUTPUT,
         portfolio_report=portfolio_report,
+        outcome_report=outcome_report,
     )
 
     logger.info(
@@ -321,6 +330,7 @@ def generate_excel_reports(
 def generate_morning_brief(
     df: pd.DataFrame,
     portfolio_report: PortfolioReport | None = None,
+    outcome_report: OutcomeAnalyticsReport | None = None,
 ) -> tuple[Path, str]:
     logger.info("Gerando Morning Brief.")
 
@@ -329,12 +339,14 @@ def generate_morning_brief(
         database_path=HISTORY_DATABASE,
         output_path=MORNING_BRIEF_FILE,
         portfolio_report=portfolio_report,
+        outcome_report=outcome_report,
     )
 
     brief_text = render_morning_brief(
         current_df=df,
         database_path=HISTORY_DATABASE,
         portfolio_report=portfolio_report,
+        outcome_report=outcome_report,
     )
 
     logger.info(
@@ -494,6 +506,7 @@ def main() -> None:
                 generate_excel_reports(
                     df,
                     portfolio_report=portfolio_report,
+                    outcome_report=outcome_analytics,
                 )
             )
 
@@ -505,6 +518,7 @@ def main() -> None:
                 generate_morning_brief(
                     df,
                     portfolio_report=portfolio_report,
+                    outcome_report=outcome_analytics,
                 )
             )
 
@@ -565,6 +579,7 @@ def main() -> None:
                 f"{hit_rate.hit_rate if hit_rate.hit_rate is not None else '-'}% "
                 f"({hit_rate.hit_count}/{hit_rate.eligible_count})"
             )
+            print(f"Outcome JSON    : {OUTCOME_REPORT_FILE}")
 
         if portfolio_result is not None:
             portfolio_file, portfolio_report = portfolio_result

@@ -97,4 +97,4 @@
 - [x] Track decision-to-return results over configurable horizons
 - [x] Calculate hit rate and calibration metrics
 - [x] Attribute results to factors, rules and Deal Breakers
-- [ ] Add outcome reports and regression tests
+- [x] Add outcome reports and regression tests

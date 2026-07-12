@@ -1,9 +1,9 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-019.5`
+**Last synchronized baseline:** `PR-019.6`
 **Declared release:** `1.0.0`  
-**Validation baseline:** 264 tests passing / 87.32% production coverage
+**Validation baseline:** 269 tests passing / 87.31% production coverage
 
 ## 1. Product mission
 
@@ -39,9 +39,9 @@ CompanyReport objects
           ↓
 optional portfolio.csv enrichment and PortfolioReport
           ↓
-SQLite history + Outcome Snapshot capture
+SQLite history + Outcome Snapshot capture and evaluation
           ↓
-Excel + Morning Brief + execution metrics
+Outcome JSON + Excel + Morning Brief + execution metrics
 ```
 
 ### Portfolio behavior
@@ -66,7 +66,7 @@ Excel + Morning Brief + execution metrics
 | Portfolio Intelligence | `portfolio/` | Integrated into main pipeline and Excel |
 | Morning Brief | `reports/morning_brief.py` | Company and portfolio intelligence integrated |
 | Operational health | `health/`, `metrics/`, `atlas_logger.py` | Integrated; 100% direct coverage |
-| Outcome Analytics | `outcomes/`, `storage/history_db.py` | Capture, returns, calibration and attribution operational |
+| Outcome Analytics | `outcomes/`, `storage/history_db.py` | Capture, returns, attribution and reports operational |
 
 ## 4. Authoritative configuration
 
@@ -110,7 +110,8 @@ Current functional milestone:
 - PR-019.3 future-price evaluation and horizon returns is complete.
 - PR-019.4 hit rate and score calibration metrics is complete.
 - PR-019.5 factor, rule and Deal Breaker attribution is complete.
-- Next: PR-019.6 outcome reports and presentation integration.
+- PR-019.6 JSON, Excel and Morning Brief outcome reports is complete.
+- Next: define the next product milestone before changing financial semantics.
 
 ## 7. Definition of done
 
@@ -145,6 +146,6 @@ A task is complete only when:
 Recommended first prompt:
 
 > Read AGENTS.md and docs/ATLAS_CONTEXT.md. Verify the repository baseline,
-> coverage gate and tests. Then implement PR-019.6 outcome reports and
-> presentation integration, preserving existing history and governed financial
+> coverage gate and tests. Then inspect the backlog and propose the next
+> product milestone, preserving existing history and governed financial
 > configuration.
