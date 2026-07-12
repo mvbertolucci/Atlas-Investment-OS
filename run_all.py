@@ -6,6 +6,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from analytics.feature_audit import (
+    audit_coverage,
+    format_coverage_report,
+    phantom_weight_summary,
+)
 from analytics.indicators import enrich_technicals
 from analytics.mapper import normalize_columns
 from analytics.validator import add_confidence_score
@@ -136,6 +141,37 @@ def build_scores(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     return result
+
+
+def audit_feature_coverage(df: pd.DataFrame) -> dict:
+    """
+    Mede quanto do Investment Score está alocado a features cujas colunas
+    nunca chegam populadas (peso fantasma = constante 50 neutro).
+
+    Não altera o pipeline; apenas informa e registra um aviso.
+    """
+
+    coverage = audit_coverage(
+        df,
+        CONFIG / "features.yaml",
+        CONFIG / "model.yaml",
+    )
+
+    summary = phantom_weight_summary(coverage)
+
+    print()
+    print(format_coverage_report(coverage, summary))
+
+    phantom_share = summary["phantom_investment_share"]
+
+    if phantom_share > 0:
+        logger.warning(
+            "Peso fantasma no Investment Score: %.1f%% "
+            "(features sempre neutras por falta de dados).",
+            phantom_share,
+        )
+
+    return summary
 
 
 def save_history_snapshot(df: pd.DataFrame) -> str:
@@ -273,6 +309,8 @@ def main() -> None:
 
         with StageTimer(metrics, "scoring_time"):
             df = build_scores(df)
+
+        audit_feature_coverage(df)
 
         with StageTimer(metrics, "history_time"):
             snapshot_date = save_history_snapshot(df)
