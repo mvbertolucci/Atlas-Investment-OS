@@ -42,7 +42,7 @@ RAW_PROVIDER_COLUMNS = [
     "roe", "roa", "gross_margin", "operating_margin", "ebitda_margin",
     "net_margin", "debt_to_equity", "current_ratio", "quick_ratio",
     "total_debt", "total_cash", "ebitda", "free_cashflow",
-    "operating_cashflow", "dividend_yield", "target_price",
+    "operating_cashflow", "dividend_yield", "dividend_rate", "target_price",
     "target_high_price", "target_low_price", "analyst_count", "rating",
     "short_float", "insider_own", "inst_own", "source",
 ]
@@ -58,6 +58,7 @@ TECHNICAL_COLUMNS = [
 # no mapper, a partir de "enterprise_value" + "ebit").
 FUNDAMENTAL_COLUMNS = [
     "ebit", "roic", "f_score_annual", "altman_z", "interest_coverage",
+    "buyback",
 ]
 
 # PR-017.0 encontrou 5 features fantasmas (roic, f_score_annual,

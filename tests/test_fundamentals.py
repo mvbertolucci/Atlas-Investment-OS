@@ -135,3 +135,22 @@ def test_roic_falls_back_to_statutory_rate_without_pretax_income() -> None:
 
     # NOPAT = 100 * (1 - 0.21) = 79; ROIC = 79 / 500
     assert result["roic"] == pytest.approx(79.0 / 500.0)
+
+
+def test_buyback_absolute_value() -> None:
+    statements = _full_statements()
+    statements["_cashflow"].loc["Repurchase Of Capital Stock", COL_T] = -1500.0
+    row = {"symbol": "TEST", "market_cap": 2000.0, **statements}
+
+    result = compute_fundamentals(row)
+
+    assert result["buyback"] == pytest.approx(1500.0)
+
+
+def test_buyback_none_when_absent() -> None:
+    row = {"symbol": "TEST", "market_cap": 2000.0, **_full_statements()}
+
+    result = compute_fundamentals(row)
+
+    # _full_statements não inclui linha de recompra.
+    assert result["buyback"] is None

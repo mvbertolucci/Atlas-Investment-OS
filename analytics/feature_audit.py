@@ -27,14 +27,15 @@ PRODUCIBLE_COLUMNS: frozenset[str] = frozenset(
         "gross_margin", "operating_margin", "ebitda_margin", "net_margin",
         "debt_to_equity", "current_ratio", "quick_ratio", "total_debt",
         "total_cash", "ebitda", "free_cashflow", "operating_cashflow",
-        "dividend_yield", "target_price", "target_high_price",
-        "target_low_price", "analyst_count", "rating", "short_float",
-        "insider_own", "inst_own", "source",
+        "dividend_yield", "dividend_rate", "target_price",
+        "target_high_price", "target_low_price", "analyst_count", "rating",
+        "short_float", "insider_own", "inst_own", "source",
         # --- Técnicos (analytics/indicators.py::enrich_technicals) ---
         "rsi_14", "momentum_3m", "momentum_6m", "momentum_12m",
         "distance_52w_high", "distance_52w_low",
         # --- Fundamentalistas (analytics/fundamentals.py::compute_fundamentals) ---
         "ebit", "roic", "f_score_annual", "altman_z", "interest_coverage",
+        "buyback",
         # --- Derivados (analytics/mapper.py::normalize_columns) ---
         "ev_ebitda", "ev_ebit", "net_debt_total_equity", "current_liquidity",
         "consensus_target", "operating_margin_proxy", "net_debt",

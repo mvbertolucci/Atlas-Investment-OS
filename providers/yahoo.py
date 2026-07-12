@@ -29,7 +29,7 @@ def _safe_statement(ticker: "yf.Ticker", attr: str):
         return None
 
 
-def fetch_symbol(symbol: str, name_hint: str = "", period: str = "1y", interval: str = "1d") -> dict:
+def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval: str = "1d") -> dict:
     """Fetch one ticker from Yahoo Finance and return raw data for Atlas.
 
     This provider is intentionally limited to broadly available fields. More
@@ -93,6 +93,7 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "1y", interval:
         "free_cashflow": _safe_float(info.get("freeCashflow")),
         "operating_cashflow": _safe_float(info.get("operatingCashflow")),
         "dividend_yield": _safe_float(info.get("dividendYield")),
+        "dividend_rate": _safe_float(info.get("dividendRate")),
         "target_price": _safe_float(info.get("targetMeanPrice")),
         "target_high_price": _safe_float(info.get("targetHighPrice")),
         "target_low_price": _safe_float(info.get("targetLowPrice")),
@@ -109,7 +110,7 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "1y", interval:
     }
 
 
-def fetch_watchlist(watchlist: pd.DataFrame, period: str = "1y", interval: str = "1d") -> list[dict]:
+def fetch_watchlist(watchlist: pd.DataFrame, period: str = "2y", interval: str = "1d") -> list[dict]:
     rows: list[dict] = []
     for _, row in watchlist.iterrows():
         symbol = str(row.get("symbol", "")).strip()

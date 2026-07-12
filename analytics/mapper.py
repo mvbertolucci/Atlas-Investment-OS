@@ -31,9 +31,29 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         mcap = pd.to_numeric(out["market_cap"], errors="coerce")
         out["fcf_yield"] = fcf / mcap.replace(0, pd.NA)
 
-    if {"dividend_yield"}.issubset(out.columns):
-        # Buyback yield will be added later; for now shareholder yield = dividend yield proxy.
-        out["shareholder_yield"] = pd.to_numeric(out["dividend_yield"], errors="coerce")
+    # Shareholder yield = dividend yield + buyback yield, ambos expressos
+    # como fração do valor de mercado para ficarem na mesma escala antes do
+    # ranking cross-sectional. O campo dividendYield do Yahoo é frágil
+    # (percentual em algumas versões, fração em outras), então o dividendo é
+    # recalculado de dividend_rate/price (dólar/dólar, à prova de versão).
+    if "market_cap" in out.columns:
+        mcap = pd.to_numeric(out["market_cap"], errors="coerce").replace(0, pd.NA)
+
+        if {"dividend_rate", "price"}.issubset(out.columns):
+            rate = pd.to_numeric(out["dividend_rate"], errors="coerce")
+            price = pd.to_numeric(out["price"], errors="coerce").replace(0, pd.NA)
+            dividend_frac = (rate / price).fillna(0.0)
+        else:
+            dividend_frac = pd.Series(0.0, index=out.index)
+
+        if "buyback" in out.columns:
+            buyback_frac = (
+                pd.to_numeric(out["buyback"], errors="coerce") / mcap
+            ).fillna(0.0)
+        else:
+            buyback_frac = pd.Series(0.0, index=out.index)
+
+        out["shareholder_yield"] = dividend_frac + buyback_frac
 
     if {"consensus_target", "price"}.issubset(out.columns):
         target = pd.to_numeric(out["consensus_target"], errors="coerce")

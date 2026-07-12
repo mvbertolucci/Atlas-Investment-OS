@@ -74,6 +74,23 @@ def _compute_altman_z(
     return 1.2 * a + 1.4 * b + 3.3 * c + 0.6 * d + 1.0 * e
 
 
+def _compute_buyback(cashflow: pd.DataFrame | None) -> float | None:
+    """
+    Valor absoluto de recompra de ações no último ano (as recompras vêm
+    negativas no fluxo de caixa de financiamento). Retorna None quando o
+    Yahoo não reporta a linha; 0.0 explícito não é inferido aqui para não
+    confundir "sem dado" com "não recomprou" -- essa decisão fica no
+    mapper, ao compor o shareholder yield.
+    """
+
+    repurchase = _row_value(cashflow, "Repurchase Of Capital Stock")
+    if repurchase is None:
+        repurchase = _row_value(cashflow, "Common Stock Payments")
+    if repurchase is None:
+        return None
+    return abs(repurchase)
+
+
 def _compute_f_score(
     balance_sheet: pd.DataFrame | None,
     income_stmt: pd.DataFrame | None,
@@ -159,5 +176,6 @@ def compute_fundamentals(row: dict) -> dict:
     row["roic"] = _compute_roic(balance_sheet, income_stmt)
     row["altman_z"] = _compute_altman_z(balance_sheet, income_stmt, row.get("market_cap"))
     row["f_score_annual"] = _compute_f_score(balance_sheet, income_stmt, cashflow)
+    row["buyback"] = _compute_buyback(cashflow)
 
     return row

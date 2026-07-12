@@ -90,7 +90,7 @@ def collect_market_data(
 
     rows = fetch_watchlist(
         watchlist,
-        period=settings.get("history_period", "1y"),
+        period=settings.get("history_period", "2y"),
         interval=settings.get("history_interval", "1d"),
     )
 
