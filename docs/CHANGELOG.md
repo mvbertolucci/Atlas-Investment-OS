@@ -1,5 +1,26 @@
 # Changelog
 
+## PR-019.5 — Factor, rule and Deal Breaker attribution
+
+### Added
+
+- Decision-time persistence of Business, Valuation, Financial and Timing scores.
+- Named Deal Breaker persistence with additive migration for existing databases.
+- Factor performance attribution by horizon and score band.
+- Final-decision attribution by horizon.
+- Named Deal Breaker attribution with an explicit no-Deal-Breaker baseline.
+- Migration, persistence and analytical-methodology regression tests.
+
+### Safety
+
+- Attribution is descriptive and does not claim causality.
+- No factor weight, Deal Breaker, score or decision is changed.
+
+### Validation
+
+- 264 automated tests passed.
+- 87.32% production coverage overall.
+
 ## PR-019.4 — Hit rate and score calibration
 
 ### Added

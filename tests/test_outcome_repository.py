@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sqlite3
 
 import pandas as pd
 import pytest
@@ -26,7 +27,12 @@ def _snapshot(
         opportunity_score=80,
         conviction_score=82,
         decision_confidence=85,
+        business_score=78,
+        valuation_score=72,
+        financial_score=80,
+        timing_score=75,
         risk_penalty=5,
+        deal_breakers=("Liquidity",) if symbol == "BBB" else (),
     )
 
 
@@ -50,6 +56,8 @@ def test_outcome_repository_round_trip_and_filter(
     assert len(aaa_rows) == 1
     assert aaa_rows.loc[0, "decision_price"] == 10.0
     assert bool(aaa_rows.loc[0, "has_deal_breaker"]) is False
+    assert aaa_rows.loc[0, "business_score"] == 78.0
+    assert aaa_rows.loc[0, "deal_breakers"] == ()
 
 
 def test_outcome_repository_upserts_same_decision(
@@ -145,3 +153,58 @@ def test_outcome_result_repository_validates_type(
     with HistoryDatabase(tmp_path / "history.db") as database:
         with pytest.raises(TypeError):
             database.save_outcome_result(object())
+
+
+def test_outcome_snapshot_schema_migrates_existing_database(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "legacy.db"
+    connection = sqlite3.connect(database_path)
+    connection.execute(
+        """
+        CREATE TABLE outcome_snapshots
+        (
+            decision_date TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            company_name TEXT,
+            decision_price REAL NOT NULL,
+            decision TEXT NOT NULL,
+            decision_rating TEXT,
+            investment_score REAL,
+            opportunity_score REAL,
+            conviction_score REAL,
+            decision_confidence REAL,
+            risk_penalty REAL,
+            has_deal_breaker INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (decision_date, symbol)
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO outcome_snapshots
+        (decision_date, symbol, decision_price, decision)
+        VALUES ('2026-01-01T10:00:00', 'AAA', 100, 'BUY')
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    with HistoryDatabase(database_path) as database:
+        columns = {
+            row[1]
+            for row in database.connection.execute(
+                "PRAGMA table_info(outcome_snapshots)"
+            ).fetchall()
+        }
+        rows = database.load_outcome_snapshots("AAA")
+
+    assert {
+        "business_score",
+        "valuation_score",
+        "financial_score",
+        "timing_score",
+        "deal_breakers_json",
+    }.issubset(columns)
+    assert len(rows) == 1
+    assert rows.loc[0, "deal_breakers"] == ()

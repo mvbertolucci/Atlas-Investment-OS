@@ -96,5 +96,5 @@
 - [x] Configure evaluation horizons and capture decisions automatically
 - [x] Track decision-to-return results over configurable horizons
 - [x] Calculate hit rate and calibration metrics
-- [ ] Attribute results to factors, rules and Deal Breakers
+- [x] Attribute results to factors, rules and Deal Breakers
 - [ ] Add outcome reports and regression tests

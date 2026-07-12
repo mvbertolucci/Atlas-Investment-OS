@@ -46,6 +46,18 @@ def _normalize_datetime(value: datetime | str) -> datetime:
         ) from exc
 
 
+def _normalize_items(values: Any) -> tuple[str, ...]:
+    if values is None:
+        return ()
+    source = values.split(";") if isinstance(values, str) else values
+    items: list[str] = []
+    for value in source:
+        text = str(value).strip()
+        if text and text not in items:
+            items.append(text)
+    return tuple(items)
+
+
 @dataclass(frozen=True)
 class OutcomeSnapshot:
     """Fotografia imutável de uma decisão para avaliação futura."""
@@ -61,8 +73,13 @@ class OutcomeSnapshot:
     opportunity_score: float | None = None
     conviction_score: float | None = None
     decision_confidence: float | None = None
+    business_score: float | None = None
+    valuation_score: float | None = None
+    financial_score: float | None = None
+    timing_score: float | None = None
     risk_penalty: float | None = None
     has_deal_breaker: bool = False
+    deal_breakers: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         symbol = str(self.symbol).strip().upper()
@@ -121,6 +138,10 @@ class OutcomeSnapshot:
             "opportunity_score",
             "conviction_score",
             "decision_confidence",
+            "business_score",
+            "valuation_score",
+            "financial_score",
+            "timing_score",
             "risk_penalty",
         ):
             object.__setattr__(
@@ -133,6 +154,11 @@ class OutcomeSnapshot:
             self,
             "has_deal_breaker",
             bool(self.has_deal_breaker),
+        )
+        object.__setattr__(
+            self,
+            "deal_breakers",
+            _normalize_items(self.deal_breakers),
         )
 
     @classmethod
@@ -159,8 +185,13 @@ class OutcomeSnapshot:
             opportunity_score=report.opportunity_score,
             conviction_score=report.conviction_score,
             decision_confidence=report.decision_confidence,
+            business_score=report.business_score,
+            valuation_score=report.valuation_score,
+            financial_score=report.financial_score,
+            timing_score=report.timing_score,
             risk_penalty=report.risk_penalty,
             has_deal_breaker=bool(report.deal_breakers),
+            deal_breakers=report.deal_breakers,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -177,8 +208,13 @@ class OutcomeSnapshot:
             "opportunity_score": self.opportunity_score,
             "conviction_score": self.conviction_score,
             "decision_confidence": self.decision_confidence,
+            "business_score": self.business_score,
+            "valuation_score": self.valuation_score,
+            "financial_score": self.financial_score,
+            "timing_score": self.timing_score,
             "risk_penalty": self.risk_penalty,
             "has_deal_breaker": self.has_deal_breaker,
+            "deal_breakers": list(self.deal_breakers),
         }
 
 

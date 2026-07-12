@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.0.0`
 
-Development baseline: `PR-019.4`.
+Development baseline: `PR-019.5`.
 
 ## Main capabilities
 
@@ -40,6 +40,8 @@ Morning Brief. Operational coverage is hardened with an enforced 80% CI floor.
 Outcome Analytics captures decision snapshots automatically using configurable
 evaluation horizons, persists realized returns and calculates directional hit
 rate plus Opportunity/Conviction calibration.
+Outcome attribution also relates returns to factor-score bands, final decisions
+and named Deal Breakers.
 
 ## Quick start
 

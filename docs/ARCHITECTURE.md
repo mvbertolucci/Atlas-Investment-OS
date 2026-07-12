@@ -112,6 +112,8 @@ available. On later runs, matured horizons use the current valid Atlas price to
 create an immutable result. The first observation on or after the due date wins,
 and evaluation lag remains explicit. Analytics joins immutable decisions and
 results to calculate directional hit rate and score calibration by horizon.
+Attribution uses the same joined dataset to relate returns to factor-score
+bands, final decision rules and named Deal Breakers.
 
 ### Operational layer
 

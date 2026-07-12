@@ -13,7 +13,20 @@ POSITIVE_DECISIONS = frozenset(
 )
 NEGATIVE_DECISIONS = frozenset({"AVOID"})
 CALIBRATION_SCORES = frozenset(
-    {"opportunity_score", "conviction_score"}
+    {
+        "opportunity_score",
+        "conviction_score",
+        "business_score",
+        "valuation_score",
+        "financial_score",
+        "timing_score",
+    }
+)
+FACTOR_SCORES = (
+    "business_score",
+    "valuation_score",
+    "financial_score",
+    "timing_score",
 )
 
 
@@ -44,6 +57,9 @@ class OutcomeAnalyticsReport:
     hit_rate: HitRateReport
     opportunity_calibration: tuple[dict[str, Any], ...]
     conviction_calibration: tuple[dict[str, Any], ...]
+    factor_attribution: tuple[dict[str, Any], ...]
+    decision_attribution: tuple[dict[str, Any], ...]
+    deal_breaker_attribution: tuple[dict[str, Any], ...]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -55,6 +71,18 @@ class OutcomeAnalyticsReport:
             "conviction_calibration": [
                 dict(row)
                 for row in self.conviction_calibration
+            ],
+            "factor_attribution": [
+                dict(row)
+                for row in self.factor_attribution
+            ],
+            "decision_attribution": [
+                dict(row)
+                for row in self.decision_attribution
+            ],
+            "deal_breaker_attribution": [
+                dict(row)
+                for row in self.deal_breaker_attribution
             ],
         }
 
@@ -199,7 +227,7 @@ def calculate_score_calibration(
 ) -> tuple[dict[str, Any], ...]:
     if score_column not in CALIBRATION_SCORES:
         raise ValueError(
-            "score_column deve ser opportunity_score ou conviction_score."
+            "score_column não é um score calibrável do Atlas."
         )
 
     if isinstance(bucket_size, bool):
@@ -287,6 +315,102 @@ def calculate_score_calibration(
     return tuple(rows)
 
 
+def calculate_factor_attribution(
+    dataset: pd.DataFrame,
+    *,
+    bucket_size: int = 20,
+) -> tuple[dict[str, Any], ...]:
+    rows: list[dict[str, Any]] = []
+    for factor in FACTOR_SCORES:
+        if factor not in dataset.columns:
+            continue
+        rows.extend(
+            calculate_score_calibration(
+                dataset,
+                factor,
+                bucket_size=bucket_size,
+            )
+        )
+    return tuple(rows)
+
+
+def _categorical_rows(
+    frame: pd.DataFrame,
+    category_column: str,
+) -> tuple[dict[str, Any], ...]:
+    if frame.empty:
+        return ()
+
+    required = {category_column, "return_pct", "horizon_days"}
+    missing = required.difference(frame.columns)
+    if missing:
+        raise ValueError(
+            "Dataset sem colunas obrigatórias: "
+            + ", ".join(sorted(missing))
+        )
+
+    data = frame.copy()
+    data["return_pct"] = pd.to_numeric(
+        data["return_pct"],
+        errors="coerce",
+    )
+    data = data.dropna(
+        subset=[category_column, "return_pct", "horizon_days"]
+    )
+    rows: list[dict[str, Any]] = []
+
+    for (horizon, category), group in data.groupby(
+        ["horizon_days", category_column],
+        sort=True,
+    ):
+        rows.append(
+            {
+                "category": category_column,
+                "value": str(category),
+                "horizon_days": int(horizon),
+                "count": len(group),
+                "average_return_pct": round(
+                    float(group["return_pct"].mean()),
+                    4,
+                ),
+                "positive_return_rate": round(
+                    float((group["return_pct"] > 0).mean())
+                    * 100,
+                    2,
+                ),
+            }
+        )
+    return tuple(rows)
+
+
+def calculate_decision_attribution(
+    dataset: pd.DataFrame,
+) -> tuple[dict[str, Any], ...]:
+    return _categorical_rows(dataset, "decision")
+
+
+def calculate_deal_breaker_attribution(
+    dataset: pd.DataFrame,
+) -> tuple[dict[str, Any], ...]:
+    if dataset.empty:
+        return ()
+    if "deal_breakers" not in dataset.columns:
+        raise ValueError(
+            "Dataset sem coluna obrigatória: deal_breakers"
+        )
+
+    frame = dataset.copy()
+    frame["deal_breaker"] = frame["deal_breakers"].map(
+        lambda values: (
+            tuple(values)
+            if values
+            else ("NO_DEAL_BREAKER",)
+        )
+    )
+    frame = frame.explode("deal_breaker")
+    return _categorical_rows(frame, "deal_breaker")
+
+
 def build_outcome_analytics_report(
     database: HistoryDatabase,
     *,
@@ -308,5 +432,15 @@ def build_outcome_analytics_report(
             dataset,
             "conviction_score",
             bucket_size=bucket_size,
+        ),
+        factor_attribution=calculate_factor_attribution(
+            dataset,
+            bucket_size=bucket_size,
+        ),
+        decision_attribution=calculate_decision_attribution(
+            dataset,
+        ),
+        deal_breaker_attribution=(
+            calculate_deal_breaker_attribution(dataset)
         ),
     )

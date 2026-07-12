@@ -19,6 +19,8 @@ def test_outcome_snapshot_normalizes_and_serializes() -> None:
         opportunity_score=-2,
         conviction_score=float("nan"),
         decision_confidence="invalid",
+        business_score=81.2,
+        deal_breakers=("Liquidity", "Liquidity", "Leverage"),
         risk_penalty=12.34,
         has_deal_breaker=1,
     )
@@ -30,6 +32,8 @@ def test_outcome_snapshot_normalizes_and_serializes() -> None:
     assert snapshot.opportunity_score == 0.0
     assert snapshot.conviction_score is None
     assert snapshot.decision_confidence is None
+    assert snapshot.business_score == 81.2
+    assert snapshot.deal_breakers == ("Liquidity", "Leverage")
     assert snapshot.risk_penalty == 12.3
     assert snapshot.has_deal_breaker is True
     assert snapshot.to_dict()["decision_date"] == (
@@ -74,6 +78,10 @@ def test_outcome_snapshot_builds_from_company_report() -> None:
         opportunity_score=85,
         conviction_score=88,
         decision_confidence=90,
+        business_score=82,
+        valuation_score=78,
+        financial_score=84,
+        timing_score=76,
         risk_penalty=5,
         deal_breakers=("Liquidity",),
         generated_at=datetime(2026, 7, 12, 9, 0, 0),
@@ -88,7 +96,9 @@ def test_outcome_snapshot_builds_from_company_report() -> None:
     assert snapshot.decision_date == report.generated_at
     assert snapshot.decision_price == 42.5
     assert snapshot.opportunity_score == 85.0
+    assert snapshot.business_score == 82.0
     assert snapshot.has_deal_breaker is True
+    assert snapshot.deal_breakers == ("Liquidity",)
 
 
 def test_outcome_snapshot_requires_company_report() -> None:

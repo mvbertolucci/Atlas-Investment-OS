@@ -75,7 +75,24 @@ configured through `outcome_calibration_bucket_size`.
 Calibration is descriptive. It does not change Atlas weights, thresholds or
 decisions.
 
+## PR-019.5 attribution
+
+Decision snapshots now retain Business, Valuation, Financial and Timing scores,
+plus the names of triggered Deal Breakers. Existing SQLite databases receive
+these columns through an additive migration.
+
+Attribution remains separated by horizon and reports sample count, average
+return and positive-return rate for:
+
+- each factor-score band;
+- each final decision code;
+- each named Deal Breaker;
+- the explicit `NO_DEAL_BREAKER` baseline.
+
+Attribution is descriptive and does not establish causality. Multiple Deal
+Breakers on one decision contribute one observation to each applicable group.
+
 ## Next increment
 
-PR-019.5 should attribute persisted results to factors, rules and Deal Breakers.
-Live provider access must remain outside deterministic tests.
+PR-019.6 should publish outcome summaries in machine-readable and presentation
+reports. Live provider access must remain outside deterministic tests.

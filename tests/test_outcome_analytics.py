@@ -8,6 +8,9 @@ import pytest
 from outcomes.analytics import (
     build_outcome_analytics_report,
     build_outcome_dataset,
+    calculate_deal_breaker_attribution,
+    calculate_decision_attribution,
+    calculate_factor_attribution,
     calculate_hit_rate,
     calculate_score_calibration,
 )
@@ -23,6 +26,16 @@ def _dataset() -> pd.DataFrame:
             "horizon_days": [30, 30, 90, 90],
             "opportunity_score": [85.0, 55.0, 75.0, 65.0],
             "conviction_score": [90.0, 45.0, 70.0, 60.0],
+            "business_score": [88.0, 40.0, 72.0, 62.0],
+            "valuation_score": [82.0, 55.0, 68.0, 64.0],
+            "financial_score": [90.0, 35.0, 75.0, 60.0],
+            "timing_score": [80.0, 50.0, 65.0, 58.0],
+            "deal_breakers": [
+                (),
+                ("Leverage",),
+                (),
+                ("Liquidity", "Leverage"),
+            ],
         }
     )
 
@@ -100,6 +113,39 @@ def test_score_calibration_validates_contract() -> None:
         )
 
 
+def test_factor_and_rule_attribution() -> None:
+    factor_rows = calculate_factor_attribution(_dataset())
+    decision_rows = calculate_decision_attribution(_dataset())
+    deal_breaker_rows = calculate_deal_breaker_attribution(
+        _dataset()
+    )
+
+    assert {row["score"] for row in factor_rows} == {
+        "business_score",
+        "valuation_score",
+        "financial_score",
+        "timing_score",
+    }
+    buy_30 = next(
+        row
+        for row in decision_rows
+        if row["value"] == "BUY"
+        and row["horizon_days"] == 30
+    )
+    assert buy_30["average_return_pct"] == 10.0
+    leverage_30 = next(
+        row
+        for row in deal_breaker_rows
+        if row["value"] == "Leverage"
+        and row["horizon_days"] == 30
+    )
+    assert leverage_30["average_return_pct"] == -5.0
+    assert any(
+        row["value"] == "NO_DEAL_BREAKER"
+        for row in deal_breaker_rows
+    )
+
+
 def test_outcome_analytics_report_joins_persisted_data(
     tmp_path: Path,
 ) -> None:
@@ -111,6 +157,10 @@ def test_outcome_analytics_report_joins_persisted_data(
         decision="BUY",
         opportunity_score=85,
         conviction_score=90,
+        business_score=88,
+        valuation_score=82,
+        financial_score=90,
+        timing_score=80,
     )
     result = OutcomeResult(
         decision_date=snapshot.decision_date,
@@ -131,6 +181,11 @@ def test_outcome_analytics_report_joins_persisted_data(
     assert dataset.loc[0, "decision"] == "BUY"
     assert report.hit_rate.hit_rate == 100.0
     assert report.opportunity_calibration[0]["count"] == 1
+    assert report.factor_attribution
+    assert report.decision_attribution[0]["value"] == "BUY"
+    assert report.deal_breaker_attribution[0]["value"] == (
+        "NO_DEAL_BREAKER"
+    )
     assert report.to_dict()["hit_rate"]["eligible_count"] == 1
 
 

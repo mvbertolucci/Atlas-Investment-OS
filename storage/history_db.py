@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -93,8 +94,13 @@ class HistoryDatabase:
                 opportunity_score   REAL,
                 conviction_score    REAL,
                 decision_confidence REAL,
+                business_score      REAL,
+                valuation_score     REAL,
+                financial_score     REAL,
+                timing_score        REAL,
                 risk_penalty        REAL,
                 has_deal_breaker    INTEGER NOT NULL DEFAULT 0,
+                deal_breakers_json  TEXT NOT NULL DEFAULT '[]',
 
                 PRIMARY KEY (
                     decision_date,
@@ -104,7 +110,30 @@ class HistoryDatabase:
             """
         )
 
+        self._ensure_outcome_snapshot_columns()
+
         self.connection.commit()
+
+    def _ensure_outcome_snapshot_columns(self) -> None:
+        columns = {
+            row[1]
+            for row in self.connection.execute(
+                "PRAGMA table_info(outcome_snapshots)"
+            ).fetchall()
+        }
+        additions = {
+            "business_score": "REAL",
+            "valuation_score": "REAL",
+            "financial_score": "REAL",
+            "timing_score": "REAL",
+            "deal_breakers_json": "TEXT NOT NULL DEFAULT '[]'",
+        }
+        for name, definition in additions.items():
+            if name not in columns:
+                self.connection.execute(
+                    f"ALTER TABLE outcome_snapshots "
+                    f"ADD COLUMN {name} {definition}"
+                )
 
     def save_outcome_snapshot(
         self,
@@ -130,10 +159,15 @@ class HistoryDatabase:
                 opportunity_score,
                 conviction_score,
                 decision_confidence,
+                business_score,
+                valuation_score,
+                financial_score,
+                timing_score,
                 risk_penalty,
-                has_deal_breaker
+                has_deal_breaker,
+                deal_breakers_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 data["decision_date"],
@@ -146,8 +180,16 @@ class HistoryDatabase:
                 data["opportunity_score"],
                 data["conviction_score"],
                 data["decision_confidence"],
+                data["business_score"],
+                data["valuation_score"],
+                data["financial_score"],
+                data["timing_score"],
                 data["risk_penalty"],
                 int(data["has_deal_breaker"]),
+                json.dumps(
+                    data["deal_breakers"],
+                    ensure_ascii=False,
+                ),
             ),
         )
         self.connection.commit()
@@ -190,6 +232,15 @@ class HistoryDatabase:
             result["has_deal_breaker"] = result[
                 "has_deal_breaker"
             ].astype(bool)
+
+        if "deal_breakers_json" in result.columns:
+            result["deal_breakers"] = result[
+                "deal_breakers_json"
+            ].map(
+                lambda value: tuple(
+                    json.loads(value or "[]")
+                )
+            )
 
         return result
 

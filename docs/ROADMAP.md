@@ -45,7 +45,7 @@
 - [x] Hit rate
 - [x] Opportunity calibration
 - [x] Conviction calibration
-- [ ] Rule and factor performance analysis
+- [x] Rule and factor performance analysis
 
 ## v2.0 — Platform — Planned
 
