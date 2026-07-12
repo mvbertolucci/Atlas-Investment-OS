@@ -14,7 +14,6 @@ from analytics.feature_audit import (
 from analytics.fundamentals import compute_fundamentals
 from analytics.indicators import enrich_technicals
 from analytics.mapper import normalize_columns
-from analytics.validator import add_confidence_score
 from atlas_logger import get_logger
 from health.health_check import print_health_report, run_health_check
 from metrics.execution import (
@@ -128,7 +127,6 @@ def build_scores(df: pd.DataFrame) -> pd.DataFrame:
     logger.info("Iniciando normalização e scoring.")
 
     result = normalize_columns(df)
-    result = add_confidence_score(result)
 
     result = score_dataframe(
         result,
