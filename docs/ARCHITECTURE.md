@@ -49,8 +49,8 @@ PortfolioReport
 ```
 
 The portfolio flow is integrated into the company pipeline through
-`portfolio/pipeline.py` and is exported to JSON and conditional Excel sheets.
-PR-018.3 will add the same intelligence to the Morning Brief.
+`portfolio/pipeline.py` and the same `PortfolioReport` is exported to JSON,
+conditional Excel sheets and the Morning Brief.
 
 ## Layers
 

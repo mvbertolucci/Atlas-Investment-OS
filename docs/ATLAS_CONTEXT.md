@@ -1,9 +1,9 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-018.2` / commit `ac5d226`  
+**Last synchronized baseline:** `PR-018.3`
 **Declared release:** `1.0.0`  
-**Validation baseline:** 187 tests passing
+**Validation baseline:** 192 tests passing
 
 ## 1. Product mission
 
@@ -48,7 +48,8 @@ SQLite history + Excel + Morning Brief + execution metrics
 - When absent, the company pipeline continues normally.
 - When present and valid, Atlas builds `output/portfolio_report.json`.
 - Excel includes six conditional portfolio worksheets.
-- Morning Brief portfolio integration is not yet implemented.
+- Morning Brief includes portfolio allocation, concentration, position
+  highlights, warnings and advisory rebalance actions.
 
 ## 3. Key modules
 
@@ -61,7 +62,7 @@ SQLite history + Excel + Morning Brief + execution metrics
 | Company reports | `reports/report_models.py`, `reports/report_engine.py` | Integrated |
 | Historical intelligence | `storage/history_db.py`, `analytics/history.py`, `analytics/alerts.py` | Integrated |
 | Portfolio Intelligence | `portfolio/` | Integrated into main pipeline and Excel |
-| Morning Brief | `reports/morning_brief.py` | Company-level integrated; portfolio section pending |
+| Morning Brief | `reports/morning_brief.py` | Company and portfolio intelligence integrated |
 | Operational health | `health/`, `metrics/`, `atlas_logger.py` | Integrated; direct coverage pending |
 | Outcome Analytics | not yet implemented | Planned for v1.2 |
 
@@ -98,11 +99,10 @@ Completed:
 
 Next functional task:
 
-- **PR-018.3 — Add Portfolio Intelligence to the Morning Brief.**
+- **PR-018.4 — Coverage hardening.**
 
 Then:
 
-- PR-018.4 coverage hardening;
 - PR-018.5 legacy/configuration consolidation;
 - v1.2 Outcome Analytics.
 

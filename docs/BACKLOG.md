@@ -70,11 +70,11 @@
 
 ### PR-018.3 — Morning Brief integration
 
-- [ ] Add portfolio allocation and concentration summary
-- [ ] Surface highest-risk and highest-conviction positions
-- [ ] Include advisory rebalance actions
-- [ ] Preserve current company-level Morning Brief sections
-- [ ] Add snapshot tests
+- [x] Add portfolio allocation and concentration summary
+- [x] Surface highest-risk and highest-conviction positions
+- [x] Include advisory rebalance actions
+- [x] Preserve current company-level Morning Brief sections
+- [x] Add snapshot tests
 
 ### PR-018.4 — Coverage hardening
 

@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.0.0`
 
-Development baseline: `PR-018.2`.
+Development baseline: `PR-018.3`.
 
 ## Main capabilities
 
@@ -35,8 +35,8 @@ The company-analysis pipeline is integrated end to end through `run_all.py`:
 Providers -> Factors -> Scores -> Decision -> Thesis -> History -> Reports
 ```
 
-Portfolio Intelligence is integrated into the main pipeline and Excel outputs.
-Its Morning Brief presentation is the next functional delivery (`PR-018.3`).
+Portfolio Intelligence is integrated into the main pipeline, Excel outputs and
+Morning Brief. The next delivery is operational coverage hardening (`PR-018.4`).
 
 ## Quick start
 

@@ -1,7 +1,7 @@
 # Feature Status
 
-**Baseline:** PR-018.2  
-**Test baseline:** 187 passing
+**Baseline:** PR-018.3
+**Test baseline:** 192 passing
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
@@ -12,10 +12,10 @@
 | Deal Breakers and penalties | Yes | Yes | Yes | Yes | Operational |
 | Decision Engine and thesis | Yes | Yes | Yes | Yes | Operational |
 | Historical snapshots and alerts | Yes | Yes | Partial | Yes | Operational |
-| Portfolio import and validation | Yes | Yes | Yes | No | Operational |
-| Allocation and concentration | Yes | Yes | Yes | No | Morning Brief pending |
-| Portfolio quality and ranking | Yes | Yes | Yes | No | Morning Brief pending |
-| Advisory rebalance | Yes | Yes | Yes | No | Morning Brief pending |
+| Portfolio import and validation | Yes | Yes | Yes | Yes | Operational |
+| Allocation and concentration | Yes | Yes | Yes | Yes | Operational |
+| Portfolio quality and ranking | Yes | Yes | Yes | Yes | Operational |
+| Advisory rebalance | Yes | Yes | Yes | Yes | Operational |
 | Health check and execution metrics | Yes | Yes | N/A | N/A | Operational; direct tests pending |
 | Outcome Analytics | No | No | No | No | Planned v1.2 |
 | Backtesting | No | No | No | No | Future milestone |
@@ -32,3 +32,7 @@ With `config/portfolio.csv`, Atlas creates:
 - `Portfolio Quality` worksheet;
 - `Portfolio Rebalance` worksheet;
 - `Portfolio Warnings` worksheet.
+
+The Morning Brief also includes an executive portfolio section with largest
+positions, quality, concentration, conviction/risk highlights, warnings and
+advisory rebalance actions.

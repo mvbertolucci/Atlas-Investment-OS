@@ -7,12 +7,34 @@ from typing import Any, Sequence
 import pandas as pd
 
 from analytics.alerts import build_alerts
+from portfolio.report import PortfolioReport
 from reports.history_report import build_history_summary
 from reports.report_engine import build_company_reports
 from reports.report_models import CompanyReport
 
 
 DEFAULT_TOP_COUNT = 5
+
+
+def _safe_percent(value: Any, digits: int = 1) -> str:
+    numeric = pd.to_numeric(value, errors="coerce")
+
+    if pd.isna(numeric):
+        return "-"
+
+    return f"{float(numeric) * 100:.{digits}f}%"
+
+
+def _safe_money(
+    value: Any,
+    currency: str,
+) -> str:
+    numeric = pd.to_numeric(value, errors="coerce")
+
+    if pd.isna(numeric):
+        return "-"
+
+    return f"{currency} {float(numeric):,.2f}"
 
 
 def _numeric_series(
@@ -91,6 +113,106 @@ def _top_company_reports(
         key=lambda report: report.opportunity_score or 0.0,
         reverse=True,
     )[:max(int(top_count), 0)]
+
+
+def build_portfolio_brief(
+    portfolio_report: PortfolioReport,
+    company_reports: Sequence[CompanyReport],
+    top_count: int = DEFAULT_TOP_COUNT,
+) -> dict[str, Any]:
+    """Constrói a visão executiva de carteira do Morning Brief."""
+
+    if not isinstance(portfolio_report, PortfolioReport):
+        raise TypeError(
+            "portfolio_report deve ser PortfolioReport."
+        )
+
+    limit = max(int(top_count), 0)
+    weights = portfolio_report.allocation.get(
+        "by_symbol",
+        {},
+    )
+    reports = {
+        report.symbol: report
+        for report in company_reports
+    }
+
+    positions: list[dict[str, Any]] = []
+
+    for symbol, weight in weights.items():
+        report = reports.get(str(symbol).upper())
+        positions.append(
+            {
+                "symbol": str(symbol).upper(),
+                "weight": float(weight),
+                "conviction_score": (
+                    report.conviction_score
+                    if report is not None
+                    else None
+                ),
+                "risk_penalty": (
+                    report.risk_penalty
+                    if report is not None
+                    else None
+                ),
+                "decision": (
+                    report.decision
+                    if report is not None
+                    else ""
+                ),
+                "decision_rating": (
+                    report.decision_rating
+                    if report is not None
+                    else ""
+                ),
+            }
+        )
+
+    largest_positions = sorted(
+        positions,
+        key=lambda item: item["weight"],
+        reverse=True,
+    )[:limit]
+
+    highest_conviction = sorted(
+        (
+            item
+            for item in positions
+            if item["conviction_score"] is not None
+        ),
+        key=lambda item: item["conviction_score"],
+        reverse=True,
+    )[:limit]
+
+    risk_priority = {
+        "AVOID": 3,
+        "WATCH": 2,
+        "HOLD": 1,
+    }
+    highest_risk = sorted(
+        positions,
+        key=lambda item: (
+            item["risk_penalty"] or 0.0,
+            risk_priority.get(item["decision"], 0),
+            item["weight"],
+        ),
+        reverse=True,
+    )[:limit]
+
+    actions = sorted(
+        portfolio_report.rebalance.get("actions", []),
+        key=lambda item: int(item.get("priority", 100)),
+    )[:limit]
+
+    return {
+        "report": portfolio_report,
+        "summary": portfolio_report.summary,
+        "largest_positions": largest_positions,
+        "highest_conviction": highest_conviction,
+        "highest_risk": highest_risk,
+        "rebalance_actions": actions,
+        "warnings": list(portfolio_report.warnings),
+    }
 
 
 def build_top_opportunities(
@@ -360,6 +482,7 @@ def build_morning_brief_tables(
     database_path: Path,
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
+    portfolio_report: PortfolioReport | None = None,
 ) -> dict[str, Any]:
     alerts = build_alerts(
         database_path=database_path,
@@ -372,7 +495,7 @@ def build_morning_brief_tables(
         top_count,
     )
 
-    return {
+    result = {
         "summary": build_brief_summary(
             current_df=current_df,
             alerts=alerts,
@@ -396,18 +519,32 @@ def build_morning_brief_tables(
         "important_alerts": alerts.head(10).copy(),
     }
 
+    result["portfolio"] = (
+        build_portfolio_brief(
+            portfolio_report,
+            company_reports,
+            top_count=top_count,
+        )
+        if portfolio_report is not None
+        else None
+    )
+
+    return result
+
 
 def build_morning_brief_dataframe(
     current_df: pd.DataFrame,
     database_path: Path,
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
+    portfolio_report: PortfolioReport | None = None,
 ) -> pd.DataFrame:
     data = build_morning_brief_tables(
         current_df=current_df,
         database_path=database_path,
         period_days=period_days,
         top_count=top_count,
+        portfolio_report=portfolio_report,
     )
 
     summary = data["summary"]
@@ -522,6 +659,38 @@ def build_morning_brief_dataframe(
             ),
         )
 
+    portfolio = data["portfolio"]
+
+    if portfolio is not None:
+        portfolio_summary = portfolio["summary"]
+        add_row(
+            "Portfolio Overview",
+            "Portfolio",
+            portfolio_summary.get("portfolio_name", ""),
+            str(portfolio_summary.get("quality_rating", "")),
+        )
+        add_row(
+            "Portfolio Overview",
+            "Quality Score",
+            portfolio_summary.get("quality_score"),
+        )
+
+        for position in portfolio["largest_positions"]:
+            add_row(
+                "Portfolio Allocation",
+                position["symbol"],
+                position["weight"],
+                position["decision_rating"],
+            )
+
+        for action in portfolio["rebalance_actions"]:
+            add_row(
+                "Portfolio Rebalance (Advisory)",
+                str(action.get("symbol", "")),
+                str(action.get("action", "")),
+                str(action.get("reason", "")),
+            )
+
     add_row(
         "History",
         "Historical Rows",
@@ -606,12 +775,14 @@ def render_morning_brief(
     database_path: Path,
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
+    portfolio_report: PortfolioReport | None = None,
 ) -> str:
     data = build_morning_brief_tables(
         current_df=current_df,
         database_path=database_path,
         period_days=period_days,
         top_count=top_count,
+        portfolio_report=portfolio_report,
     )
 
     summary = data["summary"]
@@ -717,6 +888,114 @@ def render_morning_brief(
                 f"{row.get('Alert Message', '')}"
             )
 
+    portfolio = data["portfolio"]
+
+    if portfolio is not None:
+        portfolio_summary = portfolio["summary"]
+        currency = str(
+            portfolio_summary.get("currency", "BRL")
+        )
+        lines.extend(
+            [
+                "",
+                "-" * 70,
+                "PORTFOLIO INTELLIGENCE",
+                "-" * 70,
+                (
+                    "Carteira: "
+                    f"{portfolio_summary.get('portfolio_name', '')}"
+                ),
+                (
+                    "Valor total: "
+                    + _safe_money(
+                        portfolio_summary.get("total_value"),
+                        currency,
+                    )
+                ),
+                (
+                    "Qualidade: "
+                    f"{_safe_number(portfolio_summary.get('quality_score'))} "
+                    f"({portfolio_summary.get('quality_rating', '-')})"
+                ),
+                (
+                    "Caixa: "
+                    f"{_safe_percent(portfolio_summary.get('cash_weight'))}"
+                ),
+                (
+                    "Maior posição: "
+                    f"{_safe_percent(portfolio_summary.get('largest_position_weight'))}"
+                ),
+                (
+                    "Concentração: "
+                    f"{_safe_number(portfolio_summary.get('concentration_score'))}"
+                ),
+                (
+                    "Diversificação: "
+                    f"{_safe_number(portfolio_summary.get('diversification_score'))}"
+                ),
+                "",
+                "Maiores posições:",
+            ]
+        )
+
+        for position in portfolio["largest_positions"]:
+            lines.append(
+                f"- {position['symbol']}: "
+                f"{_safe_percent(position['weight'])}"
+            )
+
+        lines.append("")
+        lines.append("Maior convicção:")
+        if portfolio["highest_conviction"]:
+            for position in portfolio["highest_conviction"]:
+                lines.append(
+                    f"- {position['symbol']}: "
+                    f"{_safe_number(position['conviction_score'])}"
+                )
+        else:
+            lines.append("- Dados de convicção indisponíveis.")
+
+        lines.append("")
+        lines.append("Maior risco:")
+        if portfolio["highest_risk"]:
+            for position in portfolio["highest_risk"]:
+                lines.append(
+                    f"- {position['symbol']}: penalidade "
+                    f"{_safe_number(position['risk_penalty'])}"
+                    + (
+                        f" | {position['decision_rating']}"
+                        if position["decision_rating"]
+                        else ""
+                    )
+                )
+        else:
+            lines.append("- Dados de risco indisponíveis.")
+
+        lines.extend(
+            [
+                "",
+                "Rebalanceamento consultivo:",
+                "As ações abaixo são sugestões; nenhuma ordem é executada.",
+            ]
+        )
+        if portfolio["rebalance_actions"]:
+            for action in portfolio["rebalance_actions"]:
+                lines.append(
+                    f"- {action.get('symbol', '')}: "
+                    f"{action.get('action', '')} | "
+                    f"{_safe_percent(action.get('current_weight'))} → "
+                    f"{_safe_percent(action.get('target_weight'))} | "
+                    f"{action.get('reason', '')}"
+                )
+        else:
+            lines.append("- Nenhuma ação sugerida.")
+
+        if portfolio["warnings"]:
+            lines.append("")
+            lines.append("Alertas da carteira:")
+            for warning in portfolio["warnings"][:top_count]:
+                lines.append(f"- {warning}")
+
     lines.extend(
         [
             "",
@@ -749,6 +1028,7 @@ def write_morning_brief(
     output_path: Path,
     period_days: int = 30,
     top_count: int = DEFAULT_TOP_COUNT,
+    portfolio_report: PortfolioReport | None = None,
 ) -> Path:
     output_path = Path(output_path)
 
@@ -762,6 +1042,7 @@ def write_morning_brief(
         database_path=database_path,
         period_days=period_days,
         top_count=top_count,
+        portfolio_report=portfolio_report,
     )
 
     output_path.write_text(

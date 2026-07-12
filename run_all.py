@@ -220,6 +220,7 @@ def generate_excel_reports(
 
 def generate_morning_brief(
     df: pd.DataFrame,
+    portfolio_report: PortfolioReport | None = None,
 ) -> tuple[Path, str]:
     logger.info("Gerando Morning Brief.")
 
@@ -227,11 +228,13 @@ def generate_morning_brief(
         current_df=df,
         database_path=HISTORY_DATABASE,
         output_path=MORNING_BRIEF_FILE,
+        portfolio_report=portfolio_report,
     )
 
     brief_text = render_morning_brief(
         current_df=df,
         database_path=HISTORY_DATABASE,
+        portfolio_report=portfolio_report,
     )
 
     logger.info(
@@ -386,7 +389,10 @@ def main() -> None:
             "morning_brief_time",
         ):
             brief_file, brief_text = (
-                generate_morning_brief(df)
+                generate_morning_brief(
+                    df,
+                    portfolio_report=portfolio_report,
+                )
             )
 
         print_console_table(df)

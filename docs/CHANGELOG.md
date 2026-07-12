@@ -1,5 +1,23 @@
 # Changelog
 
+## PR-018.3 — Portfolio Intelligence in Morning Brief
+
+### Added
+
+- Executive portfolio overview with value, cash, quality, concentration and diversification.
+- Largest-position, highest-conviction and highest-risk highlights.
+- Explicitly advisory rebalance actions and consolidated portfolio warnings.
+- Regression coverage for rendering, persistence, optional behavior and pipeline forwarding.
+
+### Changed
+
+- The same `PortfolioReport` now feeds JSON, Excel and Morning Brief outputs.
+- Company-only Morning Brief behavior remains unchanged when no portfolio is configured.
+
+### Validation
+
+- 192 automated tests passed.
+
 ## Repository consolidation — 2026-07-12
 
 - Removed patch ZIPs and expanded historical source copies already preserved by Git.

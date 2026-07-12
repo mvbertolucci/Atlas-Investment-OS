@@ -24,7 +24,9 @@ The release includes:
 - PortfolioReport domain output.
 
 The portfolio engine is implemented and tested. Integration into `run_all.py`
-and Excel is complete. Morning Brief integration is the next v1.1 delivery.
+and Excel is complete. Morning Brief integration is complete at PR-018.3,
+including portfolio allocation, concentration, position highlights, warnings
+and advisory-only rebalance actions.
 
 ### Historical and reporting intelligence
 
@@ -33,9 +35,9 @@ remains the common presentation contract used by Excel and Morning Brief.
 
 ## Validated baseline
 
-At PR-018.2, the declared repository baseline validates with:
+At PR-018.3, the repository baseline validates with:
 
-- 187 automated tests passing;
+- 192 automated tests passing;
 - no known functional regression;
 - normalized repository line endings.
 
