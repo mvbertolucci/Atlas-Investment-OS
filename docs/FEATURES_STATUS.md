@@ -1,7 +1,7 @@
 # Feature Status
 
-**Baseline:** PR-019.1
-**Test baseline:** 225 passing / 86.76% production coverage
+**Baseline:** PR-019.2
+**Test baseline:** 238 passing / 86.85% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
@@ -17,7 +17,7 @@
 | Portfolio quality and ranking | Yes | Yes | Yes | Yes | Operational |
 | Advisory rebalance | Yes | Yes | Yes | Yes | Operational |
 | Health check and execution metrics | Yes | Yes | N/A | N/A | Operational; 100% direct coverage |
-| Outcome Analytics | Foundation | No | No | No | Snapshot model and persistence complete |
+| Outcome Analytics | Yes | Partial | No | No | Automatic decision capture; return evaluation pending |
 | Backtesting | No | No | No | No | Future milestone |
 | Dashboard/API | No | No | No | No | Future platform |
 

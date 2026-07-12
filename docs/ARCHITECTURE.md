@@ -103,10 +103,12 @@ conditional Excel sheets and the Morning Brief.
 ### Outcome layer
 
 - `outcomes/models.py`
+- `outcomes/pipeline.py`
 - `storage/history_db.py` (`outcome_snapshots` table)
 
-Outcome snapshots preserve the decision-time state. Future-price evaluation and
-derived return metrics remain separate later stages.
+The main pipeline captures outcome snapshots after the company decision is
+available. Configured horizons are normalized and carried by the capture result.
+Future-price evaluation and derived return metrics remain separate later stages.
 
 ### Operational layer
 

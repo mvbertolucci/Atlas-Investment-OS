@@ -1,5 +1,27 @@
 # Changelog
 
+## PR-019.2 — Configurable horizons and automatic decision capture
+
+### Added
+
+- Configurable, normalized outcome evaluation horizons.
+- Automatic `OutcomeSnapshot` creation after the normal history snapshot.
+- Partial-success capture that reports symbols skipped for missing prices.
+- Runtime switch to disable Outcome Analytics capture when required.
+- Console summary of captured and skipped decisions.
+- Pipeline, configuration, persistence and orchestration regression tests.
+
+### Compatibility
+
+- Capture defaults to enabled but can be disabled in `settings.json`.
+- Assets without a valid price do not fail the company-analysis run.
+- No future-price lookup or return calculation is introduced yet.
+
+### Validation
+
+- 238 automated tests passed.
+- 86.85% production coverage overall.
+
 ## PR-019.1 — Outcome Snapshot foundation
 
 ### Added

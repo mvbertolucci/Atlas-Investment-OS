@@ -93,6 +93,7 @@
 ## Next milestone — v1.2 Outcome Analytics
 
 - [x] Define outcome snapshot model
+- [x] Configure evaluation horizons and capture decisions automatically
 - [ ] Track decision-to-return results over configurable horizons
 - [ ] Calculate hit rate and calibration metrics
 - [ ] Attribute results to factors, rules and Deal Breakers

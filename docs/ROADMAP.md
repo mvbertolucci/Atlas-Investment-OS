@@ -39,7 +39,8 @@
 ## v1.2 — Outcome Analytics — In progress
 
 - [x] Decision snapshot model and persistence foundation
-- [ ] Automatic decision capture
+- [x] Configurable evaluation horizons
+- [x] Automatic decision capture
 - [ ] Decision outcome tracking over configurable horizons
 - [ ] Hit rate
 - [ ] Opportunity calibration

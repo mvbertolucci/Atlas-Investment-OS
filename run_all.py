@@ -22,6 +22,10 @@ from metrics.execution import (
     print_execution_metrics,
     save_execution_metrics,
 )
+from outcomes.pipeline import (
+    OutcomeCaptureResult,
+    capture_outcome_snapshots,
+)
 from portfolio.pipeline import (
     build_portfolio_intelligence,
     write_portfolio_report,
@@ -198,6 +202,36 @@ def save_history_snapshot(df: pd.DataFrame) -> str:
     return snapshot_date
 
 
+def save_outcome_decisions(
+    df: pd.DataFrame,
+    snapshot_date: str,
+    settings: dict,
+) -> OutcomeCaptureResult | None:
+    if not settings.get(
+        "outcome_analytics_enabled",
+        True,
+    ):
+        logger.info("Outcome Analytics desabilitado.")
+        return None
+
+    with HistoryDatabase(HISTORY_DATABASE) as database:
+        result = capture_outcome_snapshots(
+            database,
+            df,
+            decision_date=snapshot_date,
+            horizons_days=settings.get(
+                "outcome_horizons_days"
+            ),
+        )
+
+    logger.info(
+        "Outcome snapshots salvos: %s; ignorados: %s.",
+        result.saved_count,
+        len(result.skipped_symbols),
+    )
+    return result
+
+
 def generate_excel_reports(
     df: pd.DataFrame,
     portfolio_report: PortfolioReport | None = None,
@@ -365,6 +399,11 @@ def main() -> None:
 
         with StageTimer(metrics, "history_time"):
             snapshot_date = save_history_snapshot(df)
+            outcome_capture = save_outcome_decisions(
+                df,
+                snapshot_date,
+                settings,
+            )
 
         portfolio_result = generate_portfolio_intelligence(
             df,
@@ -416,6 +455,20 @@ def main() -> None:
             )
 
         print(f"Morning Brief   : {brief_file}")
+
+        if outcome_capture is not None:
+            print(
+                "Outcome Captures: "
+                f"{outcome_capture.saved_count} "
+                f"({', '.join(map(str, outcome_capture.horizons_days))} dias)"
+            )
+            if outcome_capture.skipped_symbols:
+                print(
+                    "Outcome Skipped : "
+                    + ", ".join(
+                        outcome_capture.skipped_symbols
+                    )
+                )
 
         if portfolio_result is not None:
             portfolio_file, portfolio_report = portfolio_result

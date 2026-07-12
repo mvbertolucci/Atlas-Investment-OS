@@ -7,5 +7,7 @@
   "portfolio_path": "config/portfolio.csv",
   "portfolio_name": "Atlas Portfolio",
   "portfolio_cash": 0.0,
-  "portfolio_currency": "BRL"
+  "portfolio_currency": "BRL",
+  "outcome_analytics_enabled": true,
+  "outcome_horizons_days": [30, 90, 180, 365]
 }

@@ -31,8 +31,8 @@ The GitHub Actions workflow executes the tests on Python 3.12.
 
 PR-018.4 establishes:
 
-- 225 automated tests;
-- 86.76% measured production coverage;
+- 238 automated tests;
+- 86.85% measured production coverage;
 - 100% direct coverage for Health Check, execution metrics, logger and
   technical indicators;
 - an enforced 80% floor in GitHub Actions through `.coveragerc`.
