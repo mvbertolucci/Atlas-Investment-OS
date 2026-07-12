@@ -48,9 +48,9 @@ Ranking / Advisory Rebalance
 PortfolioReport
 ```
 
-The portfolio flow is implemented as a tested domain. PR-018.1 will connect it
-to the integrated company pipeline; PR-018.2 and PR-018.3 will connect it to
-Excel and Morning Brief.
+The portfolio flow is integrated into the company pipeline through
+`portfolio/pipeline.py` and is exported to JSON and conditional Excel sheets.
+PR-018.3 will add the same intelligence to the Morning Brief.
 
 ## Layers
 
@@ -91,6 +91,7 @@ Excel and Morning Brief.
 - `portfolio/rebalance.py`
 - `portfolio/report.py`
 - `portfolio/validators.py`
+- `portfolio/pipeline.py`
 
 ### Historical layer
 

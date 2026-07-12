@@ -45,19 +45,28 @@
 
 ### PR-018.1 — Main-pipeline integration
 
-- [ ] Load the configured portfolio during the normal run
-- [ ] Match holdings to generated `CompanyReport` objects
-- [ ] Build `PortfolioReport` after company analysis
-- [ ] Preserve successful company reports when portfolio input is absent or invalid
-- [ ] Add integration and regression tests
+- [x] Load the configured portfolio during the normal run
+- [x] Match holdings to generated `CompanyReport` objects
+- [x] Build `PortfolioReport` after company analysis
+- [x] Preserve successful company reports when portfolio input is absent or invalid
+- [x] Add integration and regression tests
 
 ### PR-018.2 — Excel integration ✅
 
-- [ ] Add Portfolio Summary sheet
-- [ ] Add Holdings Analysis sheet
-- [ ] Add Concentration and Rebalance sections
-- [ ] Keep existing workbook sheets and contracts unchanged
-- [ ] Add workbook regression tests
+- [x] Add Portfolio Summary sheet
+- [x] Add portfolio allocation and quality worksheets
+- [x] Add concentration, warnings and rebalance worksheets
+- [x] Keep existing workbook sheets and contracts unchanged
+- [x] Add workbook regression tests
+
+### Codex transition foundation ✅
+
+- [x] Add root `AGENTS.md` with durable agent instructions
+- [x] Add canonical `ATLAS_CONTEXT.md` project handoff
+- [x] Add project constitution, feature status and testing/development guides
+- [x] Add Codex step-by-step transition guide
+- [x] Add Pull Request and Issue templates
+- [x] Synchronize stale portfolio integration documentation
 
 ### PR-018.3 — Morning Brief integration
 

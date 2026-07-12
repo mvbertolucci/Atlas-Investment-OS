@@ -35,9 +35,8 @@ The company-analysis pipeline is integrated end to end through `run_all.py`:
 Providers -> Factors -> Scores -> Decision -> Thesis -> History -> Reports
 ```
 
-Portfolio Intelligence is implemented and tested as a domain module. Its
-connection to the main pipeline and presentation outputs is the next delivery
-track (`PR-018.1` through `PR-018.3`).
+Portfolio Intelligence is integrated into the main pipeline and Excel outputs.
+Its Morning Brief presentation is the next functional delivery (`PR-018.3`).
 
 ## Quick start
 
@@ -60,6 +59,9 @@ These runtime artifacts should not be committed to Git.
 
 Start with:
 
+- `AGENTS.md` (coding agents and Codex)
+- `docs/ATLAS_CONTEXT.md` (canonical project handoff)
+- `docs/CODEX_TRANSITION.md` (step-by-step migration)
 - `docs/QUICKSTART.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ATLAS_AUDIT_CURRENT_STATUS.md`

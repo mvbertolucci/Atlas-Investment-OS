@@ -1,5 +1,14 @@
 # Changelog
 
+## Codex transition foundation — 2026-07-12
+
+- Added root `AGENTS.md` following the repository-instruction model used by Codex.
+- Added canonical project handoff in `docs/ATLAS_CONTEXT.md`.
+- Added project constitution, feature status, development, testing and Codex transition guides.
+- Added GitHub Pull Request and Issue templates.
+- Synchronized README, architecture, roadmap and backlog with PR-018.1/018.2 reality.
+- No production scoring or runtime behavior changed.
+
 ## PR-018.2 — Portfolio Intelligence in Excel
 
 ### Added

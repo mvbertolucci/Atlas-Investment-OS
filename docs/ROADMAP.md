@@ -31,6 +31,7 @@
 - [x] PR-018.0 Baseline cleanup and documentation synchronization
 - [x] PR-018.1 Integrate portfolio processing into the main pipeline
 - [x] PR-018.2 Add portfolio sheets to the Excel workbook
+- [x] Codex transition foundation: repository-native context and agent workflow
 - [ ] PR-018.3 Add portfolio intelligence to the Morning Brief
 - [ ] PR-018.4 Increase operational and technical-indicator test coverage
 - [ ] PR-018.5 Consolidate legacy code, databases and configuration ownership
