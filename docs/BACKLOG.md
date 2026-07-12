@@ -78,10 +78,10 @@
 
 ### PR-018.4 — Coverage hardening
 
-- [ ] Add direct tests for Health Check
-- [ ] Add direct tests for execution metrics and logger behavior
-- [ ] Increase technical-indicator edge-case coverage
-- [ ] Establish and enforce the next coverage floor
+- [x] Add direct tests for Health Check
+- [x] Add direct tests for execution metrics and logger behavior
+- [x] Increase technical-indicator edge-case coverage
+- [x] Establish and enforce the next coverage floor
 
 ### PR-018.5 — Consolidation
 

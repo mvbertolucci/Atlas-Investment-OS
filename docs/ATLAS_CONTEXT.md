@@ -1,9 +1,9 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-018.3`
+**Last synchronized baseline:** `PR-018.4`
 **Declared release:** `1.0.0`  
-**Validation baseline:** 192 tests passing
+**Validation baseline:** 212 tests passing / 86.37% production coverage
 
 ## 1. Product mission
 
@@ -63,7 +63,7 @@ SQLite history + Excel + Morning Brief + execution metrics
 | Historical intelligence | `storage/history_db.py`, `analytics/history.py`, `analytics/alerts.py` | Integrated |
 | Portfolio Intelligence | `portfolio/` | Integrated into main pipeline and Excel |
 | Morning Brief | `reports/morning_brief.py` | Company and portfolio intelligence integrated |
-| Operational health | `health/`, `metrics/`, `atlas_logger.py` | Integrated; direct coverage pending |
+| Operational health | `health/`, `metrics/`, `atlas_logger.py` | Integrated; 100% direct coverage |
 | Outcome Analytics | not yet implemented | Planned for v1.2 |
 
 ## 4. Authoritative configuration
@@ -95,16 +95,14 @@ Completed:
 
 - PR-018.0 baseline cleanup and documentation synchronization;
 - PR-018.1 portfolio integration into the main pipeline;
-- PR-018.2 portfolio worksheets in Excel.
+- PR-018.2 portfolio worksheets in Excel;
+- PR-018.3 portfolio intelligence in Morning Brief;
+- PR-018.4 operational coverage hardening;
+- PR-018.5 legacy/configuration consolidation.
 
-Next functional task:
+Next functional milestone:
 
-- **PR-018.4 — Coverage hardening.**
-
-Then:
-
-- PR-018.5 legacy/configuration consolidation;
-- v1.2 Outcome Analytics.
+- **v1.2 — Outcome Analytics.**
 
 ## 7. Definition of done
 
@@ -119,7 +117,6 @@ A task is complete only when:
 
 ## 8. Known risks and technical debt
 
-- Some operational modules have low or no direct test coverage.
 - Documentation created before PR-018.1 may describe Portfolio Intelligence as domain-only; prefer this document and current code.
 - Historical persistence has a single owner: `storage/history_db.py`.
 - Legacy feature and scoring engines were removed; `factors/engine.py` and
@@ -137,4 +134,6 @@ A task is complete only when:
 
 Recommended first prompt:
 
-> Read AGENTS.md and docs/ATLAS_CONTEXT.md. Verify the repository baseline and tests. Then implement PR-018.3, preserving all existing contracts, updating tests and living documentation, and show me the diff summary before any merge.
+> Read AGENTS.md and docs/ATLAS_CONTEXT.md. Verify the repository baseline,
+> coverage gate and tests. Then scope the first atomic Outcome Analytics task,
+> preserving all existing contracts and governed financial configuration.

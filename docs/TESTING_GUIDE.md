@@ -3,7 +3,11 @@
 ## Standard command
 
 ```bash
-python -m pytest tests -q
+python -m pytest tests -q \
+  --cov=. \
+  --cov-config=.coveragerc \
+  --cov-report=term-missing \
+  --cov-fail-under=80
 ```
 
 The GitHub Actions workflow executes the tests on Python 3.12.
@@ -23,15 +27,15 @@ The GitHub Actions workflow executes the tests on Python 3.12.
 3. **Integration:** pipeline composition with controlled local inputs.
 4. **Regression:** previously corrected financial semantics and edge cases.
 
-## Coverage direction
+## Coverage baseline
 
-The last audited global coverage was 74% before PR-018.1/018.2. PR-018.4 must establish a new measured baseline and enforce a conservative floor only after uncovered operational paths receive direct tests.
+PR-018.4 establishes:
 
-Priority gaps:
+- 212 automated tests;
+- 86.37% measured production coverage;
+- 100% direct coverage for Health Check, execution metrics, logger and
+  technical indicators;
+- an enforced 80% floor in GitHub Actions through `.coveragerc`.
 
-- `health/health_check.py`;
-- `metrics/execution.py`;
-- logger behavior;
-- technical-indicator edge cases;
-- Morning Brief branches;
-- legacy database modules under consolidation review.
+Tests and virtual-environment files are excluded from the production coverage
+calculation. The floor must not be lowered merely to make CI pass.

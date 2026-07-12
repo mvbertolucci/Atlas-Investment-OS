@@ -1,12 +1,12 @@
 # Feature Status
 
-**Baseline:** PR-018.3
-**Test baseline:** 192 passing
+**Baseline:** PR-018.4
+**Test baseline:** 212 passing / 86.37% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
 | Market/fundamental collection | Yes | Yes | Yes | Yes | Operational |
-| Technical enrichment | Yes | Yes | Yes | Yes | Operational; coverage hardening pending |
+| Technical enrichment | Yes | Yes | Yes | Yes | Operational; 100% direct coverage |
 | Investment scoring | Yes | Yes | Yes | Yes | Operational |
 | Opportunity and conviction | Yes | Yes | Yes | Yes | Operational |
 | Deal Breakers and penalties | Yes | Yes | Yes | Yes | Operational |
@@ -16,7 +16,7 @@
 | Allocation and concentration | Yes | Yes | Yes | Yes | Operational |
 | Portfolio quality and ranking | Yes | Yes | Yes | Yes | Operational |
 | Advisory rebalance | Yes | Yes | Yes | Yes | Operational |
-| Health check and execution metrics | Yes | Yes | N/A | N/A | Operational; direct tests pending |
+| Health check and execution metrics | Yes | Yes | N/A | N/A | Operational; 100% direct coverage |
 | Outcome Analytics | No | No | No | No | Planned v1.2 |
 | Backtesting | No | No | No | No | Future milestone |
 | Dashboard/API | No | No | No | No | Future platform |

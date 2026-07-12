@@ -35,9 +35,11 @@ remains the common presentation contract used by Excel and Morning Brief.
 
 ## Validated baseline
 
-At PR-018.3, the repository baseline validates with:
+At PR-018.4, the repository baseline validates with:
 
-- 192 automated tests passing;
+- 212 automated tests passing;
+- 86.37% measured production coverage;
+- 80% minimum coverage enforced in CI;
 - no known functional regression;
 - normalized repository line endings.
 

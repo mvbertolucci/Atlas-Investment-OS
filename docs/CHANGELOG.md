@@ -1,5 +1,26 @@
 # Changelog
 
+## PR-018.4 — Operational coverage hardening
+
+### Added
+
+- Direct Health Check tests, including failure and Windows disk-space paths.
+- Execution metric, stage timer, CSV persistence and console-output tests.
+- Logger idempotency, handler and file-output tests.
+- Technical-indicator edge-case and enrichment tests.
+- `.coveragerc` with an 80% production coverage floor enforced by CI.
+
+### Changed
+
+- Removed one unused private Health Check helper.
+- CI now executes the full suite with coverage enforcement.
+
+### Validation
+
+- 212 automated tests passed.
+- 86.37% production coverage overall.
+- 100% direct coverage for the four PR-018.4 target modules.
+
 ## PR-018.3 — Portfolio Intelligence in Morning Brief
 
 ### Added

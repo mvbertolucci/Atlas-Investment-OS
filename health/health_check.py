@@ -51,10 +51,6 @@ class HealthReport:
 # ============================================================
 
 
-def _exists(path: Path) -> bool:
-    return path.exists()
-
-
 def _check_file(path: Path) -> HealthItem:
 
     return HealthItem(

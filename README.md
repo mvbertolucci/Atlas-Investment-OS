@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.0.0`
 
-Development baseline: `PR-018.3`.
+Development baseline: `PR-018.4`.
 
 ## Main capabilities
 
@@ -36,7 +36,7 @@ Providers -> Factors -> Scores -> Decision -> Thesis -> History -> Reports
 ```
 
 Portfolio Intelligence is integrated into the main pipeline, Excel outputs and
-Morning Brief. The next delivery is operational coverage hardening (`PR-018.4`).
+Morning Brief. Operational coverage is hardened with an enforced 80% CI floor.
 
 ## Quick start
 
