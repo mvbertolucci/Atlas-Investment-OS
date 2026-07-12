@@ -36,9 +36,11 @@
 - [ ] PR-018.4 Increase operational and technical-indicator test coverage
 - [ ] PR-018.5 Consolidate legacy code, databases and configuration ownership
 
-## v1.2 — Outcome Analytics — Planned
+## v1.2 — Outcome Analytics — In progress
 
-- [ ] Decision outcome tracking
+- [x] Decision snapshot model and persistence foundation
+- [ ] Automatic decision capture
+- [ ] Decision outcome tracking over configurable horizons
 - [ ] Hit rate
 - [ ] Opportunity calibration
 - [ ] Conviction calibration

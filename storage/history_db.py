@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from outcomes.models import OutcomeSnapshot
+
 
 class HistoryDatabase:
     """
@@ -54,7 +56,119 @@ class HistoryDatabase:
             """
         )
 
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS outcome_snapshots
+            (
+                decision_date       TEXT NOT NULL,
+                symbol              TEXT NOT NULL,
+                company_name        TEXT,
+                decision_price      REAL NOT NULL,
+                decision            TEXT NOT NULL,
+                decision_rating     TEXT,
+                investment_score    REAL,
+                opportunity_score   REAL,
+                conviction_score    REAL,
+                decision_confidence REAL,
+                risk_penalty        REAL,
+                has_deal_breaker    INTEGER NOT NULL DEFAULT 0,
+
+                PRIMARY KEY (
+                    decision_date,
+                    symbol
+                )
+            )
+            """
+        )
+
         self.connection.commit()
+
+    def save_outcome_snapshot(
+        self,
+        snapshot: OutcomeSnapshot,
+    ) -> None:
+        if not isinstance(snapshot, OutcomeSnapshot):
+            raise TypeError(
+                "snapshot deve ser OutcomeSnapshot."
+            )
+
+        data = snapshot.to_dict()
+        self.connection.execute(
+            """
+            INSERT OR REPLACE INTO outcome_snapshots
+            (
+                decision_date,
+                symbol,
+                company_name,
+                decision_price,
+                decision,
+                decision_rating,
+                investment_score,
+                opportunity_score,
+                conviction_score,
+                decision_confidence,
+                risk_penalty,
+                has_deal_breaker
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                data["decision_date"],
+                data["symbol"],
+                data["company_name"],
+                data["decision_price"],
+                data["decision"],
+                data["decision_rating"],
+                data["investment_score"],
+                data["opportunity_score"],
+                data["conviction_score"],
+                data["decision_confidence"],
+                data["risk_penalty"],
+                int(data["has_deal_breaker"]),
+            ),
+        )
+        self.connection.commit()
+
+    def save_outcome_snapshots(
+        self,
+        snapshots: list[OutcomeSnapshot],
+    ) -> None:
+        for snapshot in snapshots:
+            self.save_outcome_snapshot(snapshot)
+
+    def load_outcome_snapshots(
+        self,
+        symbol: str | None = None,
+    ) -> pd.DataFrame:
+        if symbol is None:
+            query = """
+                SELECT *
+                FROM outcome_snapshots
+                ORDER BY decision_date, symbol
+            """
+            result = pd.read_sql_query(
+                query,
+                self.connection,
+            )
+        else:
+            query = """
+                SELECT *
+                FROM outcome_snapshots
+                WHERE symbol = ?
+                ORDER BY decision_date
+            """
+            result = pd.read_sql_query(
+                query,
+                self.connection,
+                params=(str(symbol).strip().upper(),),
+            )
+
+        if "has_deal_breaker" in result.columns:
+            result["has_deal_breaker"] = result[
+                "has_deal_breaker"
+            ].astype(bool)
+
+        return result
 
     def save_snapshot(
         self,

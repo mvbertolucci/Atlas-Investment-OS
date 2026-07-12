@@ -92,7 +92,7 @@
 
 ## Next milestone — v1.2 Outcome Analytics
 
-- [ ] Define outcome snapshot model
+- [x] Define outcome snapshot model
 - [ ] Track decision-to-return results over configurable horizons
 - [ ] Calculate hit rate and calibration metrics
 - [ ] Attribute results to factors, rules and Deal Breakers

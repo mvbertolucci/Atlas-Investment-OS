@@ -100,6 +100,14 @@ conditional Excel sheets and the Morning Brief.
 - `analytics/alerts.py`
 - `reports/history_report.py`
 
+### Outcome layer
+
+- `outcomes/models.py`
+- `storage/history_db.py` (`outcome_snapshots` table)
+
+Outcome snapshots preserve the decision-time state. Future-price evaluation and
+derived return metrics remain separate later stages.
+
 ### Operational layer
 
 - `health/`

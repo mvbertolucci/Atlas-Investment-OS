@@ -1,5 +1,27 @@
 # Changelog
 
+## PR-019.1 — Outcome Snapshot foundation
+
+### Added
+
+- Immutable `OutcomeSnapshot` decision-time domain contract.
+- Conversion from `CompanyReport` with explicit observed decision price.
+- Additive `outcome_snapshots` SQLite table in the existing history database.
+- Single and bulk persistence, symbol filtering and deterministic upsert behavior.
+- Domain, validation, migration-compatibility and repository regression tests.
+- Canonical Outcome Analytics specification.
+
+### Compatibility
+
+- Existing historical snapshots and public history methods remain unchanged.
+- No automatic pipeline capture, future-price lookup or return calculation is
+  introduced in this increment.
+
+### Validation
+
+- 225 automated tests passed.
+- 86.76% production coverage overall.
+
 ## PR-018.4 — Operational coverage hardening
 
 ### Added
