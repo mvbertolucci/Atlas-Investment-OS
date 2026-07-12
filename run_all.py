@@ -22,6 +22,15 @@ from metrics.execution import (
     print_execution_metrics,
     save_execution_metrics,
 )
+from portfolio.pipeline import (
+    build_portfolio_intelligence,
+    write_portfolio_report,
+)
+from portfolio.pipeline import (
+    build_portfolio_intelligence,
+    write_portfolio_report,
+)
+from portfolio.report import PortfolioReport
 from providers.yahoo import fetch_watchlist
 from reports.excel import write_latest_and_history
 from reports.morning_brief import render_morning_brief, write_morning_brief
@@ -38,6 +47,8 @@ LOGS = ROOT / "logs"
 HISTORY_DATABASE = DATA / "atlas_history.db"
 MORNING_BRIEF_FILE = OUTPUT / "morning_brief.md"
 EXECUTION_METRICS_FILE = LOGS / "execution_metrics.csv"
+PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
+PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
 
 logger = get_logger("run_all")
 
@@ -234,6 +245,88 @@ def generate_morning_brief(
     return brief_path, brief_text
 
 
+
+def generate_portfolio_intelligence(
+    df: pd.DataFrame,
+    settings: dict,
+) -> tuple[Path, PortfolioReport] | None:
+    portfolio_path = ROOT / settings.get(
+        "portfolio_path",
+        "config/portfolio.csv",
+    )
+
+    if not portfolio_path.exists():
+        logger.info(
+            "Portfolio Intelligence ignorado: arquivo não encontrado em %s.",
+            portfolio_path,
+        )
+        return None
+
+    logger.info(
+        "Executando Portfolio Intelligence com %s.",
+        portfolio_path,
+    )
+
+    report = build_portfolio_intelligence(
+        portfolio_path,
+        df,
+        portfolio_name=settings.get("portfolio_name"),
+        cash=float(settings.get("portfolio_cash", 0.0)),
+        currency=settings.get("portfolio_currency", "BRL"),
+    )
+    report_path = write_portfolio_report(
+        report,
+        PORTFOLIO_REPORT_FILE,
+    )
+
+    logger.info(
+        "Portfolio Intelligence concluído em %s.",
+        report_path,
+    )
+    return report_path, report
+
+
+
+def generate_portfolio_intelligence(
+    df: pd.DataFrame,
+    settings: dict,
+) -> tuple[Path, PortfolioReport] | None:
+    portfolio_path = ROOT / settings.get(
+        "portfolio_path",
+        "config/portfolio.csv",
+    )
+
+    if not portfolio_path.exists():
+        logger.info(
+            "Portfolio Intelligence ignorado: arquivo não encontrado em %s.",
+            portfolio_path,
+        )
+        return None
+
+    logger.info(
+        "Executando Portfolio Intelligence com %s.",
+        portfolio_path,
+    )
+
+    report = build_portfolio_intelligence(
+        portfolio_path,
+        df,
+        portfolio_name=settings.get("portfolio_name"),
+        cash=float(settings.get("portfolio_cash", 0.0)),
+        currency=settings.get("portfolio_currency", "BRL"),
+    )
+    report_path = write_portfolio_report(
+        report,
+        PORTFOLIO_REPORT_FILE,
+    )
+
+    logger.info(
+        "Portfolio Intelligence concluído em %s.",
+        report_path,
+    )
+    return report_path, report
+
+
 def print_console_table(df: pd.DataFrame) -> None:
     columns = [
         "symbol",
@@ -327,6 +420,11 @@ def main() -> None:
                 generate_morning_brief(df)
             )
 
+        portfolio_result = generate_portfolio_intelligence(
+            df,
+            settings,
+        )
+
         print_console_table(df)
 
         print(brief_text)
@@ -348,6 +446,21 @@ def main() -> None:
             )
 
         print(f"Morning Brief   : {brief_file}")
+
+        if portfolio_result is not None:
+            portfolio_file, portfolio_report = portfolio_result
+            print(f"Portfolio JSON  : {portfolio_file}")
+            print(
+                "Portfolio Score : "
+                f"{portfolio_report.summary.get('quality_score')} "
+                f"({portfolio_report.summary.get('quality_rating')})"
+            )
+        else:
+            print(
+                "Portfolio       : não executado "
+                "(config/portfolio.csv ausente)"
+            )
+
         print("=" * 70)
 
         save_execution_metrics(

@@ -1,5 +1,25 @@
 # Changelog
 
+## PR-018.1 — Integrated Portfolio Pipeline
+
+### Added
+
+- `portfolio.pipeline` orchestration layer.
+- Automatic linkage between portfolio holdings and current-cycle `CompanyReport` objects.
+- Enrichment of missing holding prices and metadata from watchlist analysis.
+- Consolidated `output/portfolio_report.json`.
+- Optional portfolio settings in `config/settings.json`.
+- End-to-end tests for the integrated portfolio pipeline.
+
+### Changed
+
+- `run_all.py` now executes Portfolio Intelligence when `config/portfolio.csv` exists.
+- Missing portfolio input remains non-breaking and skips the optional stage.
+
+### Validation
+
+- 185 automated tests passed.
+
 ## Unreleased — v1.1
 
 ### PR-018.0 — Baseline and documentation synchronization

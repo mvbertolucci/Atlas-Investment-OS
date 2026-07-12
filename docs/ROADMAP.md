@@ -29,7 +29,7 @@
 ## v1.1 — Integrated Portfolio Intelligence — In progress
 
 - [x] PR-018.0 Baseline cleanup and documentation synchronization
-- [ ] PR-018.1 Integrate portfolio processing into the main pipeline
+- [x] PR-018.1 Integrate portfolio processing into the main pipeline
 - [ ] PR-018.2 Add portfolio sheets to the Excel workbook
 - [ ] PR-018.3 Add portfolio intelligence to the Morning Brief
 - [ ] PR-018.4 Increase operational and technical-indicator test coverage

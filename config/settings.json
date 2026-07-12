@@ -3,5 +3,9 @@
   "output_history_dir": "output/history",
   "watchlist_path": "config/watchlist.csv",
   "history_period": "2y",
-  "history_interval": "1d"
+  "history_interval": "1d",
+  "portfolio_path": "config/portfolio.csv",
+  "portfolio_name": "Atlas Portfolio",
+  "portfolio_cash": 0.0,
+  "portfolio_currency": "BRL"
 }
