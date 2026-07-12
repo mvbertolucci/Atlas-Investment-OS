@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 
 
+# Fallback usado quando config/features.yaml nao traz a secao `valuation`
+# (ou quando score_valuation e chamado sem `features`). A fonte da verdade
+# desde o PR-017.3 e o features.yaml; este dict espelha aquele default e so
+# entra em cena para nao deixar o fator sem definicao. Mantenha em sincronia
+# com config/features.yaml::valuation (test_valuation_config trava isso).
 VALUATION_FEATURES = {
     "pe": {"label": "PE", "weight": 0.20, "higher": False},
     "forward_pe": {"label": "Forward PE", "weight": 0.15, "higher": False},
@@ -13,6 +20,41 @@ VALUATION_FEATURES = {
     "shareholder_yield": {"label": "Shareholder Yield", "weight": 0.05, "higher": True},
     "fcf_yield": {"label": "FCF Yield", "weight": 0.05, "higher": True},
 }
+
+
+def resolve_valuation_features(
+    features: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """
+    Resolve a config do fator valuation, normalizando cada feature para o
+    formato interno {label, weight, higher, column}.
+
+    Prioriza a secao `valuation` de config/features.yaml (fonte da verdade);
+    cai para VALUATION_FEATURES quando ela nao existe. Aceita tanto a chave
+    `higher` (formato legado do dict) quanto `higher_is_better` (features.yaml).
+    """
+
+    raw = None
+    if features:
+        section = features.get("valuation")
+        if isinstance(section, dict) and section:
+            raw = section
+
+    if raw is None:
+        raw = VALUATION_FEATURES
+
+    resolved: dict[str, dict[str, Any]] = {}
+    for name, cfg in raw.items():
+        if not isinstance(cfg, dict):
+            continue
+        higher = cfg.get("higher", cfg.get("higher_is_better", True))
+        resolved[name] = {
+            "label": str(cfg.get("label") or name),
+            "weight": float(cfg.get("weight", 1.0)),
+            "higher": bool(higher),
+            "column": str(cfg.get("column") or name),
+        }
+    return resolved
 
 
 def pct_rank(df: pd.DataFrame, column: str, higher_is_better: bool = True) -> pd.Series:
@@ -37,14 +79,20 @@ def metric_available(df: pd.DataFrame, column: str) -> pd.Series:
     return pd.to_numeric(df[column], errors="coerce").notna()
 
 
-def score_valuation(df: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.DataFrame]:
+def score_valuation(
+    df: pd.DataFrame,
+    features: dict[str, Any] | None = None,
+) -> tuple[pd.Series, pd.Series, pd.DataFrame]:
+    valuation_features = resolve_valuation_features(features)
+
     weighted_sum = pd.Series(0.0, index=df.index)
     available_weight = pd.Series(0.0, index=df.index)
-    total_weight = sum(v["weight"] for v in VALUATION_FEATURES.values())
+    total_weight = sum(v["weight"] for v in valuation_features.values()) or 1.0
 
     details = pd.DataFrame(index=df.index)
 
-    for column, cfg in VALUATION_FEATURES.items():
+    for name, cfg in valuation_features.items():
+        column = cfg["column"]
         score = pct_rank(df, column, cfg["higher"])
         available = metric_available(df, column)
 

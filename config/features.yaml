@@ -48,40 +48,51 @@ business:
     higher_is_better: true
     required: false
 
+# NOTA: as chaves aqui sao as COLUNAS ja normalizadas pelo mapper
+# (ev_ebitda, nao ev_to_ebitda) e os labels batem com as colunas de
+# detalhe emitidas pelo scoring. Ate o PR-017.2 esta secao era ignorada:
+# factors/valuation.py usava um dict hardcoded. Desde o PR-017.3 este
+# arquivo e a fonte da verdade (o dict virou apenas fallback). Os pesos
+# abaixo espelham exatamente o comportamento pre-017.3.
 valuation:
   pe:
-    label: P/E
+    label: PE
     weight: 0.20
     higher_is_better: false
     required: true
   forward_pe:
-    label: Forward P/E
+    label: Forward PE
     weight: 0.15
     higher_is_better: false
     required: false
-  ev_to_ebitda:
-    label: EV/EBITDA
+  ev_ebitda:
+    label: EV EBITDA
     weight: 0.20
     higher_is_better: false
     required: false
-  pb:
-    label: Price / Book
+  ev_ebit:
+    label: EV EBIT
     weight: 0.15
     higher_is_better: false
-    required: true
+    required: false
   peg:
     label: PEG
     weight: 0.10
     higher_is_better: false
     required: false
-  fcf_yield:
-    label: FCF Yield
+  pb:
+    label: Price Book
     weight: 0.10
-    higher_is_better: true
-    required: false
+    higher_is_better: false
+    required: true
   shareholder_yield:
     label: Shareholder Yield
-    weight: 0.10
+    weight: 0.05
+    higher_is_better: true
+    required: false
+  fcf_yield:
+    label: FCF Yield
+    weight: 0.05
     higher_is_better: true
     required: false
 

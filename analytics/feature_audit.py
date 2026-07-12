@@ -7,7 +7,7 @@ from typing import Any
 import pandas as pd
 
 from factors.engine import DEFAULT_FACTORS, get_factor_features, load_yaml
-from factors.valuation import VALUATION_FEATURES
+from factors.valuation import resolve_valuation_features
 
 
 # Colunas que o pipeline consegue de fato produzir de ponta a ponta:
@@ -65,18 +65,25 @@ class FeatureBinding:
     contribution: float
 
 
-def _valuation_bindings(factor_weight: float) -> list[FeatureBinding]:
-    total = sum(float(v["weight"]) for v in VALUATION_FEATURES.values()) or 1.0
+def _valuation_bindings(
+    factor_weight: float,
+    features: dict[str, Any] | None = None,
+) -> list[FeatureBinding]:
+    # Le a mesma fonte que factors/valuation.py (features.yaml, com o dict
+    # hardcoded como fallback), pra o audit nao dessincronizar quando os
+    # pesos de valuation forem tunados pelo config.
+    valuation_features = resolve_valuation_features(features)
+    total = sum(float(v["weight"]) for v in valuation_features.values()) or 1.0
 
     bindings: list[FeatureBinding] = []
-    for column, cfg in VALUATION_FEATURES.items():
+    for name, cfg in valuation_features.items():
         weight = float(cfg.get("weight", 1.0))
         bindings.append(
             FeatureBinding(
                 factor="valuation",
-                name=column,
-                label=str(cfg.get("label", column)),
-                column=column,
+                name=name,
+                label=str(cfg.get("label", name)),
+                column=str(cfg.get("column") or name),
                 weight=weight,
                 factor_weight=factor_weight,
                 contribution=factor_weight * weight / total,
@@ -125,9 +132,9 @@ def collect_model_features(
     Enumera todos os features que o modelo pondera, resolvendo cada um
     até a coluna que ele realmente consome.
 
-    Espelha o roteamento de factors/engine.py: valuation vem de
-    factors/valuation.py (hardcoded), os demais fatores vêm de
-    features.yaml.
+    Espelha o roteamento de factors/engine.py: valuation e resolvido por
+    factors/valuation.py (features.yaml, com fallback hardcoded), os demais
+    fatores vêm de features.yaml.
     """
 
     features = load_yaml(features_path)
@@ -142,7 +149,7 @@ def collect_model_features(
         factor_weight = float(raw_weight) / total_factor_weight
 
         if factor == "valuation":
-            bindings.extend(_valuation_bindings(factor_weight))
+            bindings.extend(_valuation_bindings(factor_weight, features))
         else:
             bindings.extend(
                 _generic_bindings(features, factor, factor_weight)

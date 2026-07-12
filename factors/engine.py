@@ -150,7 +150,7 @@ def score_all_factors(
         factor = str(factor).lower()
 
         if factor == "valuation":
-            score, confidence, details = score_valuation(result)
+            score, confidence, details = score_valuation(result, features)
         else:
             score, confidence, details = score_factor(result, features, factor)
 
