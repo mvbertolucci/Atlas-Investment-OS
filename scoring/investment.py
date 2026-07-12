@@ -84,6 +84,36 @@ def apply_deal_breakers(
             notes + label + "; ",
         )
 
+    def exemption_mask(terms: Any) -> pd.Series:
+        """
+        True nas linhas isentas de uma regra: quando algum termo casa (como
+        substring, case-insensitive) com o `sector` OU o `industry` da empresa.
+
+        Cobre casos onde a metrica e estruturalmente enganosa por setor --
+        Altman Z para utilities/financeiras, current ratio para SaaS (que
+        carrega deferred revenue como passivo circulante).
+        """
+
+        mask = pd.Series(False, index=result.index)
+        if not terms:
+            return mask
+
+        haystack = pd.Series("", index=result.index, dtype="object")
+        for column in ("sector", "industry"):
+            if column in result.columns:
+                haystack = haystack.str.cat(
+                    result[column].fillna("").astype(str),
+                    sep=" | ",
+                )
+        haystack = haystack.str.lower()
+
+        for term in terms:
+            term = str(term).strip().lower()
+            if term:
+                mask = mask | haystack.str.contains(term, regex=False)
+
+        return mask.fillna(False)
+
     max_net_debt_ebitda = rules.get(
         "net_debt_ebitda_max",
         rules.get(
@@ -117,6 +147,11 @@ def apply_deal_breakers(
     min_altman_z = rules.get(
         "altman_z_min",
         1.8,
+    )
+
+    altman_z_exempt = exemption_mask(rules.get("altman_z_exempt_sectors"))
+    current_liquidity_exempt = exemption_mask(
+        rules.get("current_liquidity_exempt_sectors")
     )
 
     max_short_float = rules.get(
@@ -153,7 +188,7 @@ def apply_deal_breakers(
         )
 
         add_penalty(
-            values < float(min_current_ratio),
+            (values < float(min_current_ratio)) & ~current_liquidity_exempt,
             10,
             "Liquidez corrente baixa",
         )
@@ -177,7 +212,7 @@ def apply_deal_breakers(
         )
 
         add_penalty(
-            values < float(min_altman_z),
+            (values < float(min_altman_z)) & ~altman_z_exempt,
             15,
             "Altman Z baixo (risco de insolvencia)",
         )

@@ -73,7 +73,10 @@ def _config_keys() -> set[str]:
 def test_every_config_key_is_covered() -> None:
     """Nenhuma chave do deal_breakers.json pode ficar sem regra mapeada aqui."""
 
-    unknown = _config_keys() - set(RULES)
+    # Chaves de isencao setorial (PR-017.5) modificam regras existentes, nao
+    # sao regras proprias: sufixo _exempt_sectors.
+    keys = {k for k in _config_keys() if not k.endswith("_exempt_sectors")}
+    unknown = keys - set(RULES)
     assert not unknown, (
         f"Chaves em deal_breakers.json sem contrato/bloco conhecido: {sorted(unknown)}. "
         "Ou o codigo nao le a chave, ou o contrato ficou desatualizado."
@@ -119,6 +122,40 @@ def test_rule_fires_on_breach_and_is_silent_when_ok(rule_key: str) -> None:
         f"Deal breaker '{rule_key}' disparou indevidamente com valor OK "
         f"{spec['ok']}."
     )
+
+
+def test_altman_z_exempt_for_utilities() -> None:
+    """
+    Utility com Altman Z estruturalmente baixo NAO e punida (isencao setorial
+    PR-017.5); uma empresa nao-isenta com o mesmo Z e punida.
+    """
+
+    utility = _score({"altman_z": 0.5, "sector": "Utilities", "industry": "Utilities - Regulated Gas"})
+    assert "Altman Z" not in utility["Deal Breakers"].iloc[0]
+
+    industrial = _score({"altman_z": 0.5, "sector": "Industrials", "industry": "Railroads"})
+    assert "Altman Z" in industrial["Deal Breakers"].iloc[0]
+
+
+def test_current_liquidity_exempt_for_software() -> None:
+    """
+    SaaS com current ratio < 1 (deferred revenue) NAO e punido; hardware com
+    o mesmo ratio e punido.
+    """
+
+    saas = _score({"current_liquidity": 0.7, "sector": "Technology", "industry": "Software - Application"})
+    assert "Liquidez" not in saas["Deal Breakers"].iloc[0]
+
+    hardware = _score({"current_liquidity": 0.7, "sector": "Technology", "industry": "Consumer Electronics"})
+    assert "Liquidez" in hardware["Deal Breakers"].iloc[0]
+
+
+def test_exemption_matches_sector_or_industry() -> None:
+    """A isencao casa tanto contra sector quanto contra industry (substring)."""
+
+    # 'Financial Services' esta na lista de isencao de altman_z como sector.
+    bank = _score({"altman_z": 0.5, "sector": "Financial Services", "industry": "Banks - Regional"})
+    assert "Altman Z" not in bank["Deal Breakers"].iloc[0]
 
 
 def test_short_float_scale_is_percent_after_mapper() -> None:

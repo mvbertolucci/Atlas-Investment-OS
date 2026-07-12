@@ -1,7 +1,9 @@
 {
   "f_score_annual_min": 4,
   "altman_z_min": 1.8,
+  "altman_z_exempt_sectors": ["Utilities", "Financial Services", "Banks", "Insurance"],
   "net_debt_ebitda_max": 4.0,
   "current_liquidity_min": 1.0,
+  "current_liquidity_exempt_sectors": ["Software"],
   "short_float_max": 20.0
 }
