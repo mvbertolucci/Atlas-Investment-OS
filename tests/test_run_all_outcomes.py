@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 import run_all
+from outcomes.models import OutcomeResult, OutcomeSnapshot
 from storage.history_db import HistoryDatabase
 
 
@@ -116,3 +117,51 @@ def test_evaluate_outcome_decisions_can_be_disabled() -> None:
     )
 
     assert result is None
+
+
+def test_generate_outcome_analytics_reads_persisted_results(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    database_path = tmp_path / "analytics.db"
+    monkeypatch.setattr(
+        run_all,
+        "HISTORY_DATABASE",
+        database_path,
+    )
+    snapshot = OutcomeSnapshot(
+        decision_date="2026-01-01T10:00:00",
+        symbol="AAA",
+        decision_price=100,
+        decision="BUY",
+        opportunity_score=85,
+        conviction_score=90,
+    )
+    result = OutcomeResult(
+        decision_date=snapshot.decision_date,
+        symbol="AAA",
+        horizon_days=30,
+        evaluation_date="2026-01-31T10:00:00",
+        decision_price=100,
+        outcome_price=110,
+    )
+    with HistoryDatabase(database_path) as database:
+        database.save_outcome_snapshot(snapshot)
+        database.save_outcome_result(result)
+
+    report = run_all.generate_outcome_analytics(
+        {
+            "outcome_analytics_enabled": True,
+            "outcome_hit_threshold_pct": 0,
+            "outcome_calibration_bucket_size": 20,
+        }
+    )
+
+    assert report is not None
+    assert report.hit_rate.hit_rate == 100.0
+
+
+def test_generate_outcome_analytics_can_be_disabled() -> None:
+    assert run_all.generate_outcome_analytics(
+        {"outcome_analytics_enabled": False}
+    ) is None

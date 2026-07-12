@@ -1,7 +1,7 @@
 # Feature Status
 
-**Baseline:** PR-019.3
-**Test baseline:** 253 passing / 87.11% production coverage
+**Baseline:** PR-019.4
+**Test baseline:** 262 passing / 87.24% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
@@ -17,7 +17,7 @@
 | Portfolio quality and ranking | Yes | Yes | Yes | Yes | Operational |
 | Advisory rebalance | Yes | Yes | Yes | Yes | Operational |
 | Health check and execution metrics | Yes | Yes | N/A | N/A | Operational; 100% direct coverage |
-| Outcome Analytics | Yes | Yes | No | No | Horizon returns operational; calibration pending |
+| Outcome Analytics | Yes | Yes | No | No | Hit rate and calibration operational; reports pending |
 | Backtesting | No | No | No | No | Future milestone |
 | Dashboard/API | No | No | No | No | Future platform |
 

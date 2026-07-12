@@ -22,6 +22,10 @@ from metrics.execution import (
     print_execution_metrics,
     save_execution_metrics,
 )
+from outcomes.analytics import (
+    OutcomeAnalyticsReport,
+    build_outcome_analytics_report,
+)
 from outcomes.pipeline import (
     OutcomeCaptureResult,
     OutcomeEvaluationResult,
@@ -264,6 +268,36 @@ def evaluate_outcome_decisions(
     return result
 
 
+def generate_outcome_analytics(
+    settings: dict,
+) -> OutcomeAnalyticsReport | None:
+    if not settings.get(
+        "outcome_analytics_enabled",
+        True,
+    ):
+        return None
+
+    with HistoryDatabase(HISTORY_DATABASE) as database:
+        report = build_outcome_analytics_report(
+            database,
+            threshold_pct=settings.get(
+                "outcome_hit_threshold_pct",
+                0.0,
+            ),
+            bucket_size=settings.get(
+                "outcome_calibration_bucket_size",
+                20,
+            ),
+        )
+
+    logger.info(
+        "Outcome Analytics: %s resultados elegíveis; hit rate %s.",
+        report.hit_rate.eligible_count,
+        report.hit_rate.hit_rate,
+    )
+    return report
+
+
 def generate_excel_reports(
     df: pd.DataFrame,
     portfolio_report: PortfolioReport | None = None,
@@ -441,6 +475,9 @@ def main() -> None:
                 snapshot_date,
                 settings,
             )
+            outcome_analytics = generate_outcome_analytics(
+                settings
+            )
 
         portfolio_result = generate_portfolio_intelligence(
             df,
@@ -520,6 +557,14 @@ def main() -> None:
                         outcome_evaluation.missing_price_symbols
                     )
                 )
+
+        if outcome_analytics is not None:
+            hit_rate = outcome_analytics.hit_rate
+            print(
+                "Outcome Hit Rate: "
+                f"{hit_rate.hit_rate if hit_rate.hit_rate is not None else '-'}% "
+                f"({hit_rate.hit_count}/{hit_rate.eligible_count})"
+            )
 
         if portfolio_result is not None:
             portfolio_file, portfolio_report = portfolio_result

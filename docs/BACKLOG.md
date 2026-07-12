@@ -95,6 +95,6 @@
 - [x] Define outcome snapshot model
 - [x] Configure evaluation horizons and capture decisions automatically
 - [x] Track decision-to-return results over configurable horizons
-- [ ] Calculate hit rate and calibration metrics
+- [x] Calculate hit rate and calibration metrics
 - [ ] Attribute results to factors, rules and Deal Breakers
 - [ ] Add outcome reports and regression tests

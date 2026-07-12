@@ -53,10 +53,29 @@ Returns do not include dividends, fees, taxes or currency conversion.
 
 ## Deliberate boundaries
 
-Outcome Analytics does not yet calculate hit rate, score calibration or factor
-attribution. These derived metrics consume persisted results in later stages.
+Outcome Analytics does not yet calculate factor, rule or Deal Breaker
+attribution. Those derived metrics consume persisted results in a later stage.
+
+## PR-019.4 hit rate and calibration
+
+Directional hit rate uses the following explicit expectations:
+
+- `STRONG_BUY`, `BUY` and `ACCUMULATE`: positive return;
+- `AVOID`: negative return;
+- `HOLD` and `WATCH`: excluded from directional hit rate.
+
+The strict success threshold defaults to `0.0%` and can be increased through
+`outcome_hit_threshold_pct`. A return equal to the threshold is not a hit.
+
+Opportunity and Conviction calibration is calculated independently by horizon
+and score bucket. Each bucket reports observation count, average score, average
+return and positive-return rate. The default bucket width is 20 points and is
+configured through `outcome_calibration_bucket_size`.
+
+Calibration is descriptive. It does not change Atlas weights, thresholds or
+decisions.
 
 ## Next increment
 
-PR-019.4 should calculate hit rate and Opportunity/Conviction calibration from
-persisted results. Live provider access must remain outside deterministic tests.
+PR-019.5 should attribute persisted results to factors, rules and Deal Breakers.
+Live provider access must remain outside deterministic tests.

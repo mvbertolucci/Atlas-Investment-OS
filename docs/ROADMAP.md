@@ -42,9 +42,9 @@
 - [x] Configurable evaluation horizons
 - [x] Automatic decision capture
 - [x] Decision outcome tracking over configurable horizons
-- [ ] Hit rate
-- [ ] Opportunity calibration
-- [ ] Conviction calibration
+- [x] Hit rate
+- [x] Opportunity calibration
+- [x] Conviction calibration
 - [ ] Rule and factor performance analysis
 
 ## v2.0 — Platform — Planned

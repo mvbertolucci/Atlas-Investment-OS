@@ -1,5 +1,28 @@
 # Changelog
 
+## PR-019.4 — Hit rate and score calibration
+
+### Added
+
+- Joined analytical dataset from immutable decision snapshots and results.
+- Directional hit rate overall and by evaluation horizon.
+- Explicit exclusion of HOLD and WATCH from directional accuracy.
+- Configurable strict success threshold.
+- Opportunity and Conviction calibration by horizon and score bucket.
+- Serializable Outcome Analytics report and console hit-rate summary.
+- Methodology, validation and pipeline regression tests.
+
+### Safety
+
+- Analytics is descriptive and does not modify scores, weights, thresholds or
+  decisions.
+- Calibration keeps horizons separate and reports sample counts.
+
+### Validation
+
+- 262 automated tests passed.
+- 87.24% production coverage overall.
+
 ## PR-019.3 — Horizon return evaluation
 
 ### Added
