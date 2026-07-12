@@ -65,4 +65,12 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         ebit = pd.to_numeric(out["ebit"], errors="coerce")
         out["ev_ebit"] = ev / ebit.replace(0, pd.NA)
 
+    # O Yahoo devolve shortPercentOfFloat como fração (0.25 = 25%), mas o
+    # deal breaker short_float_max é expresso em pontos percentuais (20 = 20%).
+    # Sem esta conversão o threshold nunca dispara (uma fração <= ~1 nunca é
+    # > 20). normalize_columns recebe a saída crua do provider e converte uma
+    # única vez.
+    if "short_float" in out.columns:
+        out["short_float"] = pd.to_numeric(out["short_float"], errors="coerce") * 100
+
     return out
