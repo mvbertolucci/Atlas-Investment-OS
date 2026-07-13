@@ -82,6 +82,17 @@ as indicative rather than absolute. Hit rate and decision/Deal-Breaker
 attribution are less exposed because they key on the categorical decision, not
 the score level.
 
+#### Drift safeguard
+
+`calculate_watchlist_drift` turns that assumption into a signal. For each
+transition between consecutive decision dates it reports the Jaccard overlap of
+the analyzed symbol sets and how many symbols entered/left, with `stable` when
+nothing changed. The result is exposed as the additive `watchlist_drift` field
+in `outcome_report.json` (existing fields are unchanged), and
+`build_outcome_analytics_report` logs a warning when any transition is
+unstable. It is diagnostic only — it changes no score, weight or decision. With
+fewer than two decision dates it is empty.
+
 ## PR-019.5 attribution
 
 Decision snapshots now retain Business, Valuation, Financial and Timing scores,
