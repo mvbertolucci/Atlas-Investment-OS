@@ -39,9 +39,18 @@ For the full regression gate:
 
 ## Current handoff
 
-- Released version: `v1.2.0`; development baseline: `PR-032`.
-- Validation baseline: 370 tests / 87.43% production coverage.
+- Released version: `v1.2.0`; development baseline: `PR-037`.
+- Validation baseline: 411 tests / 86.61% production coverage.
 - v1.1 Integrated Portfolio Intelligence and v1.2 Outcome Analytics are
   complete.
 - v2.0 Platform is in progress. The point-in-time data contract is complete;
-  deterministic walk-forward backtesting is the next analytical increment.
+  deterministic walk-forward backtesting remains the next analytical
+  increment. In parallel: the real portfolio is wired end to end
+  (`portfolio.rebalance_mode = "sell_only"` by default), an on-demand
+  sell/buy priority classification exists (`priority/`), and two more
+  screeners (broad US market, US-listed ADRs) are infrastructure-only —
+  see `docs/ATLAS_CONTEXT.md` section 6.
+- Next planned increment: parametrize `portfolio/model_portfolio.py` to
+  accept any of the three universe/ranking policies (today hardcoded to
+  the S&P 500 one), so ranking/buy-priority work over the broad-market or
+  ADR screener as soon as their collection eventually runs.

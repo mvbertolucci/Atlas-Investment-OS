@@ -1,11 +1,11 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-032` (point-in-time data contract)
+**Last synchronized baseline:** `PR-037` (US-listed ADR screener)
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 370 tests passing / 87.43% production coverage
+**Validation baseline:** 411 tests passing / 86.61% production coverage
 
 ## 1. Product mission
 
@@ -143,8 +143,43 @@ portfolio from the completed checkpoint. PR-032 now defines the executable
 point-in-time observation, constituent and delisting boundary. Deterministic
 walk-forward execution and a prospective shadow portfolio follow in bounded
 increments. Scheduling is deferred; Notifications
-and the AI assistant still require explicit external decisions. See
-`docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md`.
+and the AI assistant still require explicit external decisions.
+
+Since PR-032, the following are also merged, in parallel to the walk-forward
+track (none of it changes governed scoring):
+
+- **Real portfolio wired end to end.** `config/portfolio.csv` (real holdings,
+  gitignored -- never committed) is populated and scored via
+  `config/watchlist.csv`. `portfolio.rebalance` gained a `sell_only` mode
+  (now the default): flags SELL only for AVOID holdings, holds everyone
+  else at current weight, never suggests buying more of an existing
+  position -- freed cash is meant for new candidates from the screener, not
+  internal reallocation. See `docs/BACKLOG.md`'s "Portfolio workflow".
+- **On-demand priority classification** (`priority/`): sell priority (current
+  holdings, ranked by Investment Score, SELL/HOLD by Deal Breaker presence)
+  and buy priority (screener candidates, ranked by `candidate_rank`) --
+  pure classification, no target weight, no sector cap. CLI
+  (`python -m priority.cli`), `output/priority_report.json`, API
+  (`/priority`), SDK. See `docs/PRIORITY_REPORT.md`.
+- **Two more screeners**, both infrastructure-only so far (no collection run
+  yet): a broad US-market screener (`config/universe_market.yaml`, NASDAQ
+  Trader source, USD 300 million floor -- a genuine small-cap floor, unlike
+  the S&P 500 screener's USD 1 billion mid-cap-and-up floor) and a US-listed
+  ADR screener (`config/universe_adr.yaml`, same floor, reuses the
+  broad-market collection via a new `excluded_countries` policy field --
+  no separate data source or collection). See `docs/UNIVERSE_SOURCES.md`.
+
+`portfolio/model_portfolio.py` (`build_from_collection`/`main`) now accepts
+`--universe-policy` / `--ranking-policy` / `--model-portfolio-policy` and
+`--label` (defaults unchanged, so the S&P 500 invocation is byte-for-byte the
+same as before) -- so ranking and buy-priority can run over the broad-market
+or ADR screener with distinct output filenames the moment their collection
+completes. **The collection itself is not started** (deliberately deferred,
+expected to take substantially longer than the 503-name S&P 500 collection --
+see `docs/UNIVERSE_SOURCES.md`); that remains the next concrete action when
+resumed.
+
+See `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md` for the full backlog.
 
 ## 7. Definition of done
 

@@ -18,6 +18,32 @@ It writes three ignored runtime artifacts:
 - `output/research_ranking_report.json` — broad market and sector ranking;
 - `output/model_portfolio_report.json` — constrained advisory selection.
 
+## Running over a different screener
+
+By default this runs the S&P 500 screener (`config/universe.yaml`,
+`config/research_universe.csv`), with the historical output filenames above.
+To run over the broad-market or ADR screener instead once their collection
+completes, override the universe policy and give the run a `--label` so it
+does not overwrite the S&P 500 output:
+
+```powershell
+.\.venv\Scripts\python.exe -m portfolio.model_portfolio `
+  --state data/research_universe_collection_market.json `
+  --snapshot config/research_universe_market.csv `
+  --universe-policy config/universe_market.yaml `
+  --label market
+```
+
+This writes `research_universe_report_market.json`,
+`research_ranking_report_market.json` and `model_portfolio_report_market.json`
+instead. For the ADR screener, point `--state`/`--snapshot` at the
+broad-market collection (ADRs reuse it, see `docs/UNIVERSE_SOURCES.md`) and
+use `--universe-policy config/universe_adr.yaml --label adr`.
+`--ranking-policy` and `--model-portfolio-policy` are also overridable, but
+default to the same canonical files for every screener (the ranking method
+and portfolio-construction rules are shared; only the eligible population
+differs).
+
 ## Method
 
 The command loads the completed collection checkpoint, applies the existing

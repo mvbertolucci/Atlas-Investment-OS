@@ -293,12 +293,39 @@ def write_model_portfolio_report(
     return output
 
 
+def _labeled_filename(base_name: str, label: str) -> str:
+    """
+    Sem label (padrão, screener S&P 500): nome de arquivo idêntico ao de
+    sempre. Com label (ex.: "market", "adr"): sufixo distinto, para não
+    sobrescrever a saída de outro screener no mesmo output_dir.
+    """
+    if not label:
+        return base_name
+    stem, _, suffix = base_name.rpartition(".")
+    return f"{stem}_{label}.{suffix}"
+
+
 def build_from_collection(
     *,
     state_path: str | Path,
     snapshot_path: str | Path,
     output_dir: str | Path,
+    universe_policy_path: str | Path = ROOT / "config" / "universe.yaml",
+    ranking_policy_path: str | Path = ROOT / "config" / "ranking.yaml",
+    model_portfolio_policy_path: str
+    | Path = ROOT / "config" / "model_portfolio.yaml",
+    output_label: str = "",
 ) -> ModelPortfolioReport:
+    """
+    Constrói a carteira-modelo a partir de uma coleta completa.
+
+    Por padrão, usa exatamente as três políticas do screener S&P 500 e os
+    nomes de arquivo históricos (comportamento idêntico ao de antes desta
+    parametrização). Para rodar sobre outro screener (mercado amplo, ADR),
+    passe `universe_policy_path` apontando para a política correspondente
+    e `output_label` (ex.: "market", "adr") para gerar arquivos de saída
+    com nome distinto, sem sobrescrever a saída do S&P 500.
+    """
     snapshot = load_constituent_snapshot(snapshot_path)
     snapshot_dates = {row["snapshot_date"] for row in snapshot}
     if len(snapshot_dates) != 1:
@@ -322,12 +349,12 @@ def build_from_collection(
     )
     universe_report = evaluate_universe(
         scored,
-        load_universe_policy(ROOT / "config" / "universe.yaml"),
+        load_universe_policy(universe_policy_path),
     )
     ranking_report = rank_companies(
         scored,
         universe_report,
-        load_ranking_policy(ROOT / "config" / "ranking.yaml"),
+        load_ranking_policy(ranking_policy_path),
     )
     metadata = {
         str(row["symbol"]): row
@@ -335,21 +362,35 @@ def build_from_collection(
     }
     report = build_model_portfolio(
         ranking_report,
-        load_model_portfolio_policy(ROOT / "config" / "model_portfolio.yaml"),
+        load_model_portfolio_policy(model_portfolio_policy_path),
         metadata=metadata,
         universe_snapshot_date=snapshot_date,
         collection_updated_at=state.updated_at,
     )
     outputs = Path(output_dir)
-    write_universe_report(universe_report, outputs / "research_universe_report.json")
-    write_ranking_report(ranking_report, outputs / "research_ranking_report.json")
-    write_model_portfolio_report(report, outputs / "model_portfolio_report.json")
+    write_universe_report(
+        universe_report,
+        outputs / _labeled_filename("research_universe_report.json", output_label),
+    )
+    write_ranking_report(
+        ranking_report,
+        outputs / _labeled_filename("research_ranking_report.json", output_label),
+    )
+    write_model_portfolio_report(
+        report,
+        outputs / _labeled_filename("model_portfolio_report.json", output_label),
+    )
     return report
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Constrói a carteira-modelo consultiva do universo coletado."
+        description=(
+            "Constrói a carteira-modelo consultiva do universo coletado. "
+            "Por padrão, o screener S&P 500; use --universe-policy (e "
+            "--label, para nomear a saída) para rodar sobre outro screener "
+            "(mercado amplo, ADR) sem sobrescrever a saída do S&P 500."
+        )
     )
     parser.add_argument(
         "--state",
@@ -360,11 +401,35 @@ def main() -> None:
         default=str(ROOT / "config" / "research_universe.csv"),
     )
     parser.add_argument("--output-dir", default=str(ROOT / "output"))
+    parser.add_argument(
+        "--universe-policy",
+        default=str(ROOT / "config" / "universe.yaml"),
+    )
+    parser.add_argument(
+        "--ranking-policy",
+        default=str(ROOT / "config" / "ranking.yaml"),
+    )
+    parser.add_argument(
+        "--model-portfolio-policy",
+        default=str(ROOT / "config" / "model_portfolio.yaml"),
+    )
+    parser.add_argument(
+        "--label",
+        default="",
+        help=(
+            "Sufixo dos arquivos de saída (ex.: market, adr). Vazio "
+            "(padrão) mantém os nomes históricos do screener S&P 500."
+        ),
+    )
     args = parser.parse_args()
     report = build_from_collection(
         state_path=args.state,
         snapshot_path=args.snapshot,
         output_dir=args.output_dir,
+        universe_policy_path=args.universe_policy,
+        ranking_policy_path=args.ranking_policy,
+        model_portfolio_policy_path=args.model_portfolio_policy,
+        output_label=args.label,
     )
     print(
         f"Carteira-modelo: {len(report.positions)} posições; "
