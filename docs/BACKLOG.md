@@ -225,8 +225,21 @@
         rebalances only when every attributed opening price is present
       - [x] Add a versioned observed-session/open-price artifact and pure
         Yahoo-bar adapter with DST and split-unit handling
+      - [x] Add a versioned, source-attributed dividend-inclusive
+        total-return adapter (`backtesting/total_return_evidence.py`):
+        compounds `(Close+Dividend)/previous_close` day over day from
+        already-acquired Yahoo bars into the `AssetPeriodReturn` rows the
+        validation runner already consumes; works for both holdings and the
+        benchmark; a `DelistingRecord` overrides only the one period
+        containing `last_trade_on` (`zero` forces -100%, `cash` combines the
+        compounded multiplier with `cash_proceeds`, `successor`/`unresolved`
+        are both reported `unresolved` -- never a fabricated successor
+        value); missing evidence is omitted, never invented
       - [ ] Run bounded real acquisition for reference/selected-symbol bars
-      - [ ] Acquire complete total-return/benchmark/delisting evidence
+      - [ ] Acquire real `DelistingRecord` terminal-event evidence and run
+        the new total-return adapter against a broad real dataset (the
+        adapter and its versioned artifact are implemented; no broad real
+        artifact is committed or collected yet)
       - [ ] Add sector and factor contribution without look-ahead
       - [ ] Run broad real validation and report coverage
 - [ ] PR-035 Track a prospective shadow portfolio

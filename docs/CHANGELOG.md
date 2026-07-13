@@ -1,5 +1,44 @@
 # Changelog
 
+## PR-034 — Versioned dividend-inclusive total-return evidence
+
+### Added
+
+- `backtesting/total_return_evidence.py`: a pure, offline adapter converting
+  already-acquired Yahoo-shaped daily bars (`Close`, `Dividends`) into the
+  `AssetPeriodReturn` rows `backtesting/portfolio_validation.py` already
+  consumes, for an explicit, caller-supplied sequence of period boundaries.
+  Works identically for a portfolio holding or the benchmark symbol.
+- Dividend-inclusive total return by compounding `(Close[t] + Dividend[t]) /
+  Close[t-1]` day over day across each period -- no explicit split-ratio
+  handling needed, since Yahoo's own retroactive split-continuity convention
+  applies consistently to both raw columns and cancels out in the ratio.
+- `DelistingRecord` (PR-032 vocabulary) terminal-event handling, scoped to
+  only the one period containing `last_trade_on`: `zero` forces exactly
+  -100%; `cash` combines the compounded multiplier up to the last traded
+  close with `cash_proceeds`; `successor` and `unresolved` are both reported
+  `unresolved` (`total_return=None`).
+- `TotalReturnEvidence`: a versioned, retrieval-timestamped artifact
+  (schema_version 1) wrapping a batch of these rows, mirroring
+  `backtesting/execution_evidence.py`'s `HistoricalExecutionEvidence`
+  pattern, so total returns can be computed once and reused across
+  validation runs.
+
+### Preserved
+
+- A period whose start date has no observed close is omitted, never
+  invented -- `validate_portfolio` already reports
+  `MISSING_RETURN`/`MISSING_BENCHMARK_RETURN` for anything absent.
+- A `successor` delisting is never assigned a fabricated return: this
+  single-symbol adapter has no evidence of a successor security's own value.
+- No provider call; the adapter is pure and offline, exactly like
+  `execution_evidence.py`.
+
+### Validation
+
+- 585 automated tests passed.
+- 88.57% production coverage overall.
+
 ## PR-034 — Deterministic portfolio-validation core
 
 ### Added

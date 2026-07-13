@@ -12,9 +12,29 @@ Point-in-time model-portfolio targets can now be built for explicit cutoffs;
 the next-session-open execution convention is also executable when attributed
 sessions and opening prices are supplied. See
 `docs/HISTORICAL_MODEL_PORTFOLIO.md` and `docs/HISTORICAL_EXECUTION.md`.
-Real calendar/opening-price acquisition and complete total returns remain
-open. Factor contribution also remains open until historical factor
-exposures and subsequent returns can be joined without look-ahead bias.
+
+`backtesting/total_return_evidence.py` adds a pure, offline adapter that
+converts already-acquired Yahoo-shaped daily bars (`Close`, `Dividends`) into
+the `AssetPeriodReturn` rows this validation runner already consumes --
+dividend-inclusive, computed by compounding `(Close[t] + Dividend[t]) /
+Close[t-1]` day over day across an explicit, caller-supplied sequence of
+period boundaries. It works identically for a portfolio holding or a
+benchmark symbol (e.g. SPY); there is no separate benchmark code path. A
+period whose start date has no observed close is omitted, never invented --
+the runner already reports `MISSING_RETURN`/`MISSING_BENCHMARK_RETURN` for
+anything absent. A `DelistingRecord` (PR-032 vocabulary) overrides the one
+period containing its `last_trade_on`: `zero` forces exactly -100%; `cash`
+combines the compounding multiplier up to the last traded close with
+`cash_proceeds` in place of a next Close that will never arrive; `successor`
+and `unresolved` are both reported `unresolved` (`total_return=None`) --
+this single-symbol adapter has no evidence of a successor security's own
+value, so it never fabricates one. `TotalReturnEvidence` wraps a batch of
+these rows in the same versioned, retrieval-timestamped artifact pattern as
+`backtesting/execution_evidence.py`, so total returns can be computed once
+and reused across validation runs. Real calendar/opening-price acquisition
+and a broad real total-return/benchmark/delisting dataset remain open.
+Factor contribution also remains open until historical factor exposures and
+subsequent returns can be joined without look-ahead bias.
 
 ## Run from a versioned local input
 
@@ -100,8 +120,11 @@ whether validation is `complete` or `incomplete`.
 
 - acquire/version real exchange sessions and opening-price observations for
   the governed execution convention;
-- acquire complete total-return and benchmark series with dividends and
-  delisting treatment;
+- run `backtesting/total_return_evidence.py` against a broad real Yahoo
+  dataset (selected symbols plus the benchmark) and acquire real
+  `DelistingRecord` evidence for terminal events -- the adapter and its
+  versioned artifact are implemented, but no broad real total-return
+  artifact is committed or collected by this change;
 - add sector and factor contribution based on exposures known at each cutoff;
 - run the report on a broad real dataset and publish coverage before drawing
   any performance conclusion.

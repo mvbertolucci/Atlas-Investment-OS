@@ -4,13 +4,13 @@
 **Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition + paired
 historical price series + point-in-time `timing` factor derivation + extended
 point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
-plus deterministic PR-034 target, execution-evidence, next-open execution and
-validation cores.
+plus deterministic PR-034 target, execution-evidence, total-return-evidence,
+next-open execution and validation cores.
 
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 570 tests passing / 88.50% production coverage
+**Validation baseline:** 585 tests passing / 88.57% production coverage
 
 ## 1. Product mission
 
@@ -207,10 +207,16 @@ portfolio policies, retain coverage gaps and config hashes, and require an
 explicit execution date. A governed next-session-open layer now requires an
 attributed session and every USD opening price before creating a rebalance.
 An offline adapter now versions observed SPY-session/open-price evidence from
-existing Yahoo bars with DST and split-unit correction. The broad real artifact,
-complete total-return evidence, factor contribution and a broad run remain open;
-see
-`docs/HISTORICAL_MODEL_PORTFOLIO.md`, `docs/HISTORICAL_EXECUTION.md` and
+existing Yahoo bars with DST and split-unit correction. A second offline
+adapter (`backtesting/total_return_evidence.py`) now versions
+dividend-inclusive total-return evidence for holdings and the benchmark alike
+from the same kind of Yahoo bars, compounding `(Close+Dividend)/previous_close`
+day over day and applying PR-032 `DelistingRecord` terminal treatment
+(`zero`/`cash` resolved explicitly; `successor` deliberately left `unresolved`
+-- this single-symbol adapter has no evidence of a successor security's own
+value). The broad real artifacts (execution bars, total-return bars,
+delisting records), factor contribution and a broad run remain open; see
+`docs/HISTORICAL_MODEL_PORTFOLIO.md`, `docs/HISTORICAL_EXECUTION.md`,
 `docs/EXECUTION_EVIDENCE.md` and `docs/PORTFOLIO_VALIDATION.md`.
 
 **Real progress on (1), now end to end:** `backtesting/sec_edgar.py` +
@@ -266,9 +272,11 @@ estimates), `ev_ebitda` (needs a live formula to mirror first) and
 `target_upside` remain unbuilt -- each needs a new data source or design
 decision, not just a tag addition; (2) run the broad-market/ADR collections
 when resumed; (3)
-complete PR-034 by acquiring execution/total-return/benchmark evidence, adding
-factor contribution and running validation at scale
-(today's real walk-forward verification covers 2 companies, one date).
+complete PR-034 by running the now-implemented execution/total-return
+adapters against a broad real dataset (reference/selected-symbol bars plus
+real `DelistingRecord` evidence, neither acquired yet), adding factor
+contribution and running validation at scale (today's real walk-forward
+verification covers 2 companies, one date).
 
 See `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md` for the full backlog.
 
