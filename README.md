@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.2.0`
 
-Development baseline: `PR-028` on release `v1.2.0`.
+Development baseline: `PR-029` on release `v1.2.0`.
 
 ## Main capabilities
 
@@ -27,6 +27,7 @@ Development baseline: `PR-028` on release `v1.2.0`.
 - Health Check, logging and execution metrics
 - Automated regression tests
 - Explicit market-universe eligibility and data-coverage contract
+- Market/sector analytical ranking with governed candidate safeguards
 
 ## Current integration status
 
@@ -48,6 +49,8 @@ Morning Brief without changing scoring or decision semantics.
 The analytical track now defines a versioned U.S. liquid-equity research
 universe. The Market Mapper publishes `output/universe_report.json` and the
 Dashboard market view without filtering the existing scoring pipeline.
+Eligible companies are ranked using existing Atlas scores and absolute
+Deal-Breaker safeguards in `output/ranking_report.json`.
 
 ## Quick start
 

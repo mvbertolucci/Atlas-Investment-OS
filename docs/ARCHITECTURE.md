@@ -112,6 +112,17 @@ configured policy, writes `output/universe_report.json` and forwards the same
 report to Dashboard `market`. It reports coverage and standardized exclusions
 without filtering scoring or changing a decision.
 
+### Analytical-ranking layer
+
+- `config/ranking.yaml`
+- `ranking/models.py`
+- `ranking/pipeline.py`
+- `ranking/report.py`
+
+The ranking orders existing Investment, Opportunity and Conviction outputs at
+market and sector level. Candidate safeguards reuse Universe eligibility,
+Confidence Score and governed Deal Breakers; no new score is calculated.
+
 ### Outcome layer
 
 - `outcomes/models.py`

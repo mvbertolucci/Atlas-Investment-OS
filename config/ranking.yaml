@@ -1,0 +1,7 @@
+name: Atlas Analytical Ranking
+primary_score: Investment Score
+tie_breakers:
+  - Opportunity Score
+  - Conviction Score
+min_confidence_score: 70
+require_no_deal_breakers: true

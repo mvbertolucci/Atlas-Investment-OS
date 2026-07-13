@@ -1,11 +1,11 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-028` (Market Mapper pipeline integration)
+**Last synchronized baseline:** `PR-029` (robust analytical ranking)
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 324 tests passing / 87.94% production coverage
+**Validation baseline:** 334 tests passing / 88.09% production coverage
 
 ## 1. Product mission
 
@@ -132,8 +132,9 @@ Every increment is additive/read-only: no score, decision or existing output
 changed. The analytical-method track now has priority: PR-027 defines the
 market-universe contract; PR-028 integrates provider metadata, publishes
 `output/universe_report.json` and exposes it in Dashboard `market`. PR-029 is
-the next increment: robust market/sector ranking with absolute safeguards. Model
-portfolio construction, point-in-time validation and a prospective shadow
+complete: it publishes `output/ranking_report.json`, with market/sector ranks
+and governed candidate safeguards. PR-030 is next: advisory model-portfolio
+construction under explicit position and concentration constraints. Point-in-time validation and a prospective shadow
 portfolio follow in bounded increments. Scheduling is deferred; Notifications
 and the AI assistant still require explicit external decisions. See
 `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md`.

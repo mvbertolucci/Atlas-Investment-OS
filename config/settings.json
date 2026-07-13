@@ -10,6 +10,8 @@
   "portfolio_currency": "BRL",
   "universe_enabled": true,
   "universe_policy_path": "config/universe.yaml",
+  "ranking_enabled": true,
+  "ranking_policy_path": "config/ranking.yaml",
   "outcome_analytics_enabled": true,
   "outcome_horizons_days": [30, 90, 180, 365],
   "outcome_hit_threshold_pct": 0.0,

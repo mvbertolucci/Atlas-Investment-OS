@@ -55,7 +55,8 @@
 - [x] SDK (read-only Python client; `sdk/`)
 - [x] Market-universe and analytical-method contract
 - [x] Market Mapper and universe coverage
-- [ ] Robust ranking and advisory model portfolio
+- [x] Robust market/sector ranking with governed safeguards
+- [ ] Advisory model portfolio
 - [ ] Point-in-time walk-forward validation
 - [ ] Prospective shadow portfolio
 - [ ] Scheduling (deferred until analytical validation)

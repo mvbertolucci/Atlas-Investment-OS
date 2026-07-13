@@ -29,10 +29,10 @@ The GitHub Actions workflow executes the tests on Python 3.12.
 
 ## Coverage baseline
 
-PR-028 validates:
+PR-029 validates:
 
-- 324 automated tests;
-- 87.94% measured production coverage;
+- 334 automated tests;
+- 88.09% measured production coverage;
 - 100% direct coverage for Health Check, execution metrics, logger and
   technical indicators;
 - an enforced 80% floor in GitHub Actions through `.coveragerc`.

@@ -1,5 +1,28 @@
 # Changelog
 
+## PR-029 — Robust analytical ranking
+
+### Added
+
+- Market, sector and candidate ordinal ranks over existing Atlas scores.
+- Explicit data-confidence, missing-score, universe and Deal Breaker safeguards.
+- Conditional `output/ranking_report.json` pipeline output.
+- Canonical ranking policy and deterministic regression tests.
+
+### Preserved
+
+- No new composite score or weighting model.
+- No scoring, threshold, Deal Breaker or decision change.
+- Ranking remains limited to the configured watchlist.
+
+### Validation
+
+- 334 automated tests passed.
+- 88.09% production coverage overall.
+- Operational run produced four research candidates from six analyzed
+  companies; this is an analytical shortlist, not a model portfolio or trade
+  recommendation.
+
 ## PR-028 — Market Mapper pipeline integration
 
 ### Added

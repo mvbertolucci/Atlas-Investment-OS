@@ -18,7 +18,7 @@ promise.
 2. **PR-028 — Market Mapper integration (complete).** Enrich provider output with asset
    type and liquidity fields, evaluate the configured universe in the main
    pipeline and publish the universe report.
-3. **PR-029 — Robust analytical ranking.** Separate relative market/sector
+3. **PR-029 — Robust analytical ranking (complete).** Separate relative market/sector
    rank from absolute economic safeguards; do not change governed weights
    without evidence.
 4. **PR-030 — Advisory model-portfolio builder.** Select eligible candidates
@@ -58,6 +58,10 @@ PR-027 added only a domain contract and pure evaluation over an existing
 DataFrame. PR-028 adds provider and pipeline exposure, but remains diagnostic:
 ineligible assets are reported, not removed from scoring. Market expansion and
 candidate discovery remain separate from the configured watchlist.
+
+PR-029 orders eligible companies by existing Atlas scores and applies the
+existing governed Deal Breakers plus a data-confidence floor. It creates no new
+composite score. See `docs/RANKING_METHOD.md`.
 
 ## Validation principles
 

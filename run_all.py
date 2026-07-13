@@ -40,6 +40,12 @@ from portfolio.pipeline import (
 )
 from portfolio.report import PortfolioReport
 from providers.yahoo import fetch_watchlist
+from ranking import (
+    RankingReport,
+    load_ranking_policy,
+    rank_companies,
+    write_ranking_report,
+)
 from reports.excel import write_latest_and_history
 from reports.morning_brief import render_morning_brief, write_morning_brief
 from dashboard import build_dashboard_view, write_dashboard_view
@@ -67,6 +73,7 @@ PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
 OUTCOME_REPORT_FILE = OUTPUT / "outcome_report.json"
 DASHBOARD_REPORT_FILE = OUTPUT / "dashboard.json"
 UNIVERSE_REPORT_FILE = OUTPUT / "universe_report.json"
+RANKING_REPORT_FILE = OUTPUT / "ranking_report.json"
 
 logger = get_logger("run_all")
 
@@ -342,6 +349,36 @@ def generate_universe_report(
     return report
 
 
+def generate_ranking_report(
+    df: pd.DataFrame,
+    settings: dict,
+    universe_report: UniverseReport | None,
+) -> RankingReport | None:
+    """Publica ranking diagnóstico sem recalcular scores ou decisões."""
+    if not settings.get("ranking_enabled", True):
+        logger.info("Analytical Ranking desabilitado.")
+        return None
+    if universe_report is None:
+        logger.warning(
+            "Analytical Ranking ignorado: Universe Report indisponível."
+        )
+        return None
+
+    policy_path = ROOT / settings.get(
+        "ranking_policy_path",
+        "config/ranking.yaml",
+    )
+    policy = load_ranking_policy(policy_path)
+    report = rank_companies(df, universe_report, policy)
+    write_ranking_report(report, RANKING_REPORT_FILE)
+    logger.info(
+        "Analytical Ranking: %s candidatos de %s empresas.",
+        report.candidate_count,
+        report.total_count,
+    )
+    return report
+
+
 def generate_dashboard(
     df: pd.DataFrame,
     settings: dict,
@@ -569,6 +606,11 @@ def main() -> None:
             df,
             settings,
         )
+        ranking_report = generate_ranking_report(
+            df,
+            settings,
+            universe_report,
+        )
 
         with StageTimer(metrics, "history_time"):
             snapshot_date = save_history_snapshot(df)
@@ -694,6 +736,14 @@ def main() -> None:
                 f"{universe_report.eligible_count}/"
                 f"{universe_report.total_count} elegíveis; "
                 f"cobertura {universe_report.average_data_coverage_pct}%"
+            )
+
+        if ranking_report is not None:
+            print(f"Ranking JSON    : {RANKING_REPORT_FILE}")
+            print(
+                "Ranking         : "
+                f"{ranking_report.candidate_count}/"
+                f"{ranking_report.total_count} candidatos"
             )
 
         if portfolio_result is not None:
