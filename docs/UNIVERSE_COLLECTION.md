@@ -38,6 +38,10 @@ It is replaced atomically after each attempted symbol. On resume:
 - a success removes the prior failure entry;
 - a checkpoint from another snapshot or constituent count is rejected.
 
+On OneDrive, transient file locks are retried. If a process stops between
+writing the temporary checkpoint and replacing the primary file, the next run
+recovers the newer valid temporary state instead of discarding that progress.
+
 Each successful observation contains the same technical and derived fundamental
 fields used before Atlas scoring. Price history and raw financial-statement
 objects are intentionally omitted to keep the checkpoint bounded and JSON-safe.

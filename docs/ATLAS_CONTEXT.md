@@ -5,7 +5,7 @@
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 345 tests passing / 87.63% production coverage
+**Validation baseline:** 347 tests passing / 87.59% production coverage
 
 ## 1. Product mission
 

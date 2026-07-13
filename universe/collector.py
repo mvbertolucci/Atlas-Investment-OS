@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -115,9 +116,24 @@ def load_collection_state(
     now: Callable[[], str] = _utc_timestamp,
 ) -> CollectionState:
     state_path = Path(path)
-    if state_path.exists():
-        state = CollectionState.from_dict(
-            json.loads(state_path.read_text(encoding="utf-8"))
+    temporary = state_path.with_suffix(state_path.suffix + ".tmp")
+    candidates: list[CollectionState] = []
+    for candidate_path in (state_path, temporary):
+        if not candidate_path.exists():
+            continue
+        try:
+            candidates.append(
+                CollectionState.from_dict(
+                    json.loads(candidate_path.read_text(encoding="utf-8"))
+                )
+            )
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+            if candidate_path == state_path:
+                raise
+    if candidates:
+        state = max(
+            candidates,
+            key=lambda item: (len(item.observations), item.updated_at),
         )
         if (
             state.snapshot_date != snapshot_date
@@ -141,6 +157,10 @@ def load_collection_state(
 def write_collection_state(
     state: CollectionState,
     path: str | Path,
+    *,
+    replace_attempts: int = 10,
+    retry_delay: float = 0.2,
+    sleeper: Callable[[float], None] = time.sleep,
 ) -> Path:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -149,7 +169,14 @@ def write_collection_state(
         json.dumps(state.to_dict(), ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
     )
-    temporary.replace(output)
+    for attempt in range(replace_attempts):
+        try:
+            temporary.replace(output)
+            break
+        except PermissionError:
+            if attempt == replace_attempts - 1:
+                raise
+            sleeper(retry_delay)
     return output
 
 

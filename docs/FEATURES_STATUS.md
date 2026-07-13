@@ -2,7 +2,7 @@
 
 **Release:** v1.2.0
 **Baseline:** PR-030B
-**Test baseline:** 345 passing / 87.63% production coverage
+**Test baseline:** 347 passing / 87.59% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|

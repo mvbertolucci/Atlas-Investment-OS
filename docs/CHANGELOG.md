@@ -8,6 +8,7 @@
 - Atomic local checkpoint after every attempted symbol.
 - Automatic resume, completed-symbol skipping and configurable retries.
 - Persistent provider-failure diagnostics and snapshot compatibility checks.
+- Recovery from transient OneDrive locks and newer temporary checkpoints.
 
 ### Preserved
 
@@ -17,8 +18,8 @@
 
 ### Validation
 
-- 345 automated tests passed.
-- 87.63% production coverage overall.
+- 347 automated tests passed.
+- 87.59% production coverage overall.
 
 ## PR-030A — Reproducible research-universe expansion
 

@@ -6,9 +6,11 @@ from pathlib import Path
 import pytest
 
 from universe.collector import (
+    CollectionState,
     collect_constituent_batch,
     load_collection_state,
     select_next_incomplete_batch,
+    write_collection_state,
 )
 from universe.sources import select_constituent_batch
 
@@ -158,6 +160,71 @@ def test_checkpoint_rejects_different_snapshot(tmp_path: Path) -> None:
             snapshot_date="2026-07-13",
             total_constituents=3,
         )
+
+
+def test_newer_temporary_checkpoint_is_recovered(tmp_path: Path) -> None:
+    state_path = tmp_path / "collection.json"
+    base = CollectionState(
+        snapshot_date="2026-07-13",
+        total_constituents=3,
+        created_at="2026-07-13T12:00:00+00:00",
+        updated_at="2026-07-13T12:00:00+00:00",
+        observations={"AAA": _observation("AAA")},
+    )
+    write_collection_state(base, state_path)
+    newer = CollectionState(
+        snapshot_date=base.snapshot_date,
+        total_constituents=base.total_constituents,
+        created_at=base.created_at,
+        updated_at="2026-07-13T12:01:00+00:00",
+        observations={
+            "AAA": _observation("AAA"),
+            "BBB": _observation("BBB"),
+        },
+    )
+    state_path.with_suffix(".json.tmp").write_text(
+        json.dumps(newer.to_dict()),
+        encoding="utf-8",
+    )
+
+    recovered = load_collection_state(
+        state_path,
+        snapshot_date="2026-07-13",
+        total_constituents=3,
+    )
+    assert set(recovered.observations) == {"AAA", "BBB"}
+
+
+def test_atomic_replace_retries_transient_permission_error(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    state_path = tmp_path / "collection.json"
+    state = CollectionState(
+        snapshot_date="2026-07-13",
+        total_constituents=1,
+        created_at="now",
+        updated_at="now",
+    )
+    original_replace = Path.replace
+    attempts = 0
+
+    def flaky_replace(path: Path, target: Path) -> Path:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError("OneDrive lock")
+        return original_replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", flaky_replace)
+    write_collection_state(
+        state,
+        state_path,
+        retry_delay=0,
+        sleeper=lambda _delay: None,
+    )
+    assert attempts == 3
+    assert state_path.exists()
 
 
 def test_invalid_retry_and_batch_size_are_rejected(tmp_path: Path) -> None:
