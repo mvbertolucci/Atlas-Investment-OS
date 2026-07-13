@@ -180,9 +180,16 @@
 - [x] Derive `f_score_annual` from two complete, consecutive 10-K filings
       visible at the decision cutoff; preserve amendments, reject partial or
       non-consecutive comparisons and normalize shares for intervening splits
-- [ ] Extend valuation coverage: `forward_pe`, `ev_ebitda` (needs a D&A
-      tag), `ev_ebit`, `peg`, `shareholder_yield`/`fcf_yield` (need
-      dividend/FCF tags)
+- [x] Extend valuation coverage: `enterprise_value`, `ev_ebit`,
+      `free_cash_flow`, `fcf_yield` and `shareholder_yield`
+      (`backtesting/point_in_time_valuation.py`), each mirroring the exact
+      formula `analytics/mapper.py` already uses live. Two new SEC EDGAR
+      tags added (`capital_expenditures`, `dividends_paid`), same
+      collector/mapping mechanism as the existing 15 fields. Remaining
+      gaps need a new data source, not just a tag addition: `forward_pe`/
+      `peg` (analyst estimates) and `ev_ebitda` (the live pipeline has no
+      formula of its own to mirror -- it passes through Yahoo's
+      `enterpriseToEbitda` directly)
 - [x] Derive the `timing` factor family (`rsi_14`, `momentum_3m/6m/12m`,
       `distance_52w_high`) from the same paired price series
       (`backtesting/point_in_time_timing.py`, wired into

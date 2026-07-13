@@ -1,5 +1,41 @@
 # Changelog
 
+## Extended point-in-time valuation coverage
+
+### Added
+
+- Two new SEC EDGAR tags (`backtesting/sec_edgar.py`):
+  `capital_expenditures` (`us-gaap:PaymentsToAcquirePropertyPlantAndEquipment`)
+  and `dividends_paid` (`us-gaap:PaymentsOfDividends`/
+  `PaymentsOfDividendsCommonStock`).
+- `backtesting/point_in_time_valuation.py` now also derives
+  `enterprise_value` (`market_cap + long_term_debt - cash_and_equivalents`),
+  `ev_ebit`, `free_cash_flow` (`operating_cash_flow - capital_expenditures`),
+  `fcf_yield` and `shareholder_yield`, each mirroring the exact formula
+  `analytics/mapper.py` already uses for live Yahoo data.
+
+### Preserved
+
+- Assign-if-absent, missing-not-invented: a ratio is absent when its raw
+  components are absent, never approximated.
+- One documented adaptation: `shareholder_yield`'s dividend leg uses
+  aggregate `dividends_paid / market_cap` (the live mapper instead uses
+  per-share `dividend_rate / price`, since no clean per-share dividend tag
+  is collected); missing dividend or buyback data reads as "no
+  distribution of that kind" (mirroring the live mapper's `fillna(0.0)`
+  per leg), not "unknown".
+- `forward_pe`, `peg` and `ev_ebitda` remain explicitly out of scope: the
+  first two need analyst estimates with no free point-in-time source
+  integrated, and the live pipeline has no `ev_ebitda` formula of its own
+  to mirror (it passes through Yahoo's `enterpriseToEbitda` directly) --
+  inventing one without a live reference would be a new, undocumented
+  approximation.
+
+### Validation
+
+- 525 automated tests passed.
+- 87.83% production coverage overall.
+
 ## Point-in-time timing-factor derivation
 
 ### Added

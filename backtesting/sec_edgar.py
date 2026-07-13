@@ -76,6 +76,13 @@ FIELD_TAG_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
         ("dei", "EntityCommonStockSharesOutstanding"),
         ("us-gaap", "CommonStockSharesOutstanding"),
     ),
+    "capital_expenditures": (
+        ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"),
+    ),
+    "dividends_paid": (
+        ("us-gaap", "PaymentsOfDividends"),
+        ("us-gaap", "PaymentsOfDividendsCommonStock"),
+    ),
 }
 
 _ACCEPTED_FORM_PREFIXES = ("10-K", "10-Q")

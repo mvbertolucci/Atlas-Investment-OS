@@ -52,25 +52,28 @@ the next bounded backlog task.
 ## Current historical-validation handoff
 
 Repository state prepared on 2026-07-13 (updated the same day after the
-point-in-time `timing`-factor increment):
+timing-factor and extended-valuation increments):
 
 - branch: `master`;
 - latest functional commits (pushed to `origin/master`):
   - `4fd9e6c fix(backtesting): normalize historical stock splits`;
   - `f1c2c8e feat(backtesting): derive point-in-time annual f-score`;
-- a new, not-yet-committed increment on top of these: `backtesting/point_in_time_timing.py`
-  (point-in-time `timing` factor derivation), wired into
-  `backtesting/walk_forward.py`;
+  - `05db637 feat(backtesting): derive point-in-time timing factors`;
+- a new, not-yet-committed increment on top of these: extended
+  `backtesting/point_in_time_valuation.py` (`enterprise_value`, `ev_ebit`,
+  `free_cash_flow`, `fcf_yield`, `shareholder_yield`) plus two new SEC EDGAR
+  tags in `backtesting/sec_edgar.py` (`capital_expenditures`,
+  `dividends_paid`);
 - confirm the current remote relation with `git status --short --branch` before
   any fetch, push or integration action;
 - released version remains `v1.2.0`;
 - development baseline is PR-033 plus point-in-time data acquisition plus the
-  `timing` factor family;
-- validation baseline is 515 passing tests and 87.80% production coverage.
+  `timing` factor family plus extended `valuation` coverage;
+- validation baseline is 525 passing tests and 87.83% production coverage.
 
 The executable point-in-time boundary and deterministic walk-forward mechanism
 are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
-and paired Yahoo prices. The implementation:
+(17 native fields) and paired Yahoo prices. The implementation:
 
 - rejects timezone-naive decision and availability timestamps;
 - excludes observations unavailable at the decision cutoff;
@@ -89,62 +92,71 @@ and paired Yahoo prices. The implementation:
   price series reconstructed per symbol at each cutoff, mirroring
   `analytics/indicators.py`'s exact formulas and trading-day windows; proven
   that forward/reverse splits create no artificial momentum and that a
-  not-yet-known split or a future price never leaks into an earlier replay.
+  not-yet-known split or a future price never leaks into an earlier replay;
+- derives `enterprise_value`, `ev_ebit`, `free_cash_flow`, `fcf_yield` and
+  `shareholder_yield` (`backtesting/point_in_time_valuation.py`), each
+  mirroring the exact formula `analytics/mapper.py` already uses live, with
+  one documented adaptation (`shareholder_yield`'s dividend leg uses
+  aggregate `dividends_paid / market_cap`, not a per-share rate, since no
+  clean per-share dividend tag is collected).
 
 No portfolio-performance result or calibration exists yet. Governed score
 weights, Deal Breakers, ranking, decisions, the personal watchlist and
 `run_all.py` remain unchanged.
 
-The recommended next bounded task is **remaining point-in-time valuation
-coverage**: `forward_pe` (needs analyst estimates), `ev_ebitda` (needs a
-depreciation/amortization tag, not yet collected), `ev_ebit` (needs a clean
-total-debt figure), `peg` (needs a growth estimate) and
-`shareholder_yield`/`fcf_yield` (need dividend/FCF tags not yet collected).
-`target_upside` also remains unbuilt and needs a genuine point-in-time
-analyst-target source, not a current-data substitute. Running the
-broad-market/ADR collections (`docs/UNIVERSE_SOURCES.md`) is a valid,
-independent alternative next step if data-source acquisition rather than
-factor coverage is preferred.
+**Remaining valuation gaps are no longer a bounded "extend coverage" task --
+each needs a new data source or design decision, not a tag addition:**
+`forward_pe`/`peg` need analyst estimates (no free point-in-time source
+integrated), `ev_ebitda` has no live formula in `analytics/mapper.py` to
+mirror (the live pipeline passes through Yahoo's own `enterpriseToEbitda`
+directly -- inventing a from-scratch EBITDA definition with no live reference
+to validate against would be a new, undocumented approximation), and
+`target_upside` needs a genuine point-in-time analyst-target source.
 
-Before implementation, read:
+The recommended next bounded task is **running the broad-market/ADR
+collections** (`docs/UNIVERSE_SOURCES.md`, `docs/ANALYTICAL_ROADMAP.md`):
+`config/universe_market.yaml` and `config/universe_adr.yaml` are governed and
+ready, `universe.collector --market` is implemented and untested against a
+real run, and `portfolio.model_portfolio --universe-policy ... --label ...`
+is ready to rank over the result once collected. This is data acquisition,
+not new code -- a legitimate, independent alternative if a coding task is
+preferred is starting the **historical index membership / delisting-records**
+research thread (`docs/UNIVERSE_SOURCES.md` notes no free source has been
+found yet; this may turn out to be a research/design task rather than an
+implementation one).
 
-- `docs/SEC_EDGAR_DATA.md`;
-- `docs/PRICE_HISTORY_DATA.md`;
-- `docs/POINT_IN_TIME_DATA.md`;
+Before either, read:
+
+- `docs/UNIVERSE_SOURCES.md`;
+- `docs/UNIVERSE_COLLECTION.md`;
+- `docs/MODEL_PORTFOLIO.md`;
 - `docs/ANALYTICAL_ROADMAP.md`;
 - `docs/BACKLOG.md`;
-- `backtesting/point_in_time.py`;
-- `backtesting/point_in_time_fundamentals.py`;
-- `backtesting/point_in_time_valuation.py`;
-- `backtesting/point_in_time_timing.py`;
-- `analytics/fundamentals.py` (existing live formulas to mirror, where they
-  exist);
-- the `valuation` section of `config/features.yaml`.
+- `config/universe_market.yaml`, `config/universe_adr.yaml`;
+- `universe/collector.py`.
 
-Preserve the current as-of and multi-period contracts. Do not substitute current
-data, change governed configuration or include PR-034 performance/risk analytics
-in the same change. Each new ratio must stay assign-if-absent (never overwrite a
-value the input frame already supplies) and must leave a ratio missing, not
-invented, when its raw components are unavailable at the cutoff -- the same
-discipline already proven in `point_in_time_fundamentals.py` and
-`point_in_time_valuation.py`.
+Preserve the current as-of and multi-period contracts if any point-in-time
+code is touched. Do not substitute current data, change governed
+configuration, or include PR-034 performance/risk analytics in the same
+change.
 
 ### Ready-to-paste continuation prompt
 
 ```text
-Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/SEC_EDGAR_DATA.md and
-docs/PRICE_HISTORY_DATA.md. Verify that git status is clean and that the
-point-in-time timing-factor commit is present. Run the full test/coverage
-gate; expect 515 tests and 87.80% production coverage. Then implement one
-bounded increment: extend backtesting/point_in_time_valuation.py (or a new,
-equally-scoped module) with as many of forward_pe, ev_ebitda, ev_ebit, peg,
-shareholder_yield and fcf_yield as the currently collected raw SEC/price
-fields honestly support -- state explicitly, per ratio, which remain
-impossible without a new data source, rather than approximating them.
-Preserve the assign-if-absent, missing-not-invented contract already used by
-derive_point_in_time_ratios/valuation/timing. Add deterministic offline tests,
-run the full gate, update living documentation and leave one atomic commit
-with a clean tree. Do not change governed weights, thresholds, Deal Breakers,
+Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/UNIVERSE_SOURCES.md and
+docs/UNIVERSE_COLLECTION.md. Verify that git status is clean and that the
+extended point-in-time valuation commit is present. Run the full
+test/coverage gate; expect 525 tests and 87.83% production coverage. Then run
+the broad-market universe collection (universe.collector --market, mirroring
+the S&P 500 screener's already-proven checkpointed/resumable design) against
+config/universe_market.yaml, and report real coverage numbers (symbols
+evaluated, eligible count, failures) -- do not silently retry past a real
+failure, and do not touch the S&P 500 screener's own snapshot/checkpoint.
+Once complete, note whether portfolio.model_portfolio --universe-policy
+config/universe_market.yaml --label market is ready to run as a genuinely
+separate, later step. Update living documentation and leave one atomic commit
+with a clean tree (or none, if this is a pure data-acquisition run with no
+code change). Do not change governed weights, thresholds, Deal Breakers,
 run_all.py, portfolio performance/risk analytics, scheduling or live trading.
 ```
 

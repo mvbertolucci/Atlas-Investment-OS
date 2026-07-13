@@ -2,11 +2,12 @@
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
 **Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition + paired
-historical price series + point-in-time `timing` factor derivation
+historical price series + point-in-time `timing` factor derivation + extended
+point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 515 tests passing / 87.80% production coverage
+**Validation baseline:** 525 tests passing / 87.83% production coverage
 
 ## 1. Product mission
 
@@ -193,7 +194,7 @@ most free providers do not solve (they do not expose "value as known on
 date X" with revision history). See `docs/WALK_FORWARD_BACKTEST.md`.
 
 **Real progress on (1), now end to end:** `backtesting/sec_edgar.py` +
-`backtesting/sec_edgar_collector.py` acquire 15 native fundamental fields
+`backtesting/sec_edgar_collector.py` acquire 17 native fundamental fields
 in checkpointed, resumable batches (verified against a real batch of
 Atlas's own watchlist; `BEEF3.SA`, a B3-only listing with no US SEC
 registration, correctly failed explicitly rather than being silently
@@ -218,9 +219,17 @@ and on or before the cutoff's latest visible price date, using only
 `snapshot.splits`), then mirrors `analytics/indicators.py`'s exact formulas
 and trading-day windows. Proven not to leak: a split not yet known at the
 cutoff never adjusts the series, and a price beyond the cutoff never enters
-it. Still not complete: the rest of `valuation`
-(`forward_pe`, `ev_ebitda`, `ev_ebit`, `peg`,
-`shareholder_yield`, `fcf_yield`), `target_upside` (needs a genuine
+it. Two new SEC EDGAR tags (`capital_expenditures`, `dividends_paid`) now
+also unlock `enterprise_value`, `ev_ebit`, `free_cash_flow`, `fcf_yield`
+and `shareholder_yield`, each mirroring the exact formula
+`analytics/mapper.py` already uses live, with one documented adaptation:
+`shareholder_yield`'s dividend leg divides aggregate `dividends_paid` by
+`market_cap` (the live mapper instead uses a per-share
+`dividend_rate / price`, since no clean per-share dividend tag is
+collected). Still not complete: `forward_pe`/`peg` (need analyst
+estimates, no free point-in-time source integrated) and `ev_ebitda` (the
+live pipeline has no formula to mirror -- it passes through Yahoo's own
+`enterpriseToEbitda` directly). `target_upside` (needs a genuine
 point-in-time analyst-target source), historical index membership
 and delistings all remain unbuilt. See `docs/SEC_EDGAR_DATA.md`
 and `docs/PRICE_HISTORY_DATA.md` for the full "what is covered / what is
@@ -228,14 +237,15 @@ not" accounting.
 
 The historical price layer now restores as-traded closes and applies explicit
 point-in-time split events to the observed share count. `market_cap`, `pe`,
-`pb`, `altman_z` and now the `timing` factors therefore remain dimensionally
-consistent before and after forward or reverse splits without leaking the
-event into an earlier cutoff.
+`pb`, `altman_z`, `ev_ebit`, `fcf_yield`, `shareholder_yield` and now the
+`timing` factors therefore remain dimensionally consistent before and after
+forward or reverse splits without leaking the event into an earlier cutoff.
 
-**Open threads, in priority order:** (1) extend remaining valuation coverage
-(`forward_pe`, `ev_ebitda`, `ev_ebit`, `peg`, `shareholder_yield`/`fcf_yield`)
-and `target_upside`; (2) run the broad-market/ADR collections when resumed;
-(3)
+**Open threads, in priority order:** (1) `forward_pe`/`peg` (need analyst
+estimates), `ev_ebitda` (needs a live formula to mirror first) and
+`target_upside` remain unbuilt -- each needs a new data source or design
+decision, not just a tag addition; (2) run the broad-market/ADR collections
+when resumed; (3)
 PR-034 portfolio validation, once a real dataset is usable end to end at
 scale (today's real verification covers 2 companies, one date).
 

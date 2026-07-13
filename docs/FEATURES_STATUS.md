@@ -1,8 +1,8 @@
 # Feature Status
 
 **Release:** v1.2.0
-**Baseline:** PR-033 + point-in-time historical-data acquisition + point-in-time `timing` factor derivation
-**Test baseline:** 515 passing / 87.80% production coverage
+**Baseline:** PR-033 + point-in-time historical-data acquisition + point-in-time `timing` factor derivation + extended point-in-time valuation coverage
+**Test baseline:** 525 passing / 87.83% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|

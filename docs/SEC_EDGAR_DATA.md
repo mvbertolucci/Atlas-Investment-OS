@@ -20,10 +20,13 @@ Microsoft produced two genuinely different Investment Scores (not both
 collapsed to a neutral 50), with derived gross margins (48.6% / 68.2%)
 matching each company's real, publicly known historical range. A paired
 historical price series (`docs/PRICE_HISTORY_DATA.md`) now also unlocks
-`market_cap`, `pe`, `pb` and `altman_z`. Two complete, consecutive 10-Ks now
-also derive `f_score_annual`. It does not yet cover the rest of the `valuation`
-factor family, historical index membership, or delisting records. See "What
-is covered" and "What is not" below.
+`market_cap`, `pe`, `pb`, `altman_z`, `enterprise_value`, `ev_ebit`,
+`free_cash_flow`, `fcf_yield` and `shareholder_yield`. Two complete,
+consecutive 10-Ks now also derive `f_score_annual`, and the `timing` factor
+family (`rsi_14`, `momentum_*`, `distance_52w_high`) is derived from the same
+paired price series. It does not yet cover `forward_pe`, `peg`, `ev_ebitda`,
+historical index membership, or delisting records. See "What is covered" and
+"What is not" below.
 
 ## Why SEC EDGAR
 
@@ -66,6 +69,8 @@ value traces back to a named, independently-verifiable accession number.
 | `repurchase_of_stock` | `us-gaap:PaymentsForRepurchaseOfCommonStock` |
 | `operating_income` | `us-gaap:OperatingIncomeLoss` (kept under this name, not silently renamed to `ebit` -- see below) |
 | `shares_outstanding` | `dei:EntityCommonStockSharesOutstanding`, `us-gaap:CommonStockSharesOutstanding` |
+| `capital_expenditures` | `us-gaap:PaymentsToAcquirePropertyPlantAndEquipment` |
+| `dividends_paid` | `us-gaap:PaymentsOfDividends`, `us-gaap:PaymentsOfDividendsCommonStock` |
 
 Deliberately **native-tag-only**. A concept absent from this table is
 simply absent from the output -- never approximated or backfilled.
@@ -212,10 +217,15 @@ partial `Model Confidence` (~32.5%, honestly reflecting that `pe`,
   tags, specific margin/ratio line items only some filers break out) are a
   straightforward table extension.
 - **Valuation multiples.** A historical price series is now paired in
-  (`docs/PRICE_HISTORY_DATA.md`), unlocking `market_cap`, `pe`, `pb` and
-  `altman_z`. Still not derived: `forward_pe`, `ev_ebitda`, `ev_ebit`,
-  `peg`, `shareholder_yield`, `fcf_yield` -- see that document's "not
-  computed here" list.
+  (`docs/PRICE_HISTORY_DATA.md`), unlocking `market_cap`, `pe`, `pb`,
+  `altman_z`, `enterprise_value`, `ev_ebit`, `free_cash_flow`, `fcf_yield`
+  and `shareholder_yield`. Still not derived, and not a straightforward tag
+  addition: `forward_pe` and `peg` need analyst estimates (no free
+  point-in-time source integrated); `ev_ebitda` has no live formula in
+  `analytics/mapper.py` to mirror (the live pipeline passes through
+  Yahoo's own `enterpriseToEbitda`) -- see
+  `backtesting/point_in_time_valuation.py`'s docstring for the full
+  boundary.
 - **Historical index membership.** Still unresolved (see
   `docs/UNIVERSE_SOURCES.md`); SEC EDGAR does not carry index constituency
   at all.

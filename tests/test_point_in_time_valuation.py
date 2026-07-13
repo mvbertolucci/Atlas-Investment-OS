@@ -26,6 +26,12 @@ def _row(**overrides) -> dict:
         "retained_earnings": 900.0,
         "operating_income": 200.0,
         "total_revenue": 1000.0,
+        "long_term_debt": 300.0,
+        "cash_and_equivalents": 100.0,
+        "operating_cash_flow": 220.0,
+        "capital_expenditures": 60.0,
+        "dividends_paid": 40.0,
+        "repurchase_of_stock": 25.0,
     }
     base.update(overrides)
     return base
@@ -142,3 +148,86 @@ def test_does_not_mutate_or_drop_input_columns() -> None:
     assert result.iloc[0]["price"] == 50.0
     assert result.iloc[0]["shares_outstanding"] == 100.0
     assert "symbol" in result.columns
+
+
+def test_enterprise_value_uses_long_term_debt_and_cash() -> None:
+    frame = pd.DataFrame([_row()])
+    result = derive_point_in_time_valuation(frame)
+    # market_cap 5000 + long_term_debt 300 - cash_and_equivalents 100
+    assert _approx(result.iloc[0]["enterprise_value"], 5200.0)
+
+
+def test_ev_ebit_matches_hand_computed_value_mirroring_analytics_mapper() -> None:
+    frame = pd.DataFrame([_row()])
+    result = derive_point_in_time_valuation(frame)
+    # enterprise_value 5200 / operating_income 200
+    assert _approx(result.iloc[0]["ev_ebit"], 5200.0 / 200.0)
+
+
+def test_ev_ebit_is_missing_not_infinite_when_operating_income_is_zero() -> None:
+    frame = pd.DataFrame([_row(operating_income=0.0)])
+    result = derive_point_in_time_valuation(frame)
+    assert pd.isna(result.iloc[0]["ev_ebit"])
+
+
+def test_free_cash_flow_is_operating_cash_flow_minus_capex() -> None:
+    frame = pd.DataFrame([_row()])
+    result = derive_point_in_time_valuation(frame)
+    # operating_cash_flow 220 - capital_expenditures 60
+    assert _approx(result.iloc[0]["free_cash_flow"], 160.0)
+
+
+def test_fcf_yield_matches_hand_computed_value_mirroring_analytics_mapper() -> None:
+    frame = pd.DataFrame([_row()])
+    result = derive_point_in_time_valuation(frame)
+    # free_cash_flow 160 / market_cap 5000
+    assert _approx(result.iloc[0]["fcf_yield"], 160.0 / 5000.0)
+
+
+def test_fcf_yield_is_missing_when_capex_is_absent() -> None:
+    frame = pd.DataFrame(
+        [{k: v for k, v in _row().items() if k != "capital_expenditures"}]
+    )
+    result = derive_point_in_time_valuation(frame)
+    assert pd.isna(result.iloc[0]["free_cash_flow"])
+    assert pd.isna(result.iloc[0]["fcf_yield"])
+
+
+def test_shareholder_yield_is_dividends_plus_buybacks_over_market_cap() -> None:
+    frame = pd.DataFrame([_row()])
+    result = derive_point_in_time_valuation(frame)
+    # (dividends_paid 40 + repurchase_of_stock 25) / market_cap 5000
+    assert _approx(result.iloc[0]["shareholder_yield"], 65.0 / 5000.0)
+
+
+def test_shareholder_yield_treats_missing_dividend_tag_as_zero_distribution() -> None:
+    """
+    Mirrors analytics/mapper.py's fillna(0.0) per leg: an absent dividend
+    tag means "no dividend distribution" (a genuine reading), not
+    "unknown" -- the buyback leg alone still produces a real ratio.
+    """
+    frame = pd.DataFrame(
+        [{k: v for k, v in _row().items() if k != "dividends_paid"}]
+    )
+    result = derive_point_in_time_valuation(frame)
+    # (0 + repurchase_of_stock 25) / market_cap 5000
+    assert _approx(result.iloc[0]["shareholder_yield"], 25.0 / 5000.0)
+
+
+def test_missing_market_cap_leaves_new_yield_ratios_missing() -> None:
+    frame = pd.DataFrame([_row(price=None)])
+    result = derive_point_in_time_valuation(frame)
+    row = result.iloc[0]
+
+    assert pd.isna(row["ev_ebit"])
+    assert pd.isna(row["fcf_yield"])
+    assert pd.isna(row["shareholder_yield"])
+
+
+def test_preexisting_ev_ebit_and_fcf_yield_are_never_overwritten() -> None:
+    frame = pd.DataFrame([_row(ev_ebit=11.0, fcf_yield=0.05, shareholder_yield=0.02)])
+    result = derive_point_in_time_valuation(frame)
+
+    assert result.iloc[0]["ev_ebit"] == 11.0
+    assert result.iloc[0]["fcf_yield"] == 0.05
+    assert result.iloc[0]["shareholder_yield"] == 0.02

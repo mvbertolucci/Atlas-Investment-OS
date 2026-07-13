@@ -84,16 +84,20 @@ close remained 129.04 and the extracted event ratio was 4.0.
 Same `_assign_if_absent` safety as `point_in_time_fundamentals.py`: never
 overwrites a value the input frame already supplies.
 
-**Not computed here:** `forward_pe` (needs analyst estimates), `ev_ebitda`
-(needs a depreciation/amortization tag, not yet collected), `ev_ebit`
-(needs a clean total-debt figure, not just `long_term_debt`), `peg` (needs
-a growth estimate), `shareholder_yield`/`fcf_yield` (need dividend/FCF tags
-not yet collected). The `timing` factor family (`rsi_14`,
-`momentum_3m/6m/12m`, `distance_52w_high`) needed the *whole* price series
-available at each cutoff, not one point-in-time value; it now reuses this
-same paired series in `backtesting/point_in_time_timing.py` -- see that
-module and `docs/ATLAS_CONTEXT.md` for the continuous, split-adjusted
-series it reconstructs.
+**Not computed here:** `forward_pe` and `peg` (need analyst estimates, no
+free point-in-time source integrated) and `ev_ebitda` (no live formula in
+`analytics/mapper.py` to mirror -- the live pipeline passes through
+Yahoo's own `enterpriseToEbitda` rather than computing one). `ev_ebit`,
+`free_cash_flow`, `fcf_yield` and `shareholder_yield` are now derived in
+`backtesting/point_in_time_valuation.py`, from `long_term_debt`,
+`cash_and_equivalents`, `operating_cash_flow`, `capital_expenditures`,
+`dividends_paid` and `repurchase_of_stock` (see `docs/SEC_EDGAR_DATA.md`).
+The `timing` factor family (`rsi_14`, `momentum_3m/6m/12m`,
+`distance_52w_high`) needed the *whole* price series available at each
+cutoff, not one point-in-time value; it reuses this same paired series in
+`backtesting/point_in_time_timing.py` -- see that module and
+`docs/ATLAS_CONTEXT.md` for the continuous, split-adjusted series it
+reconstructs.
 
 ## Verified end to end against real, live data
 
