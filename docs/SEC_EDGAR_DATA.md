@@ -18,10 +18,12 @@ actually scores on (`backtesting/point_in_time_fundamentals.py`) -- proven
 end to end: a real walk-forward replay over real SEC data for Apple and
 Microsoft produced two genuinely different Investment Scores (not both
 collapsed to a neutral 50), with derived gross margins (48.6% / 68.2%)
-matching each company's real, publicly known historical range. It does not
-yet cover: `f_score_annual` (needs two fiscal years), `altman_z` (needs
-market cap, i.e. price), historical index membership, historical prices, or
-delisting records. See "What is covered" and "What is not" below.
+matching each company's real, publicly known historical range. A paired
+historical price series (`docs/PRICE_HISTORY_DATA.md`) now also unlocks
+`market_cap`, `pe`, `pb` and `altman_z`. It does not yet cover:
+`f_score_annual` (needs two fiscal years), the rest of the `valuation`
+factor family, historical index membership, or delisting records. See "What
+is covered" and "What is not" below.
 
 ## Why SEC EDGAR
 
@@ -206,17 +208,14 @@ partial `Model Confidence` (~32.5%, honestly reflecting that `pe`,
   mapping. Remaining native concepts not yet mapped (e.g. per-share EPS
   tags, specific margin/ratio line items only some filers break out) are a
   straightforward table extension.
-- **`f_score_annual` and `altman_z`.** Not yet derived: F-Score needs two
-  fiscal years compared (two point-in-time reconstructions, not a single
-  row); Altman Z needs `market_cap`, which needs a paired price series (see
-  below). Every other ratio `config/features.yaml`'s business/financial
-  factors read is now derived -- see "Deriving the ratios Atlas actually
-  scores on" above.
-- **Valuation multiples** (PE, PB, EV/EBITDA, PEG, dividend/buyback
-  yields). SEC EDGAR has no price data at all; these need a historical
-  price series (Yahoo's daily history is not restated the way fundamentals
-  are, so it is a reasonable pairing) matched to the same historical date
-  as the fundamentals -- a separate design problem, not started.
+- **`f_score_annual`.** Not yet derived: needs two fiscal years compared
+  (two point-in-time reconstructions, not a single row). `altman_z` IS now
+  derived -- see `docs/PRICE_HISTORY_DATA.md`.
+- **Valuation multiples.** A historical price series is now paired in
+  (`docs/PRICE_HISTORY_DATA.md`), unlocking `market_cap`, `pe`, `pb` and
+  `altman_z`. Still not derived: `forward_pe`, `ev_ebitda`, `ev_ebit`,
+  `peg`, `shareholder_yield`, `fcf_yield` -- see that document's "not
+  computed here" list.
 - **Historical index membership.** Still unresolved (see
   `docs/UNIVERSE_SOURCES.md`); SEC EDGAR does not carry index constituency
   at all.

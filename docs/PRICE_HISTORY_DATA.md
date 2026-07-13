@@ -1,0 +1,110 @@
+# Historical Price Pairing (unlocks valuation and `altman_z`)
+
+## Purpose
+
+`docs/SEC_EDGAR_DATA.md` closed the loop from raw SEC totals to the ratios
+Atlas scores on, but explicitly left `altman_z` and every `valuation` factor
+unbuilt: they need `market_cap` (price × shares outstanding), and SEC EDGAR
+has no price data at all. `backtesting/price_history.py` pairs a daily
+historical close-price series (Yahoo Finance, via `yfinance`) into the same
+`HistoricalObservation` contract PR-032 already consumes, and
+`backtesting/point_in_time_valuation.py` derives `market_cap`, `pe`, `pb`
+and `altman_z` from it.
+
+## Why Yahoo daily history
+
+Free, no key, already a project dependency (`providers/yahoo.py`), and goes
+back decades for large caps (verified live: Apple Inc. history starts
+1980-12-12, 11,486 trading days). A daily close is a public, immutable-once-
+settled fact with a real calendar date -- the same kind of source PR-032's
+contract was designed for.
+
+## Mapping (`backtesting/price_history`)
+
+One `HistoricalObservation(field_name="price")` per trading day with a
+valid close (`extract_price_observations`). Same conservative,
+no-look-ahead convention as `sec_edgar.available_at_from_filed`: a
+fechamento is only "available" from midnight UTC of the day **after** the
+trade (`available_at_from_trade_date`) -- almost certainly later than the
+true intraday settlement moment, never earlier.
+
+`fetch_price_history` uses `auto_adjust=False`: it excludes Yahoo's
+additional dividend adjustment, but **Yahoo/yfinance does not expose a
+truly as-traded historical close through this endpoint at all** -- the
+series it returns is always retroactively adjusted for stock splits, to
+stay continuous for charting.
+
+## Known limitation: market_cap around stock splits (not corrected here)
+
+`shares_outstanding` (SEC EDGAR, `dei:EntityCommonStockSharesOutstanding`)
+is the *real* share count reported at each filing date -- never adjusted
+for a later split. Yahoo's paired price series *is* retroactively
+split-adjusted. Multiplying the two together is only dimensionally
+consistent for decision dates **at or after** the company's most recent
+stock split (or for a company with no split in the covered window): the
+price and the share count are both expressed in current-share-count terms.
+
+For a decision date **before** a split, `market_cap` (and everything that
+depends on it -- `pe`, `pb`, `altman_z`) comes out wrong by exactly the
+split ratio. This is a real, known gap, not silently assumed away -- see
+the corresponding open item in `docs/BACKLOG.md`. Fixing it properly needs
+`Ticker(symbol).splits` (ex-dividend-date-keyed split ratios) applied as a
+cumulative forward adjustment to each `shares_outstanding` observation, plus
+`reconstruct_snapshot_frame` carrying each field's `observed_on` (today it
+collapses straight to a value) -- a materially bigger structural change,
+deferred rather than half-implemented.
+
+## Deriving market_cap and the valuation ratios (`point_in_time_valuation.py`)
+
+`derive_point_in_time_valuation(frame)` computes, once `price` and
+`shares_outstanding` are both present:
+
+- `market_cap = price × shares_outstanding`
+- `pe = market_cap / net_income`, only when `net_income > 0` (a P/E is
+  conventionally not reported, and never negative, for a loss-making
+  company -- feeding a negative value into a `higher_is_better: false`
+  factor would score a loss as "cheap", not flag a problem)
+- `pb = market_cap / total_equity`
+- `altman_z`, mirroring `analytics/fundamentals.py::_compute_altman_z`'s
+  exact five weighted terms, now with a real `market_cap` term instead of
+  the term being entirely absent
+
+Same `_assign_if_absent` safety as `point_in_time_fundamentals.py`: never
+overwrites a value the input frame already supplies.
+
+**Not computed here:** `forward_pe` (needs analyst estimates), `ev_ebitda`
+(needs a depreciation/amortization tag, not yet collected), `ev_ebit`
+(needs a clean total-debt figure, not just `long_term_debt`), `peg` (needs
+a growth estimate), `shareholder_yield`/`fcf_yield` (need dividend/FCF tags
+not yet collected), and the entire `timing` factor family (`rsi_14`,
+`momentum_3m/6m/12m`, `distance_52w_high`) -- these need the *whole* price
+series available at each cutoff, not one point-in-time value; a natural
+next increment reusing this same paired series.
+
+## Verified end to end against real, live data
+
+Apple and Microsoft, most recent decision date available
+(`as_of` picking each company's latest available fundamentals and paired
+price):
+
+| | AAPL | MSFT |
+|---|---|---|
+| `market_cap` | ~$4.1T | ~$3.1T |
+| `pe` | 57.4 | 31.4 |
+| `pb` | 38.6 | 7.4 |
+| `altman_z` | 10.9 (safe zone) | 8.2 (safe zone) |
+| Investment Score | 48.4 (AVOID) | 58.9 (HOLD) |
+| Model Confidence | 40.0% | 40.0% |
+
+Model Confidence rose from ~32.5% (the pre-valuation SEC-only replay) to
+40.0% now that the `valuation` factor family is partially populated --
+concrete, measured evidence the loop got more complete, not just structurally
+different. Apple's unusually high `pb` is a real, known characteristic of
+its balance sheet (aggressive buybacks have driven book equity very low
+relative to market cap), not a computation error.
+
+## Compliance
+
+Uses only Yahoo Finance's public historical-quotes endpoint via `yfinance`
+(already a project dependency for the live pipeline), the same way
+`providers/yahoo.py` already does.
