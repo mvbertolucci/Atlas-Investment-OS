@@ -153,3 +153,94 @@ def test_extract_observations_uppercases_symbol() -> None:
 def test_extract_observations_handles_missing_facts_gracefully() -> None:
     assert extract_observations("AAPL", {}) == ()
     assert extract_observations("AAPL", {"facts": {}}) == ()
+
+
+def test_extract_observations_merges_multiple_candidate_tags() -> None:
+    """
+    A company can use "Revenues" in early years and switch to
+    "RevenueFromContractWithCustomerExcludingAssessedTax" later (the ~2018
+    revenue-recognition standard change). Both must be extracted and merged
+    under the same canonical field -- not just whichever tag is checked
+    first -- or part of the company's real history would silently vanish.
+    """
+    facts = {
+        "facts": {
+            "us-gaap": {
+                "Revenues": {
+                    "units": {
+                        "USD": [
+                            _entry(
+                                end="2016-12-31",
+                                val=100.0,
+                                filed="2017-02-01",
+                                accn="0000320193-17-000001",
+                            )
+                        ]
+                    }
+                },
+                "RevenueFromContractWithCustomerExcludingAssessedTax": {
+                    "units": {
+                        "USD": [
+                            _entry(
+                                end="2019-12-31",
+                                val=200.0,
+                                filed="2020-02-01",
+                                accn="0000320193-20-000001",
+                            )
+                        ]
+                    }
+                },
+            }
+        }
+    }
+
+    observations = extract_observations("AAPL", facts)
+    revenue_obs = [o for o in observations if o.field_name == "total_revenue"]
+
+    assert len(revenue_obs) == 2
+    values_by_period = {o.observed_on.isoformat(): o.value for o in revenue_obs}
+    assert values_by_period == {"2016-12-31": 100.0, "2019-12-31": 200.0}
+
+
+def test_extract_observations_reads_shares_outstanding_from_dei_taxonomy() -> None:
+    facts = {
+        "facts": {
+            "dei": {
+                "EntityCommonStockSharesOutstanding": {
+                    "units": {"shares": [_entry(val=15_000_000_000.0)]}
+                }
+            }
+        }
+    }
+
+    observations = extract_observations("AAPL", facts)
+
+    assert len(observations) == 1
+    assert observations[0].field_name == "shares_outstanding"
+    assert observations[0].value == 15_000_000_000.0
+    assert "dei:" in observations[0].source
+
+
+def test_extract_observations_covers_the_widened_native_tag_set() -> None:
+    """Sanity check that the widened FIELD_TAG_CANDIDATES table round-trips
+    for a representative sample of the newly added native tags."""
+    facts = {
+        "facts": {
+            "us-gaap": {
+                "GrossProfit": {"units": {"USD": [_entry(val=10.0)]}},
+                "LongTermDebtNoncurrent": {"units": {"USD": [_entry(val=20.0)]}},
+                "OperatingIncomeLoss": {"units": {"USD": [_entry(val=30.0)]}},
+                "InterestExpense": {"units": {"USD": [_entry(val=40.0)]}},
+            }
+        }
+    }
+
+    observations = extract_observations("AAPL", facts)
+    values = {o.field_name: o.value for o in observations}
+
+    assert values == {
+        "gross_profit": 10.0,
+        "long_term_debt": 20.0,
+        "operating_income": 30.0,
+        "interest_expense": 40.0,
+    }
