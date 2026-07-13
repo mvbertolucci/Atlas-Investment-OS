@@ -128,7 +128,11 @@
 - [x] PR-030B Collect the expanded universe in checkpointed batches
 - [x] PR-031 Build an advisory model portfolio under explicit constraints
 - [x] PR-032 Define the point-in-time historical-data contract
-- [ ] PR-033 Implement deterministic walk-forward backtesting
+- [x] PR-033 Implement deterministic walk-forward backtesting -- the replay
+      *mechanism* (`backtesting/walk_forward.py`), proven with synthetic,
+      offline fixtures. No real historical point-in-time dataset exists yet
+      to run it against for real (that acquisition remains unscoped and
+      unstarted); see `docs/WALK_FORWARD_BACKTEST.md`.
 - [ ] PR-034 Add portfolio performance and risk validation
 - [ ] PR-035 Track a prospective shadow portfolio
 - [ ] PR-036 Calibrate only from versioned out-of-sample evidence
