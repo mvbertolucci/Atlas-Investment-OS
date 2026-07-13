@@ -106,5 +106,7 @@
       (`run_all.py` emits `output/dashboard.json`, guarded by `dashboard_enabled`)
 - [x] Read-only REST API over the contract (`api/`, stdlib, no new dependency;
       see `docs/API_CONTRACT.md`). Optional later: FastAPI/OpenAPI, auth.
+- [x] Read-only Python SDK (`sdk/`, HTTP or offline file transport;
+      see `docs/SDK.md`)
 - [ ] Add scheduling and notifications only after the dashboard boundary is stable
-- [ ] Keep API, SDK and AI assistant as separate increments
+- [ ] Keep the AI assistant as a separate increment

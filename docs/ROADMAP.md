@@ -52,7 +52,7 @@
 
 - [x] Dashboard (read-only contract + `output/dashboard.json`)
 - [x] REST API (read-only, stdlib; `api/`)
+- [x] SDK (read-only Python client; `sdk/`)
 - [ ] Scheduling
 - [ ] Notifications
-- [ ] SDK
 - [ ] AI assistant
