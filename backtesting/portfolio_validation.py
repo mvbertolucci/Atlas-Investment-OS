@@ -281,6 +281,7 @@ class ValidationPeriod:
     maximum_position_weight: float
     sector_hhi: float | None = None
     maximum_sector_weight: float | None = None
+    sector_contributions: Mapping[str, float] | None = None
     terminal_events: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
@@ -297,6 +298,11 @@ class ValidationPeriod:
             "maximum_position_weight": self.maximum_position_weight,
             "sector_hhi": self.sector_hhi,
             "maximum_sector_weight": self.maximum_sector_weight,
+            "sector_contributions": (
+                dict(self.sector_contributions)
+                if self.sector_contributions is not None
+                else None
+            ),
             "terminal_events": list(self.terminal_events),
         }
 
@@ -652,10 +658,14 @@ def validate_portfolio(
         benchmark_return = float(benchmark.total_return)
         position_weights = tuple(rebalance.target_weights.values())
         sector_weights: dict[str, float] = {}
+        sector_contributions: dict[str, float] = {}
         if len(rebalance.sectors) == len(rebalance.target_weights):
             for symbol, weight in rebalance.target_weights.items():
                 sector = rebalance.sectors[symbol]
                 sector_weights[sector] = sector_weights.get(sector, 0.0) + weight
+                sector_contributions[sector] = sector_contributions.get(
+                    sector, 0.0
+                ) + weight * asset_returns[symbol]
         periods.append(
             ValidationPeriod(
                 period_start=period_start,
@@ -675,6 +685,14 @@ def validate_portfolio(
                 maximum_sector_weight=(
                     _rounded(max(sector_weights.values()))
                     if sector_weights
+                    else None
+                ),
+                sector_contributions=(
+                    {
+                        sector: _rounded(value)
+                        for sector, value in sorted(sector_contributions.items())
+                    }
+                    if sector_contributions
                     else None
                 ),
                 terminal_events=tuple(

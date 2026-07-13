@@ -51,21 +51,23 @@ the next bounded backlog task.
 
 ## Current historical-validation handoff
 
-Repository state prepared on 2026-07-13 (updated the same day after merging
-the full PR-034 offline chain into `master`):
+Repository state prepared on 2026-07-13 (updated the same day after the
+per-sector return-contribution increment):
 
-- branch: `master`;
-- latest commit: `9298866 merge: integrate PR-034 deterministic validation
-  core and offline evidence adapters` -- merges the seven-commit
-  `codex/pr034-execution-evidence` line (portfolio validation core, versioned
-  offline runner, historical targets, next-session-open execution, the
-  execution-evidence and total-return-evidence adapters, plus the
-  `universe.collector` auto-batch-selection fix) straight into `master`;
-- this merge is **local only, not yet pushed** to `origin/master` -- confirm
-  the current remote relation with `git status --short --branch` before any
-  push;
+- branch: `master`, pushed to `origin/master`;
+- latest commits:
+  - `9298866 merge: integrate PR-034 deterministic validation core and
+    offline evidence adapters` -- merges the seven-commit
+    `codex/pr034-execution-evidence` line (portfolio validation core,
+    versioned offline runner, historical targets, next-session-open
+    execution, the execution-evidence and total-return-evidence adapters,
+    plus the `universe.collector` auto-batch-selection fix);
+  - `cd17d8e docs: fix post-merge handoff to reflect master, not the codex
+    worktree`;
+  - a new, not-yet-committed increment: per-sector return contribution in
+    `backtesting/portfolio_validation.py` (`ValidationPeriod.sector_contributions`);
 - released version remains `v1.2.0`;
-- validation baseline is 585 passing tests and 88.57% production coverage.
+- validation baseline is 587 passing tests and 88.58% production coverage.
 
 A broad-market universe collection (`universe.collector --market` against
 `config/universe_market.yaml`, ~7,093 NASDAQ Trader symbols) may still be
@@ -116,10 +118,15 @@ over day across an explicit sequence of period boundaries, and applying
 PR-032 `DelistingRecord` terminal treatment to the one period containing
 `last_trade_on` (`zero`/`cash` resolved explicitly; `successor` always
 reported `unresolved`, since a single-symbol adapter has no evidence of a
-successor security's own value). Neither adapter makes provider calls, and no
-broad real execution or total-return artifact has been acquired yet. Real
-`DelistingRecord` evidence and a broad real dataset are still required before
-the metric core can produce honest performance evidence.
+successor security's own value). Each complete validation period now also
+reports per-sector return contribution (`target_weight × asset_return`,
+summed per sector, always adding up to exactly `gross_return`), reusing the
+existing `PortfolioRebalance.sectors` mapping -- `null` under the same
+absent/partial-coverage rule as `sector_hhi`. Neither evidence adapter makes
+provider calls, and no broad real execution or total-return artifact has
+been acquired yet. Real `DelistingRecord` evidence and a broad real dataset
+are still required before the metric core can produce honest performance
+evidence.
 Governed score weights, Deal Breakers, ranking, decisions, the personal
 watchlist and `run_all.py` remain unchanged.
 
@@ -133,16 +140,22 @@ to validate against would be a new, undocumented approximation), and
 `target_upside` needs a genuine point-in-time analyst-target source.
 
 Both offline adapters (`execution_evidence.py`, `total_return_evidence.py`)
-are now implemented, tested and merged into `master`. What remains in PR-034
-splits into three independent threads:
+and per-sector return contribution are now implemented, tested and (adapters)
+merged into `master`. What remains in PR-034 splits into three independent
+threads:
 
-1. **Sector and factor contribution without look-ahead** (offline coding
-   task): attribute each complete period's return to the sector/factor
-   exposures known at that cutoff, without projecting a later exposure
-   backward. First read `docs/PORTFOLIO_VALIDATION.md`,
-   `backtesting/portfolio_validation.py` (`ValidationPeriod`'s existing
-   `sector_hhi`/`maximum_sector_weight` fields are the closest existing
-   precedent) and their tests.
+1. **Factor contribution without look-ahead** (offline coding task,
+   materially larger than sector contribution was): attribute each complete
+   period's return to Atlas's scoring-factor exposures (business/valuation/
+   financial/timing) known at that cutoff, without projecting a later
+   exposure backward. Unlike sector contribution, this needs those exposures
+   joined into the input contract -- `PortfolioRebalance`/`AssetPeriodReturn`
+   do not carry them today, so the first sub-step is designing that join
+   (likely from the walk-forward replay's own `score_dataframe` output at
+   each historical cutoff) before any attribution math. First read
+   `docs/PORTFOLIO_VALIDATION.md`, `backtesting/portfolio_validation.py`
+   (`ValidationPeriod.sector_contributions` is the closest existing
+   precedent) and `backtesting/walk_forward.py`.
 2. **Real bounded acquisition** (data acquisition, not code, needs an
    explicit go-ahead before provider calls): fetch real reference/
    selected-symbol Yahoo bars for `execution_evidence.py` and
@@ -169,26 +182,30 @@ same change.
 Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/PORTFOLIO_VALIDATION.md and
 docs/BACKLOG.md fully before changing anything. Verify git status is clean
 (other than any live broad-market collection log/checkpoint files) and that
-commit 9298866 (the PR-034 merge) is present on master. Run the full
-test/coverage gate; expect 585 tests and 88.57% production coverage. Report
-any mismatch before editing.
+master includes the PR-034 merge plus per-sector return contribution
+(ValidationPeriod.sector_contributions). Run the full test/coverage gate;
+expect 587 tests and 88.58% production coverage. Report any mismatch before
+editing.
 
 Check whether a broad-market universe.collector --market process or
 data/market_collection_run.log shows it is still running. Do not invoke or
 interfere with that collector and do not read or write
 data/research_universe_collection_market.json while it owns that checkpoint.
 
-Then implement the next smallest offline PR-034 increment: sector and factor
-contribution for each complete validation period, attributed only from
-exposures known at that period's cutoff -- never a later exposure projected
-backward. Mirror the existing sector_hhi/maximum_sector_weight precedent in
-backtesting/portfolio_validation.py for how partial/absent coverage should
-degrade to null rather than an invented classification. Add deterministic
-tests, run the focused and full coverage suites, update living documentation
-and leave one atomic commit with a clean tree. Show the diff and validation
-summary. Do not push without explicit approval. Do not make provider calls or
-change governed weights, thresholds, Deal Breakers, run_all.py, scheduling or
-live trading.
+Then design and implement the next PR-034 increment: factor contribution.
+Unlike sector contribution (which reused an existing input field), this
+needs Atlas's scoring-factor exposures (business/valuation/financial/timing)
+at each historical cutoff joined into the validation input contract without
+look-ahead -- read backtesting/walk_forward.py first to see what
+score_dataframe already produces per cutoff, and propose the smallest
+addition to PortfolioRebalance/AssetPeriodReturn (or a new, versioned
+sibling input) that carries those exposures honestly, leaving them missing
+rather than invented when a cutoff's factor exposures cannot be reconstructed.
+Add deterministic tests, run the focused and full coverage suites, update
+living documentation and leave one atomic commit with a clean tree. Show the
+diff and validation summary. Do not push without explicit approval. Do not
+make provider calls or change governed weights, thresholds, Deal Breakers,
+run_all.py, scheduling or live trading.
 ```
 
 ## Parallel work with Codex

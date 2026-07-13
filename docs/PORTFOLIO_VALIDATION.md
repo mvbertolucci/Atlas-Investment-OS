@@ -33,8 +33,19 @@ these rows in the same versioned, retrieval-timestamped artifact pattern as
 `backtesting/execution_evidence.py`, so total returns can be computed once
 and reused across validation runs. Real calendar/opening-price acquisition
 and a broad real total-return/benchmark/delisting dataset remain open.
-Factor contribution also remains open until historical factor exposures and
-subsequent returns can be joined without look-ahead bias.
+
+Each complete period now also reports per-sector return contribution
+(`sector_contributions`): `target_weight × asset_return`, summed per sector,
+using the exact same explicit `PortfolioRebalance.sectors` mapping already
+required for `sector_hhi` -- no new input needed. It is `null` under the
+same condition as `sector_hhi`/`maximum_sector_weight` (absent or partial
+sector coverage), and its values always sum to exactly `gross_return`, a
+useful invariant for spotting a broken sector mapping. Factor contribution
+(attributing return to Atlas's scoring factor exposures -- business/
+valuation/financial/timing -- known at each cutoff) remains a separate,
+larger increment: unlike sector contribution, it needs those exposures
+joined into the input contract without look-ahead bias, which
+`PortfolioRebalance`/`AssetPeriodReturn` do not carry today.
 
 ## Run from a versioned local input
 
@@ -102,8 +113,8 @@ For each complete period, Atlas reports:
 - one-way turnover, including the initial move from cash;
 - estimated transaction cost;
 - position Herfindahl-Hirschman concentration and maximum position weight;
-- sector HHI and maximum sector weight when every position has an explicit
-  sector;
+- sector HHI, maximum sector weight and per-sector return contribution when
+  every position has an explicit sector;
 - resolved terminal events used in the calculation.
 
 The complete-run summary compounds portfolio and benchmark returns and reports
@@ -125,6 +136,7 @@ whether validation is `complete` or `incomplete`.
   `DelistingRecord` evidence for terminal events -- the adapter and its
   versioned artifact are implemented, but no broad real total-return
   artifact is committed or collected by this change;
-- add sector and factor contribution based on exposures known at each cutoff;
+- add factor contribution based on scoring-factor exposures known at each
+  cutoff (sector contribution is now implemented; see above);
 - run the report on a broad real dataset and publish coverage before drawing
   any performance conclusion.

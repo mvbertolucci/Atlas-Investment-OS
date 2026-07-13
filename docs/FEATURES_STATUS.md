@@ -2,7 +2,7 @@
 
 **Release:** v1.2.0
 **Baseline:** PR-033 + point-in-time acquisition/derivation (including `timing` and extended `valuation`) + deterministic PR-034 target/execution-evidence/total-return-evidence/execution/validation cores
-**Test baseline:** 585 passing / 88.57% production coverage
+**Test baseline:** 587 passing / 88.58% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|

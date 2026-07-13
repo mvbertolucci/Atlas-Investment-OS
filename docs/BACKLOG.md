@@ -240,7 +240,15 @@
         the new total-return adapter against a broad real dataset (the
         adapter and its versioned artifact are implemented; no broad real
         artifact is committed or collected yet)
-      - [ ] Add sector and factor contribution without look-ahead
+      - [x] Add per-sector return contribution (`target_weight ×
+        asset_return`, summed per sector) to each complete validation
+        period, reusing the existing `PortfolioRebalance.sectors` mapping --
+        `null` under the same absent/partial-coverage rule as `sector_hhi`;
+        values always sum to exactly `gross_return`
+      - [ ] Add factor contribution based on scoring-factor exposures known
+        at each cutoff (needs those exposures joined into the input
+        contract without look-ahead -- a separate, larger increment than
+        sector contribution)
       - [ ] Run broad real validation and report coverage
 - [ ] PR-035 Track a prospective shadow portfolio
 - [ ] PR-036 Calibrate only from versioned out-of-sample evidence

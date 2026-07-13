@@ -1,5 +1,29 @@
 # Changelog
 
+## PR-034 — Per-sector return contribution
+
+### Added
+
+- `ValidationPeriod.sector_contributions` in `backtesting/portfolio_validation.py`:
+  `target_weight × asset_return`, summed per sector, for each complete
+  validation period, reusing the existing `PortfolioRebalance.sectors`
+  mapping already required for `sector_hhi` -- no new input contract needed.
+
+### Preserved
+
+- `null` under the exact same absent/partial-sector-coverage rule as
+  `sector_hhi`/`maximum_sector_weight`, never an invented classification.
+- Values always sum to exactly `gross_return`, a useful invariant pinned by
+  a regression test.
+- Factor contribution (scoring-factor exposures at each cutoff) remains
+  explicitly out of scope: it needs those exposures joined into the input
+  contract without look-ahead, which the existing contract does not carry.
+
+### Validation
+
+- 587 automated tests passed.
+- 88.58% production coverage overall.
+
 ## PR-034 — Versioned dividend-inclusive total-return evidence
 
 ### Added

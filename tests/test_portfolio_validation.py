@@ -196,6 +196,50 @@ def test_sector_concentration_is_computed_only_from_explicit_mapping() -> None:
     assert report.summary.maximum_sector_weight == 0.7
 
 
+def test_sector_contribution_matches_weighted_return_and_sums_to_gross_return() -> None:
+    rebalance = PortfolioRebalance(
+        "2025-01-01",
+        {"AAA": 0.4, "BBB": 0.3, "CCC": 0.3},
+        sectors={"AAA": "Technology", "BBB": "Technology", "CCC": "Health"},
+    )
+    report = validate_portfolio(
+        (rebalance,),
+        (
+            _return("AAA", "2025-01-01", "2025-02-01", 0.10),
+            _return("BBB", "2025-01-01", "2025-02-01", -0.20),
+            _return("CCC", "2025-01-01", "2025-02-01", 0.05),
+            _return("SPY", "2025-01-01", "2025-02-01", 0.0),
+        ),
+        _policy(transaction_cost_bps=0),
+        _manifest(),
+    )
+
+    period = report.periods[0]
+    # Technology = 0.4*0.10 + 0.3*(-0.20) = -0.02; Health = 0.3*0.05 = 0.015
+    assert period.sector_contributions == {
+        "Health": pytest.approx(0.015),
+        "Technology": pytest.approx(-0.02),
+    }
+    assert sum(period.sector_contributions.values()) == pytest.approx(
+        period.gross_return
+    )
+
+
+def test_sector_contribution_is_none_without_complete_sector_coverage() -> None:
+    report = validate_portfolio(
+        (PortfolioRebalance("2025-01-01", {"AAA": 0.5, "BBB": 0.5}),),
+        (
+            _return("AAA", "2025-01-01", "2025-02-01", 0.10),
+            _return("BBB", "2025-01-01", "2025-02-01", 0.0),
+            _return("SPY", "2025-01-01", "2025-02-01", 0.0),
+        ),
+        _policy(transaction_cost_bps=0),
+        _manifest(),
+    )
+
+    assert report.periods[0].sector_contributions is None
+
+
 def test_sector_mapping_rejects_unknown_portfolio_symbol() -> None:
     with pytest.raises(ValueError, match="símbolos da carteira"):
         PortfolioRebalance(

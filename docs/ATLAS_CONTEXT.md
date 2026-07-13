@@ -5,12 +5,12 @@
 historical price series + point-in-time `timing` factor derivation + extended
 point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
 plus deterministic PR-034 target, execution-evidence, total-return-evidence,
-next-open execution and validation cores.
+next-open execution, validation and per-sector return-contribution cores.
 
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 585 tests passing / 88.57% production coverage
+**Validation baseline:** 587 tests passing / 88.58% production coverage
 
 ## 1. Product mission
 
@@ -214,8 +214,13 @@ from the same kind of Yahoo bars, compounding `(Close+Dividend)/previous_close`
 day over day and applying PR-032 `DelistingRecord` terminal treatment
 (`zero`/`cash` resolved explicitly; `successor` deliberately left `unresolved`
 -- this single-symbol adapter has no evidence of a successor security's own
-value). The broad real artifacts (execution bars, total-return bars,
-delisting records), factor contribution and a broad run remain open; see
+value). Each complete validation period now also reports per-sector return
+contribution (`target_weight × asset_return`, summed per sector, always
+adding up to exactly `gross_return`), reusing the existing
+`PortfolioRebalance.sectors` mapping -- no new input needed. The broad real
+artifacts (execution bars, total-return bars, delisting records), factor
+contribution (a separate, larger increment needing scoring-factor exposures
+joined into the input contract) and a broad run remain open; see
 `docs/HISTORICAL_MODEL_PORTFOLIO.md`, `docs/HISTORICAL_EXECUTION.md`,
 `docs/EXECUTION_EVIDENCE.md` and `docs/PORTFOLIO_VALIDATION.md`.
 
