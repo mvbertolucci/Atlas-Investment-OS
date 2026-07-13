@@ -1,0 +1,6 @@
+name: Atlas Monthly Portfolio Validation
+benchmark_symbol: SPY
+periods_per_year: 12
+transaction_cost_bps: 10.0
+base_currency: USD
+dividends_included: true

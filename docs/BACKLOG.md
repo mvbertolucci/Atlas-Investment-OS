@@ -214,6 +214,13 @@
 - [ ] Run the walk-forward engine against the resulting real dataset once
       it is usable end to end
 - [ ] PR-034 Add portfolio performance and risk validation
+      - [x] Deterministic validation core for total/benchmark return,
+        volatility, drawdown, turnover, explicit costs and position
+        concentration; incomplete periods suppress aggregate metrics
+      - [ ] Build dated model portfolios from walk-forward decisions
+      - [ ] Acquire complete total-return/benchmark/delisting evidence
+      - [ ] Add sector and factor contribution without look-ahead
+      - [ ] Run broad real validation and report coverage
 - [ ] PR-035 Track a prospective shadow portfolio
 - [ ] PR-036 Calibrate only from versioned out-of-sample evidence
 

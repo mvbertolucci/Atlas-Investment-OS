@@ -8,17 +8,18 @@ recreates each Atlas decision using only evidence visible at that cutoff,
 through the existing, unchanged, governed `scoring.investment.score_dataframe`.
 
 **This is not, yet, a backtest of Atlas's real historical performance.**
-PR-032 deliberately excluded historical-data acquisition (provider
-credentials, a populated point-in-time dataset). No such dataset exists in
-this repository. `backtesting/walk_forward.py` is proven with small, fully
+PR-032 deliberately excluded historical-data acquisition. The repository now
+contains bounded real SEC/price acquisition and two-company evidence, but no
+complete broad point-in-time dataset. `backtesting/walk_forward.py` is proven with small, fully
 synthetic, offline fixtures (`tests/test_walk_forward.py`) -- they establish
 that the mechanism is correct (temporal exclusion, incomplete-decision
 reporting, determinism), not that Atlas would have performed any particular
 way historically. Acquiring a real, versioned, point-in-time-correct
 historical dataset is a separate, later, and materially harder problem
 (most free providers do not expose "value as known on date X" with revision
-history) -- PR-034 (return/risk validation) still needs that dataset to mean
-anything, and does not exist here either.
+history). PR-034 now has a deterministic calculation core, but historical
+portfolio construction and complete real total-return evidence still do not
+exist; see `docs/PORTFOLIO_VALIDATION.md`.
 
 ## Executable contract
 

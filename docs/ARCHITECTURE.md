@@ -144,7 +144,10 @@ the user's real `config/portfolio.csv`.
 ### Historical-validation contract layer
 
 - `backtesting/point_in_time.py`
+- `backtesting/portfolio_validation.py`
+- `config/portfolio_validation.yaml`
 - `docs/POINT_IN_TIME_DATA.md`
+- `docs/PORTFOLIO_VALIDATION.md`
 
 The point-in-time layer defines the immutable evidence boundary for future
 walk-forward validation. It filters observations by source availability,
@@ -155,7 +158,12 @@ split events and requires terminal treatment for delisted securities. The
 walk-forward mechanism derives single-period ratios, two-period Piotroski
 F-Score, partial valuation and the `timing` factor family (from a continuous,
 split-adjusted price series per cutoff) before replaying governed decisions.
-It does not calculate portfolio returns; those remain a PR-034 responsibility.
+The first PR-034 increment consumes explicit dated portfolio weights and
+source-attributed total returns. It calculates benchmark-relative return,
+volatility, drawdown, turnover, estimated costs and position concentration,
+but deliberately remains separate from data acquisition and historical
+portfolio construction. Incomplete returns or unresolved delistings suppress
+the aggregate summary rather than creating survivorship-biased performance.
 
 ### Outcome layer
 

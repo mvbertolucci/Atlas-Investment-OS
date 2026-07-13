@@ -62,8 +62,9 @@
 - [x] Point-in-time historical-data contract
 - [x] Real portfolio wired to scoring/decisions; sell-only rebalance mode
 - [x] Sell/buy priority classification (on demand: CLI, artifact, API, SDK)
-- [ ] Deterministic walk-forward backtest
-- [ ] Portfolio performance and risk validation
+- [x] Deterministic walk-forward replay mechanism
+- [ ] Portfolio performance and risk validation (deterministic metric core
+      complete; historical construction/data/factor contribution still open)
 - [ ] Prospective shadow portfolio
 - [ ] Scheduling (deferred until analytical validation)
 - [ ] Notifications (requires channel decision)

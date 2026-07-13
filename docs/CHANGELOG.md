@@ -1,5 +1,32 @@
 # Changelog
 
+## PR-034 — Deterministic portfolio-validation core
+
+### Added
+
+- Source-attributed contracts for dated target weights and total-return
+  observations, including currency, dividend and terminal-event treatment.
+- A governed monthly validation policy with SPY total return, USD, dividends
+  included and an explicit 10 bps one-way transaction-cost estimate.
+- Portfolio/benchmark return, annualized volatility, maximum drawdown,
+  drift-aware turnover, estimated costs and position-concentration metrics.
+- Machine-readable incomplete periods. Missing returns, assumption mismatches
+  or unresolved delistings suppress aggregate metrics instead of silently
+  biasing the result.
+
+### Preserved
+
+- No provider call, broad collection, score, Deal Breaker, governed model
+  weight, historical portfolio construction or real performance claim.
+- Factor contribution and a broad real validation remain open PR-034 work.
+
+### Validation
+
+- 13 deterministic tests cover calculations, costs, drift-aware turnover,
+  terminal events, missing evidence, assumptions and report serialization.
+- 542 automated tests passed.
+- 88.49% production coverage overall; the new module has 90% direct coverage.
+
 ## Collector advancement after permanent provider failures
 
 ### Fixed

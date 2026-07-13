@@ -69,7 +69,7 @@ timing-factor and extended-valuation increments):
 - released version remains `v1.2.0`;
 - development baseline is PR-033 plus point-in-time data acquisition plus the
   `timing` factor family plus extended `valuation` coverage;
-- validation baseline is 529 passing tests and 88.40% production coverage.
+- validation baseline is 542 passing tests and 88.49% production coverage.
 
 The executable point-in-time boundary and deterministic walk-forward mechanism
 are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
@@ -100,9 +100,12 @@ are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
   aggregate `dividends_paid / market_cap`, not a per-share rate, since no
   clean per-share dividend tag is collected).
 
-No portfolio-performance result or calibration exists yet. Governed score
-weights, Deal Breakers, ranking, decisions, the personal watchlist and
-`run_all.py` remain unchanged.
+No real portfolio-performance result or calibration exists yet. A separate,
+deterministic PR-034 metric core now exists in
+`backtesting/portfolio_validation.py`; it still needs historical portfolio
+construction and complete real returns before it can produce honest evidence.
+Governed score weights, Deal Breakers, ranking, decisions, the personal
+watchlist and `run_all.py` remain unchanged.
 
 **Remaining valuation gaps are no longer a bounded "extend coverage" task --
 each needs a new data source or design decision, not a tag addition:**
@@ -146,7 +149,7 @@ change.
 Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/UNIVERSE_SOURCES.md and
 docs/UNIVERSE_COLLECTION.md. Verify that git status is clean and that the
 extended point-in-time valuation commit is present. Run the full
-test/coverage gate; expect 529 tests and 88.40% production coverage. Then run
+test/coverage gate; expect 542 tests and 88.49% production coverage. Then run
 the broad-market universe collection (universe.collector --market, mirroring
 the S&P 500 screener's already-proven checkpointed/resumable design) against
 config/universe_market.yaml, and report real coverage numbers (symbols
