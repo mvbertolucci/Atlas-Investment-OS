@@ -19,9 +19,9 @@ from factors.valuation import resolve_valuation_features
 PRODUCIBLE_COLUMNS: frozenset[str] = frozenset(
     {
         # --- Provider bruto (providers/yahoo.py::fetch_symbol) ---
-        "symbol", "name", "exchange", "country", "currency",
+        "symbol", "name", "quote_type", "exchange", "country", "currency",
         "sector", "industry", "as_of", "price", "previous_close",
-        "change_pct", "volume", "market_cap", "enterprise_value",
+        "change_pct", "volume", "average_volume", "market_cap", "enterprise_value",
         "year_high", "year_low", "beta", "pe", "forward_pe", "peg",
         "pb", "ps", "ev_to_ebitda", "ev_to_revenue", "roe", "roa",
         "gross_margin", "operating_margin", "ebitda_margin", "net_margin",

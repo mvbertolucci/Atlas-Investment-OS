@@ -1,5 +1,27 @@
 # Changelog
 
+## PR-028 — Market Mapper pipeline integration
+
+### Added
+
+- Yahoo asset-type and average-volume metadata.
+- Conditional `output/universe_report.json` generation in `run_all.py`.
+- Universe policy, coverage and exclusions in Dashboard `market`.
+- Focused provider-schema, serialization, pipeline and Dashboard tests.
+
+### Preserved
+
+- Eligibility is diagnostic and does not remove companies from scoring.
+- No scoring weight, threshold, Deal Breaker or decision change.
+
+### Validation
+
+- 324 automated tests passed.
+- 87.94% production coverage overall.
+- Operational run completed with 6 analyzed, 5 eligible and 100% required-data
+  coverage; BUD was explicitly excluded only from universe eligibility because
+  its reported domicile is Belgium.
+
 ## PR-027 — Market Universe and Analytical Method Contract
 
 ### Added

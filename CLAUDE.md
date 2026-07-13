@@ -39,8 +39,8 @@ For the full regression gate:
 
 ## Current handoff
 
-- Released version: `v1.2.0`; development baseline: `PR-027`.
-- Validation baseline: 320 tests / 87.96% production coverage.
+- Released version: `v1.2.0`; development baseline: `PR-028`.
+- Validation baseline: 324 tests / 87.94% production coverage.
 - v1.1 Integrated Portfolio Intelligence and v1.2 Outcome Analytics are
   complete.
 - v2.0 Platform is in progress. The current priority is the analytical roadmap

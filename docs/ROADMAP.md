@@ -54,7 +54,7 @@
 - [x] REST API (read-only, stdlib; `api/`)
 - [x] SDK (read-only Python client; `sdk/`)
 - [x] Market-universe and analytical-method contract
-- [ ] Market Mapper and universe coverage
+- [x] Market Mapper and universe coverage
 - [ ] Robust ranking and advisory model portfolio
 - [ ] Point-in-time walk-forward validation
 - [ ] Prospective shadow portfolio

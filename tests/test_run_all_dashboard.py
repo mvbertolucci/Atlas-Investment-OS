@@ -54,7 +54,7 @@ def test_generate_dashboard_writes_contract(
     assert data["outcomes"] is None
 
 
-def test_generate_dashboard_includes_portfolio_and_outcomes(
+def test_generate_dashboard_includes_all_optional_views(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -66,11 +66,13 @@ def test_generate_dashboard_includes_portfolio_and_outcomes(
         {"dashboard_enabled": True},
         portfolio_report=_Stub({"portfolio_name": "Main"}),
         outcome_report=_Stub({"hit_rate": {"hit_rate": 100.0}}),
+        universe_report=_Stub({"summary": {"eligible_count": 2}}),
     )
 
     data = json.loads(output.read_text(encoding="utf-8"))
     assert data["portfolio"] == {"portfolio_name": "Main"}
     assert data["outcomes"] == {"hit_rate": {"hit_rate": 100.0}}
+    assert data["market"] == {"summary": {"eligible_count": 2}}
 
 
 def test_generate_dashboard_can_be_disabled(

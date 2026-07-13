@@ -6,6 +6,7 @@ from universe.models import (
     UniverseReport,
 )
 from universe.pipeline import evaluate_universe, load_universe_policy
+from universe.report import write_universe_report
 
 __all__ = [
     "UniverseMember",
@@ -13,4 +14,5 @@ __all__ = [
     "UniverseReport",
     "evaluate_universe",
     "load_universe_policy",
+    "write_universe_report",
 ]

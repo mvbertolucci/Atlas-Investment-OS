@@ -60,9 +60,9 @@ assembles the view from the objects the run already produced and writes
 - **read-only** — it forwards `to_dict()` output and computes nothing.
 
 `companies` comes from `reports.report_engine.build_company_reports(df)`;
-`portfolio` and `outcomes` are the run's reports when present. `market` is
-currently `null` and will be populated (with alert integration) in a later
-increment.
+`portfolio` and `outcomes` are the run's reports when present. `market` is the
+read-only `UniverseReport` when Market Universe is enabled, containing policy,
+coverage, eligibility and exclusion reasons; when disabled it remains `null`.
 
 ## Scope boundary
 

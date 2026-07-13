@@ -46,6 +46,12 @@ from dashboard import build_dashboard_view, write_dashboard_view
 from reports.report_engine import build_company_reports
 from scoring.investment import score_dataframe
 from storage.history_db import HistoryDatabase
+from universe import (
+    UniverseReport,
+    evaluate_universe,
+    load_universe_policy,
+    write_universe_report,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -60,6 +66,7 @@ EXECUTION_METRICS_FILE = LOGS / "execution_metrics.csv"
 PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
 OUTCOME_REPORT_FILE = OUTPUT / "outcome_report.json"
 DASHBOARD_REPORT_FILE = OUTPUT / "dashboard.json"
+UNIVERSE_REPORT_FILE = OUTPUT / "universe_report.json"
 
 logger = get_logger("run_all")
 
@@ -309,25 +316,52 @@ def generate_outcome_analytics(
     return report
 
 
+def generate_universe_report(
+    df: pd.DataFrame,
+    settings: dict,
+) -> UniverseReport | None:
+    """Avalia e publica o universo sem filtrar o pipeline existente."""
+    if not settings.get("universe_enabled", True):
+        logger.info("Market Universe desabilitado.")
+        return None
+
+    policy_path = ROOT / settings.get(
+        "universe_policy_path",
+        "config/universe.yaml",
+    )
+    policy = load_universe_policy(policy_path)
+    report = evaluate_universe(df, policy)
+    write_universe_report(report, UNIVERSE_REPORT_FILE)
+
+    logger.info(
+        "Market Universe: %s elegíveis de %s; cobertura média %s%%.",
+        report.eligible_count,
+        report.total_count,
+        report.average_data_coverage_pct,
+    )
+    return report
+
+
 def generate_dashboard(
     df: pd.DataFrame,
     settings: dict,
     portfolio_report: PortfolioReport | None = None,
     outcome_report: OutcomeAnalyticsReport | None = None,
+    universe_report: UniverseReport | None = None,
 ) -> Path | None:
     """
     Emite o contrato read-only do dashboard (output/dashboard.json).
 
     Pura agregação das visões que o Atlas já produziu nesta execução
-    (empresas, carteira e outcomes); não recomputa nem altera nada. Guardado
-    por `dashboard_enabled` (default True). `market` é preenchido em incremento
-    futuro.
+    (mercado, empresas, carteira e outcomes); não recomputa nem altera nada.
+    Guardado por `dashboard_enabled` (default True).
     """
     if not settings.get("dashboard_enabled", True):
         return None
 
     view = build_dashboard_view(
         build_company_reports(df),
+        market=universe_report,
         portfolio=portfolio_report,
         outcomes=outcome_report,
     )
@@ -531,6 +565,11 @@ def main() -> None:
 
         audit_feature_coverage(df)
 
+        universe_report = generate_universe_report(
+            df,
+            settings,
+        )
+
         with StageTimer(metrics, "history_time"):
             snapshot_date = save_history_snapshot(df)
             outcome_capture = save_outcome_decisions(
@@ -583,6 +622,7 @@ def main() -> None:
             settings,
             portfolio_report=portfolio_report,
             outcome_report=outcome_analytics,
+            universe_report=universe_report,
         )
 
         print_console_table(df)
@@ -646,6 +686,15 @@ def main() -> None:
 
         if dashboard_file is not None:
             print(f"Dashboard JSON  : {dashboard_file}")
+
+        if universe_report is not None:
+            print(f"Universe JSON   : {UNIVERSE_REPORT_FILE}")
+            print(
+                "Universe        : "
+                f"{universe_report.eligible_count}/"
+                f"{universe_report.total_count} elegíveis; "
+                f"cobertura {universe_report.average_data_coverage_pct}%"
+            )
 
         if portfolio_result is not None:
             portfolio_file, portfolio_report = portfolio_result

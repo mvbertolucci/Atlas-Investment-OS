@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from universe import UniversePolicy, evaluate_universe, load_universe_policy
+from universe import write_universe_report
 
 
 def _policy() -> UniversePolicy:
@@ -147,3 +148,20 @@ def test_evaluate_universe_validates_contract_types() -> None:
         evaluate_universe([], _policy())  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="UniversePolicy"):
         evaluate_universe(pd.DataFrame(), {})  # type: ignore[arg-type]
+
+
+def test_write_universe_report_serializes_contract(tmp_path: Path) -> None:
+    report = evaluate_universe(
+        pd.DataFrame([_eligible_row()]),
+        _policy(),
+    )
+
+    output = write_universe_report(report, tmp_path / "universe.json")
+
+    assert output.exists()
+    assert '"eligible_count": 1' in output.read_text(encoding="utf-8")
+
+
+def test_write_universe_report_validates_type(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="UniverseReport"):
+        write_universe_report({}, tmp_path / "invalid.json")  # type: ignore[arg-type]

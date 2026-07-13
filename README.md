@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.2.0`
 
-Development baseline: `PR-027` on release `v1.2.0`.
+Development baseline: `PR-028` on release `v1.2.0`.
 
 ## Main capabilities
 
@@ -46,8 +46,8 @@ and named Deal Breakers.
 Outcome summaries are published to JSON, conditional Excel worksheets and the
 Morning Brief without changing scoring or decision semantics.
 The analytical track now defines a versioned U.S. liquid-equity research
-universe as the foundation for Market Mapper, model-portfolio and point-in-time
-validation work. It is not yet connected to the main pipeline.
+universe. The Market Mapper publishes `output/universe_report.json` and the
+Dashboard market view without filtering the existing scoring pipeline.
 
 ## Quick start
 

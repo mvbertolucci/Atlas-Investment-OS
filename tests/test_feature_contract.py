@@ -35,8 +35,9 @@ MODEL_PATH = CONFIG / "model.yaml"
 # Chaves emitidas por providers/yahoo.py::fetch_symbol (menos "history",
 # que run_all descarta antes do scoring).
 RAW_PROVIDER_COLUMNS = [
-    "symbol", "name", "exchange", "country", "currency", "sector",
+    "symbol", "name", "quote_type", "exchange", "country", "currency", "sector",
     "industry", "as_of", "price", "previous_close", "change_pct", "volume",
+    "average_volume",
     "market_cap", "enterprise_value", "year_high", "year_low", "beta",
     "pe", "forward_pe", "peg", "pb", "ps", "ev_to_ebitda", "ev_to_revenue",
     "roe", "roa", "gross_margin", "operating_margin", "ebitda_margin",

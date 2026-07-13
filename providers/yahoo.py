@@ -56,6 +56,7 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
     return {
         "symbol": symbol,
         "name": info.get("longName") or info.get("shortName") or name_hint or symbol,
+        "quote_type": info.get("quoteType"),
         "exchange": info.get("exchange"),
         "country": info.get("country"),
         "currency": info.get("currency"),
@@ -66,6 +67,7 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
         "previous_close": previous_close,
         "change_pct": change_pct,
         "volume": _safe_float(last.get("Volume")),
+        "average_volume": _safe_float(info.get("averageVolume")),
         "market_cap": _safe_float(info.get("marketCap")),
         "enterprise_value": _safe_float(info.get("enterpriseValue")),
         "year_high": _safe_float(info.get("fiftyTwoWeekHigh")),

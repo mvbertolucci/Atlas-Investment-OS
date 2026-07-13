@@ -112,7 +112,7 @@
 ### Analytical-method priority
 
 - [x] PR-027 Define the market-universe and analytical-method contract
-- [ ] PR-028 Integrate the Market Mapper and publish universe coverage
+- [x] PR-028 Integrate the Market Mapper and publish universe coverage
 - [ ] PR-029 Add robust market/sector ranking with absolute safeguards
 - [ ] PR-030 Build an advisory model portfolio under explicit constraints
 - [ ] PR-031 Define the point-in-time historical-data contract

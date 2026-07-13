@@ -15,7 +15,7 @@ promise.
 1. **PR-027 — Market Universe and Analytical Method Contract.** Define the
    initial universe, benchmark, rebalance frequency, minimum liquidity and data
    requirements, with standardized exclusion reasons and coverage reporting.
-2. **PR-028 — Market Mapper integration.** Enrich provider output with asset
+2. **PR-028 — Market Mapper integration (complete).** Enrich provider output with asset
    type and liquidity fields, evaluate the configured universe in the main
    pipeline and publish the universe report.
 3. **PR-029 — Robust analytical ranking.** Separate relative market/sector
@@ -54,10 +54,10 @@ changing the tested population.
 
 ## PR-027 boundary
 
-PR-027 adds only a domain contract and pure evaluation over an existing
-DataFrame. It does not expand the watchlist, call a provider, alter the main
-pipeline, calculate scores, build a portfolio or change a decision. Provider
-and pipeline integration belongs to PR-028.
+PR-027 added only a domain contract and pure evaluation over an existing
+DataFrame. PR-028 adds provider and pipeline exposure, but remains diagnostic:
+ineligible assets are reported, not removed from scoring. Market expansion and
+candidate discovery remain separate from the configured watchlist.
 
 ## Validation principles
 

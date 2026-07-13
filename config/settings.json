@@ -8,6 +8,8 @@
   "portfolio_name": "Atlas Portfolio",
   "portfolio_cash": 0.0,
   "portfolio_currency": "BRL",
+  "universe_enabled": true,
+  "universe_policy_path": "config/universe.yaml",
   "outcome_analytics_enabled": true,
   "outcome_horizons_days": [30, 90, 180, 365],
   "outcome_hit_threshold_pct": 0.0,
