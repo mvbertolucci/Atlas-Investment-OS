@@ -99,9 +99,10 @@
 - [x] Attribute results to factors, rules and Deal Breakers
 - [x] Add outcome reports and regression tests
 
-## Planned milestone — v2.0 Platform
+## In-progress milestone — v2.0 Platform
 
-- [ ] Define a read-only dashboard contract
+- [x] Define a read-only dashboard contract (`dashboard/`, see `docs/DASHBOARD_CONTRACT.md`)
 - [ ] Expose company, portfolio and outcome views without changing decisions
+      (wire `run_all.py` to emit `output/dashboard.json`)
 - [ ] Add scheduling and notifications only after the dashboard boundary is stable
 - [ ] Keep API, SDK and AI assistant as separate increments
