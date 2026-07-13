@@ -493,6 +493,9 @@ def generate_portfolio_intelligence(
         portfolio_name=settings.get("portfolio_name"),
         cash=float(settings.get("portfolio_cash", 0.0)),
         currency=settings.get("portfolio_currency", "BRL"),
+        rebalance_mode=settings.get(
+            "portfolio_rebalance_mode", "sell_only"
+        ),
     )
     report_path = write_portfolio_report(
         report,

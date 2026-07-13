@@ -38,6 +38,9 @@ data/research_universe_collection*.tmp
 .env.*
 .claude/settings.local.json
 
+# Posições reais da carteira pessoal (dado sensível, não versionado)
+config/portfolio.csv
+
 # Editores e sistema operacional
 .vscode/
 .idea/

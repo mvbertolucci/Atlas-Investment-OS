@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from portfolio.loader import load_portfolio_csv
 from portfolio.pipeline import (
@@ -96,6 +97,50 @@ def test_build_portfolio_intelligence_runs_all_engines(
     assert report.summary["quality_score"] is not None
     assert "by_symbol" in report.allocation
     assert "actions" in report.rebalance
+
+
+def test_build_portfolio_intelligence_defaults_to_sell_only(
+    tmp_path: Path,
+) -> None:
+    """
+    O modo padrao nunca sugere aumentar peso em uma posicao ja existente
+    (nenhuma acao BUY), mesmo com uma decisao BUY no dataframe de analise.
+    """
+    report = build_portfolio_intelligence(
+        _portfolio_file(tmp_path),
+        _analysis_frame(),
+    )
+
+    actions = {
+        action["symbol"]: action["action"]
+        for action in report.rebalance["actions"]
+    }
+
+    assert "BUY" not in actions.values()
+    assert report.rebalance["required_cash"] == 0.0
+
+
+def test_build_portfolio_intelligence_auto_mode_still_available(
+    tmp_path: Path,
+) -> None:
+    report = build_portfolio_intelligence(
+        _portfolio_file(tmp_path),
+        _analysis_frame(),
+        rebalance_mode="auto",
+    )
+
+    assert "actions" in report.rebalance
+
+
+def test_build_portfolio_intelligence_rejects_unknown_mode(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError):
+        build_portfolio_intelligence(
+            _portfolio_file(tmp_path),
+            _analysis_frame(),
+            rebalance_mode="bogus",
+        )
 
 
 def test_write_portfolio_report_creates_json(
