@@ -7,6 +7,11 @@ from backtesting.point_in_time import (
     PointInTimeDataset,
     UniverseMembership,
 )
+from backtesting.sec_edgar import (
+    extract_observations,
+    fetch_company_facts,
+    fetch_ticker_cik_map,
+)
 from backtesting.walk_forward import (
     HistoricalInputManifest,
     IncompleteDecision,
@@ -34,4 +39,7 @@ __all__ = [
     "reconstruct_snapshot_frame",
     "run_walk_forward",
     "write_walk_forward_report",
+    "extract_observations",
+    "fetch_company_facts",
+    "fetch_ticker_cik_map",
 ]

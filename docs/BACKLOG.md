@@ -130,9 +130,30 @@
 - [x] PR-032 Define the point-in-time historical-data contract
 - [x] PR-033 Implement deterministic walk-forward backtesting -- the replay
       *mechanism* (`backtesting/walk_forward.py`), proven with synthetic,
-      offline fixtures. No real historical point-in-time dataset exists yet
-      to run it against for real (that acquisition remains unscoped and
-      unstarted); see `docs/WALK_FORWARD_BACKTEST.md`.
+      offline fixtures. See `docs/WALK_FORWARD_BACKTEST.md`.
+
+### Real historical data acquisition (the actual blocker for a real backtest)
+
+- [x] `backtesting/sec_edgar.py`: SEC EDGAR XBRL -> `HistoricalObservation`,
+      free/public/no-key, verified against **live SEC data** for Apple Inc.
+      (647 observations, 5 native fundamental tags: `total_assets`,
+      `net_income`, `total_revenue`, `current_assets`,
+      `current_liabilities`). Conservative `available_at` convention
+      (midnight UTC the day after filing). See `docs/SEC_EDGAR_DATA.md` for
+      the full "what is covered / what is not" accounting.
+- [ ] Widen tag coverage toward Atlas's ~25 fundamental fields (most native
+      tags are a straightforward table extension; `EBIT`/`Working Capital`
+      need an explicit derivation decision -- not native SEC concepts)
+- [ ] Pair a historical price series (valuation multiples need price, which
+      SEC EDGAR does not have)
+- [ ] Build a checkpointed multi-ticker collector (mirroring
+      `universe/collector.py`'s resumable design) -- today's functions
+      fetch one company at a time, on demand
+- [ ] Historical index membership (still unresolved -- no free source, see
+      `docs/UNIVERSE_SOURCES.md`) and delisting records with return
+      treatment
+- [ ] Run the walk-forward engine against the resulting real dataset once
+      it is usable end to end
 - [ ] PR-034 Add portfolio performance and risk validation
 - [ ] PR-035 Track a prospective shadow portfolio
 - [ ] PR-036 Calibrate only from versioned out-of-sample evidence
