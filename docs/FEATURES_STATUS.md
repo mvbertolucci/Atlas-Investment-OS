@@ -1,8 +1,8 @@
 # Feature Status
 
 **Release:** v1.2.0
-**Baseline:** PR-033 + point-in-time acquisition/derivation + deterministic PR-034 target/execution-evidence/execution/validation cores
-**Test baseline:** 570 passing / 88.50% production coverage
+**Baseline:** PR-033 + point-in-time acquisition/derivation (including `timing` and extended `valuation`) + deterministic PR-034 target/execution-evidence/total-return-evidence/execution/validation cores
+**Test baseline:** 585 passing / 88.57% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
