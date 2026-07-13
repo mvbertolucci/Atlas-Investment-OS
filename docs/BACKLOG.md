@@ -147,11 +147,18 @@ checkpoint and batch size throughout -- the S&P 500 screener is unchanged.
       billion, which is really a mid-cap-and-up floor)
 - [x] `universe.collector` gains `--market` (own snapshot/state/batch-size,
       via `config/settings.json`) and `--snapshot` overrides
+- [x] `portfolio.model_portfolio` (`build_from_collection`/`main`) accepts
+      `--universe-policy`/`--ranking-policy`/`--model-portfolio-policy` and
+      `--label`, so ranking/model-portfolio can run over this screener with
+      distinct output filenames, not just the S&P 500 one (defaults
+      unchanged -- see `docs/MODEL_PORTFOLIO.md`)
 - [ ] Run the actual collection (not started -- expected several thousand
       eligible names, materially slower/more rate-limit-prone than the
       503-name S&P 500 screener; see `docs/UNIVERSE_SOURCES.md`)
-- [ ] Run ranking / `portfolio.model_portfolio` over the broad-market
-      collection once it completes (deliberately deferred)
+- [ ] Run ranking / `portfolio.model_portfolio --universe-policy
+      config/universe_market.yaml --label market` over the broad-market
+      collection once it completes (deliberately deferred; the command
+      itself is ready)
 
 ### Third screener: US-listed ADRs
 
@@ -165,9 +172,11 @@ policy, not missing data.
       test that the two existing screeners are unaffected)
 - [x] Governed policy `config/universe_adr.yaml`: same USD 300 million floor,
       `allowed_countries: ["*"]`, `excluded_countries: [United States]`
-- [ ] Run ranking / `portfolio.model_portfolio` under this policy against
-      the broad-market collection once collected (deliberately deferred,
-      same as the broad-market screener's own ranking step)
+- [ ] Run `portfolio.model_portfolio --universe-policy
+      config/universe_adr.yaml --label adr` against the broad-market
+      collection once collected (deliberately deferred, same as the
+      broad-market screener's own ranking step; the command itself is
+      ready)
 
 ### Deferred platform effects
 
