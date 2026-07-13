@@ -70,10 +70,10 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 
 ## 4. Authoritative configuration
 
-- `config/features.yaml`: feature definitions and registry.
-- `config/model.yaml`: model composition.
-- `config/weights.json`: scoring weights used by the current pipeline.
-- `config/deal_breakers.json`: risk and exclusion rules.
+- `config/features.yaml`: feature definitions and per-feature weights.
+- `config/model.yaml`: `factor_weights` — the scoring weight vector used by the
+  current pipeline (business/valuation/financial/timing).
+- `config/deal_breakers.json`: risk penalty rules and sector exemptions.
 - `config/settings.json`: runtime paths and provider settings.
 - `config/watchlist.csv`: analyzed universe.
 - `config/portfolio.csv`: optional real portfolio input; start from `portfolio.example.csv`.

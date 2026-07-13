@@ -22,7 +22,7 @@ def _create_config(root: Path) -> None:
     config.mkdir()
     for name in (
         "settings.json",
-        "weights.json",
+        "model.yaml",
         "deal_breakers.json",
         "watchlist.csv",
     ):

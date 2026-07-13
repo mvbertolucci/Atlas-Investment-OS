@@ -45,7 +45,7 @@ def _frame() -> pd.DataFrame:
 
 
 def _score(df: pd.DataFrame) -> pd.DataFrame:
-    return score_dataframe(df, CONFIG / "weights.json", CONFIG / "deal_breakers.json")
+    return score_dataframe(df, CONFIG / "model.yaml", CONFIG / "deal_breakers.json")
 
 
 def test_confidence_score_equals_model_confidence() -> None:

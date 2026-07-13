@@ -249,7 +249,7 @@ def apply_deal_breakers(
 
 def score_dataframe(
     df: pd.DataFrame,
-    weights_path: Path,
+    config_path: Path,
     deal_breakers_path: Path,
 ) -> pd.DataFrame:
     """
@@ -267,7 +267,9 @@ def score_dataframe(
     8. Ordenação final
     """
 
-    config_dir = weights_path.parent
+    # config_path aponta para o arquivo de configuração do modelo
+    # (config/model.yaml); as demais configs vivem no mesmo diretório.
+    config_dir = config_path.parent
 
     features_path = config_dir / "features.yaml"
     model_path = config_dir / "model.yaml"
@@ -277,13 +279,10 @@ def score_dataframe(
             f"Feature Store não encontrada: {features_path}"
         )
 
-    if not model_path.exists():
-        model_path = weights_path
-
     result = score_all_factors(
         df,
         features_path=features_path,
-        model_path=model_path,
+        model_path=model_path if model_path.exists() else None,
     )
 
     result = apply_deal_breakers(

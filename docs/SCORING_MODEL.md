@@ -20,10 +20,9 @@ factor engine; it is not the obsolete pre-scoring confidence calculation.
 
 Configuration ownership:
 
-- `config/features.yaml`: feature registry and feature-level definitions;
-- `config/model.yaml`: factor composition;
-- `config/weights.json`: integrated investment-model weights;
-- `config/deal_breakers.json`: governed exclusion and risk rules.
+- `config/features.yaml`: feature registry and feature-level weights;
+- `config/model.yaml`: `factor_weights` — the factor-level weight vector;
+- `config/deal_breakers.json`: governed risk-penalty rules and exemptions.
 
 Changes to these files are financially material and require explicit tests and
 documentation.

@@ -48,8 +48,8 @@ def test_scoring_pipeline_applies_thesis(
     features = config / "features.yaml"
     features.write_text("business: {}", encoding="utf-8")
 
-    weights = config / "weights.json"
-    weights.write_text("{}", encoding="utf-8")
+    model = config / "model.yaml"
+    model.write_text("factor_weights: {}", encoding="utf-8")
 
     deal_breakers = config / "deal_breakers.json"
     deal_breakers.write_text("{}", encoding="utf-8")
@@ -84,7 +84,7 @@ def test_scoring_pipeline_applies_thesis(
 
     result = investment.score_dataframe(
         frame,
-        weights,
+        model,
         deal_breakers,
     )
 

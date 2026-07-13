@@ -149,7 +149,7 @@ def build_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     result = score_dataframe(
         result,
-        CONFIG / "weights.json",
+        CONFIG / "model.yaml",
         CONFIG / "deal_breakers.json",
     )
 
