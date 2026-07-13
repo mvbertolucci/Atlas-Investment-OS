@@ -1,11 +1,12 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition (first slice)
+**Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition + paired
+historical price series
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 467 tests passing / 87.33% production coverage
+**Validation baseline:** 487 tests passing / 87.41% production coverage
 
 ## 1. Product mission
 
@@ -196,26 +197,33 @@ date X" with revision history). See `docs/WALK_FORWARD_BACKTEST.md`.
 in checkpointed, resumable batches (verified against a real batch of
 Atlas's own watchlist; `BEEF3.SA`, a B3-only listing with no US SEC
 registration, correctly failed explicitly rather than being silently
-dropped). `backtesting/point_in_time_fundamentals.py` then derives the
-*ratios* `config/features.yaml` actually scores on (`gross_margin`,
-`current_ratio`, `roic`, `roe`, ...) from those raw fields -- **and the
-full loop is proven**: replaying a real walk-forward decision over real SEC
-data for Apple and Microsoft produced derived gross margins of 48.6% and
-68.2% (matching each company's real, independently known historical
-range) and two genuinely different Investment Scores (52.9 / 58.9, not
-both collapsed to a neutral 50). Still not a complete dataset:
-`f_score_annual` (needs two fiscal years) and `altman_z`/valuation
-multiples (need a paired price series, since SEC EDGAR has no price data)
-remain unbuilt, along with historical index membership and delistings. See
-`docs/SEC_EDGAR_DATA.md` for the full "what is covered / what is not"
-accounting.
+dropped). `backtesting/point_in_time_fundamentals.py` derives the *ratios*
+`config/features.yaml` actually scores on (`gross_margin`, `current_ratio`,
+`roic`, `roe`, ...) from those raw fields, and
+`backtesting/price_history.py` + `backtesting/point_in_time_valuation.py`
+pair a historical Yahoo price series in to derive `market_cap`, `pe`, `pb`
+and `altman_z` -- **and the full loop is proven**: replaying a real
+walk-forward decision over real SEC + price data for Apple and Microsoft
+produced derived gross margins of 48.6% / 68.2%, market caps of ~$4.1T /
+~$3.1T, Altman Z of 10.9 / 8.2 (both safe zone), and two genuinely
+different Investment Scores (48.4 AVOID / 58.9 HOLD) with Model Confidence
+risen to 40.0% now that `valuation` factors are partially populated. Still
+not complete: `f_score_annual` (needs two fiscal years), the rest of
+`valuation` (`forward_pe`, `ev_ebitda`, `ev_ebit`, `peg`,
+`shareholder_yield`, `fcf_yield`), the `timing` factor family (needs the
+whole price series per cutoff, not one value), a stock-split correction for
+`market_cap` before a company's most recent split, historical index
+membership and delistings all remain unbuilt. See `docs/SEC_EDGAR_DATA.md`
+and `docs/PRICE_HISTORY_DATA.md` for the full "what is covered / what is
+not" accounting.
 
-**Open threads, in priority order:** (1) pair a historical price series
-(unlocks valuation multiples and `altman_z`); (2) two-fiscal-year replay
-for `f_score_annual`; (3) run the broad-market/ADR collections when
-resumed; (4) PR-034 portfolio validation, once a real dataset is usable
-end to end at scale (today's real verification covers 2 companies, one
-date).
+**Open threads, in priority order:** (1) correct `market_cap` for stock
+splits (Yahoo's price is retroactively split-adjusted, SEC's
+`shares_outstanding` is not); (2) two-fiscal-year replay for
+`f_score_annual`; (3) extend valuation/timing coverage using the paired
+price series; (4) run the broad-market/ADR collections when resumed; (5)
+PR-034 portfolio validation, once a real dataset is usable end to end at
+scale (today's real verification covers 2 companies, one date).
 
 See `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md` for the full backlog.
 

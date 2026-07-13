@@ -11,6 +11,7 @@ import pandas as pd
 
 from backtesting.point_in_time import AsOfSnapshot, PointInTimeDataset
 from backtesting.point_in_time_fundamentals import derive_point_in_time_ratios
+from backtesting.point_in_time_valuation import derive_point_in_time_valuation
 from scoring.investment import score_dataframe
 
 
@@ -307,6 +308,9 @@ def replay_decision_batch(
     # neutros. derive_point_in_time_ratios só preenche o que está ausente,
     # nunca sobrescreve uma razão já fornecida pela fonte.
     eligible = derive_point_in_time_ratios(eligible)
+    # market_cap/pe/pb/altman_z dependem de uma coluna "price" pareada
+    # (backtesting.price_history); ausente, ficam ausentes -- nunca inventadas.
+    eligible = derive_point_in_time_valuation(eligible)
     scored = score_dataframe(eligible, Path(model_path), Path(deal_breakers_path))
 
     replayed: list[ReplayedDecision] = []

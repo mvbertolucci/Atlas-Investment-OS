@@ -163,8 +163,26 @@
       Investment Scores (52.9 / 58.9) instead of both collapsing to a
       neutral 50. `f_score_annual` (needs two fiscal years) and `altman_z`
       (needs `market_cap`, i.e. price) remain explicitly not derived.
-- [ ] Pair a historical price series (valuation multiples and `altman_z`
-      need price, which SEC EDGAR does not have)
+- [x] Pair a historical price series
+      (`backtesting/price_history.py`, Yahoo daily close, same
+      no-look-ahead convention as SEC filings) and derive `market_cap`,
+      `pe`, `pb`, `altman_z` from it (`backtesting/point_in_time_valuation.py`).
+      Verified end to end against real, live data: Apple `market_cap`
+      ~$4.1T / `pe` 57.4 / `pb` 38.6 / `altman_z` 10.9; Microsoft `market_cap`
+      ~$3.1T / `pe` 31.4 / `pb` 7.4 / `altman_z` 8.2 -- Model Confidence rose
+      from ~32.5% to 40.0% now that `valuation` factors are partially
+      populated. See `docs/PRICE_HISTORY_DATA.md`.
+- [ ] Correct `market_cap` for stock splits before the most recent split
+      (Yahoo's paired price is retroactively split-adjusted; SEC's
+      `shares_outstanding` is not -- needs `Ticker.splits` applied as a
+      cumulative adjustment, plus `reconstruct_snapshot_frame` carrying
+      each field's `observed_on`; see docs/PRICE_HISTORY_DATA.md)
+- [ ] Extend valuation coverage: `forward_pe`, `ev_ebitda` (needs a D&A
+      tag), `ev_ebit`, `peg`, `shareholder_yield`/`fcf_yield` (need
+      dividend/FCF tags)
+- [ ] Derive the `timing` factor family (`rsi_14`, `momentum_*`,
+      `distance_52w_high`) from the same paired price series -- needs the
+      whole series at each cutoff, not one point value
 - [x] Checkpointed multi-ticker collector
       (`backtesting/sec_edgar_collector.py`, mirroring
       `universe/collector.py`'s resumable design). Verified against a real

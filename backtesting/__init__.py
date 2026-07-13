@@ -12,6 +12,10 @@ from backtesting.sec_edgar import (
     fetch_company_facts,
     fetch_ticker_cik_map,
 )
+from backtesting.price_history import (
+    extract_price_observations,
+    fetch_price_history,
+)
 from backtesting.walk_forward import (
     HistoricalInputManifest,
     IncompleteDecision,
@@ -42,4 +46,6 @@ __all__ = [
     "extract_observations",
     "fetch_company_facts",
     "fetch_ticker_cik_map",
+    "extract_price_observations",
+    "fetch_price_history",
 ]
