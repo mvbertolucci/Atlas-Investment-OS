@@ -45,6 +45,7 @@ class UniversePolicy:
     allowed_quote_types: tuple[str, ...] = ("EQUITY",)
     allowed_currencies: tuple[str, ...] = ("USD",)
     allowed_countries: tuple[str, ...] = ("United States",)
+    excluded_countries: tuple[str, ...] = ()
     min_market_cap: float = 1_000_000_000.0
     min_price: float = 5.0
     min_volume: float = 100_000.0
@@ -81,6 +82,14 @@ class UniversePolicy:
                 raise ValueError(f"UniversePolicy exige {field_name}.")
             object.__setattr__(self, field_name, values)
 
+        # excluded_countries é opcional (default vazio): ao contrário dos
+        # campos acima, não é obrigatório ter conteúdo.
+        object.__setattr__(
+            self,
+            "excluded_countries",
+            _text_tuple(self.excluded_countries),
+        )
+
         for field_name in (
             "min_market_cap",
             "min_price",
@@ -106,6 +115,7 @@ class UniversePolicy:
             "allowed_quote_types": list(self.allowed_quote_types),
             "allowed_currencies": list(self.allowed_currencies),
             "allowed_countries": list(self.allowed_countries),
+            "excluded_countries": list(self.excluded_countries),
             "min_market_cap": self.min_market_cap,
             "min_price": self.min_price,
             "min_volume": self.min_volume,
