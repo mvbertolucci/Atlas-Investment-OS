@@ -1,5 +1,30 @@
 # Changelog
 
+## PR-032 — Point-in-time historical-data contract
+
+### Added
+
+- Immutable, source-versioned historical observation contract with separate
+  observation and public-availability dates.
+- UTC-normalized as-of snapshots that exclude future information and preserve
+  source revisions.
+- Non-overlapping, half-open historical constituent intervals for additions,
+  removals and re-entries.
+- Explicit cash, zero, successor or unresolved treatment for delistings.
+- Canonical data and provenance rules in `docs/POINT_IN_TIME_DATA.md`.
+
+### Preserved
+
+- No historical provider, backtest, performance metric or calibration added.
+- No score, governed configuration, ranking, decision or portfolio behavior
+  changed.
+- The current broad-universe snapshot remains current research evidence only.
+
+### Validation
+
+- 370 automated tests passed.
+- 87.43% production coverage overall.
+
 ## PR-031 — Constrained advisory model portfolio
 
 ### Added

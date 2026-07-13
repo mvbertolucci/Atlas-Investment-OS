@@ -141,6 +141,18 @@ portfolio under pinned position, sector, cash and initial-turnover constraints.
 It writes ignored research artifacts and remains separate from `run_all.py` and
 the user's real `config/portfolio.csv`.
 
+### Historical-validation contract layer
+
+- `backtesting/point_in_time.py`
+- `docs/POINT_IN_TIME_DATA.md`
+
+The point-in-time layer defines the immutable evidence boundary for future
+walk-forward validation. It filters observations by source availability,
+preserves source revisions, reconstructs constituent membership from
+non-overlapping historical intervals and requires explicit terminal treatment
+for delisted securities. It does not yet calculate ranks, portfolios or
+returns; those remain PR-033 and PR-034 responsibilities.
+
 ### Outcome layer
 
 - `outcomes/models.py`

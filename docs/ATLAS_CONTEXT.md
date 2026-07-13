@@ -1,11 +1,11 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-031` (advisory model portfolio)
+**Last synchronized baseline:** `PR-032` (point-in-time data contract)
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 355 tests passing / 87.33% production coverage
+**Validation baseline:** 370 tests passing / 87.43% production coverage
 
 ## 1. Product mission
 
@@ -139,8 +139,10 @@ complete: it publishes `output/ranking_report.json`, with market/sector ranks
 and governed candidate safeguards. PR-030A adds the required broad source:
 503 dated S&P 500 share classes in a separate research snapshot. PR-030B adds
 checkpointed batch collection. PR-031 constructs a constrained, advisory model
-portfolio from the completed checkpoint. Point-in-time validation and a prospective shadow
-portfolio follow in bounded increments. Scheduling is deferred; Notifications
+portfolio from the completed checkpoint. PR-032 now defines the executable
+point-in-time observation, constituent and delisting boundary. Deterministic
+walk-forward execution and a prospective shadow portfolio follow in bounded
+increments. Scheduling is deferred; Notifications
 and the AI assistant still require explicit external decisions. See
 `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md`.
 

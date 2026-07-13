@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.2.0`
 
-Development baseline: `PR-031` on release `v1.2.0`.
+Development baseline: `PR-032` on release `v1.2.0`.
 
 ## Main capabilities
 
@@ -31,6 +31,8 @@ Development baseline: `PR-031` on release `v1.2.0`.
 - Dated 503-security research-universe snapshot, separate from the watchlist
 - Retriable, checkpointed collection of that universe in bounded batches
 - Constrained, equal-weight advisory model portfolio over the broad ranking
+- Point-in-time historical-data contract for observations, constituents and
+  delistings
 
 ## Current integration status
 
@@ -56,6 +58,8 @@ Eligible companies are ranked using existing Atlas scores and absolute
 Deal-Breaker safeguards in `output/ranking_report.json`.
 The broad research snapshot has a resumable batch collector; normal
 `run_all.py` executions still use the smaller personal watchlist.
+The point-in-time contract now provides the validated input boundary for a
+future walk-forward engine; Atlas does not yet publish backtest performance.
 
 ## Quick start
 
@@ -92,4 +96,5 @@ Start with:
 - `docs/BACKLOG.md`
 - `docs/CHANGELOG.md`
 - `docs/OUTCOME_ANALYTICS.md`
+- `docs/POINT_IN_TIME_DATA.md`
 - `docs/RELEASE_NOTES.md`

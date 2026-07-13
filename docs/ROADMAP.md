@@ -59,7 +59,9 @@
 - [x] Reproducible 503-security research-universe snapshot
 - [x] Checkpointed broad-universe collection
 - [x] Advisory model portfolio
-- [ ] Point-in-time walk-forward validation
+- [x] Point-in-time historical-data contract
+- [ ] Deterministic walk-forward backtest
+- [ ] Portfolio performance and risk validation
 - [ ] Prospective shadow portfolio
 - [ ] Scheduling (deferred until analytical validation)
 - [ ] Notifications (requires channel decision)

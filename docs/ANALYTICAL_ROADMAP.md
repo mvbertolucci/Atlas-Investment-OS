@@ -29,9 +29,10 @@ promise.
 6. **PR-031 — Advisory model-portfolio builder (complete).** Select eligible candidates
    and assign transparent weights under position, sector, cash and turnover
    constraints.
-7. **PR-032 — Point-in-time data contract.** Define observation, availability,
-   constituent and delisting rules required to avoid future-data and
-   survivorship bias.
+7. **PR-032 — Point-in-time data contract (complete).** Define observation,
+   availability, constituent and delisting rules required to avoid future-data
+   and survivorship bias. The executable boundary is documented in
+   `docs/POINT_IN_TIME_DATA.md`.
 8. **PR-033 — Walk-forward backtest.** Recreate each decision using only data
    available at that date and compare against explicit benchmarks.
 9. **PR-034 — Portfolio validation.** Report return, volatility, drawdown,
@@ -79,6 +80,11 @@ the watchlist; see `docs/UNIVERSE_COLLECTION.md`.
 PR-031 applies the existing governed score, universe and ranking contracts to a
 complete checkpoint, then selects 20 equal-weight positions under explicit
 position and sector caps. See `docs/MODEL_PORTFOLIO.md`.
+
+PR-032 adds an executable, UTC-normalized as-of contract for versioned
+observations, non-overlapping constituent intervals and explicit delisting
+treatment. It deliberately performs no backtest; PR-033 will consume this
+boundary using versioned historical inputs.
 
 ## Validation principles
 
