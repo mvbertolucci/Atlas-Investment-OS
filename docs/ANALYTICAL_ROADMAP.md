@@ -58,6 +58,19 @@ These are research eligibility rules, not recommendations. They are explicit
 and version-controlled so later changes can be measured rather than silently
 changing the tested population.
 
+## Second screener: broad US market
+
+`config/universe_market.yaml` defines a second, independent screener covering
+the broad US market (NASDAQ Trader symbol directory) instead of the S&P 500,
+with a USD 300 million minimum market cap so genuine small caps are included
+(the S&P 500 screener's USD 1 billion floor is effectively a mid-cap-and-up
+floor). It has its own snapshot, checkpoint, batch size and CLI flag
+(`--market`) throughout `universe.sources` and `universe.collector` -- the
+S&P 500 screener and its snapshot/checkpoint are untouched. See
+`docs/UNIVERSE_SOURCES.md` for the source, scale expectations and the
+governed-config rationale. Collection has not been run yet; ranking over this
+broader universe is a deliberate follow-up.
+
 ## PR-027 boundary
 
 PR-027 added only a domain contract and pure evaluation over an existing
