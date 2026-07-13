@@ -14,6 +14,7 @@ from backtesting.point_in_time_fundamentals import (
     derive_point_in_time_f_scores,
     derive_point_in_time_ratios,
 )
+from backtesting.point_in_time_timing import derive_point_in_time_timing
 from backtesting.point_in_time_valuation import derive_point_in_time_valuation
 from scoring.investment import score_dataframe
 
@@ -339,6 +340,10 @@ def replay_decision_batch(
     # market_cap/pe/pb/altman_z dependem de uma coluna "price" pareada
     # (backtesting.price_history); ausente, ficam ausentes -- nunca inventadas.
     eligible = derive_point_in_time_valuation(eligible)
+    # rsi_14/momentum_*/distance_52w_high exigem a série de preço inteira
+    # visível no corte, não uma única linha -- por isso recebem snapshot.history
+    # e snapshot.splits diretamente, no mesmo padrão de derive_point_in_time_f_scores.
+    eligible = derive_point_in_time_timing(eligible, snapshot.history, snapshot.splits)
     scored = score_dataframe(eligible, Path(model_path), Path(deal_breakers_path))
 
     replayed: list[ReplayedDecision] = []

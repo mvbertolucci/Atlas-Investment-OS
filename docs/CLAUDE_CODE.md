@@ -51,19 +51,22 @@ the next bounded backlog task.
 
 ## Current historical-validation handoff
 
-Repository state prepared on 2026-07-13:
+Repository state prepared on 2026-07-13 (updated the same day after the
+point-in-time `timing`-factor increment):
 
 - branch: `master`;
-- latest functional commits:
+- latest functional commits (pushed to `origin/master`):
   - `4fd9e6c fix(backtesting): normalize historical stock splits`;
   - `f1c2c8e feat(backtesting): derive point-in-time annual f-score`;
-- both functional commits were local and not pushed when this handoff was
-  prepared;
+- a new, not-yet-committed increment on top of these: `backtesting/point_in_time_timing.py`
+  (point-in-time `timing` factor derivation), wired into
+  `backtesting/walk_forward.py`;
 - confirm the current remote relation with `git status --short --branch` before
   any fetch, push or integration action;
 - released version remains `v1.2.0`;
-- development baseline is PR-033 plus point-in-time data acquisition;
-- validation baseline is 506 passing tests and 87.67% production coverage.
+- development baseline is PR-033 plus point-in-time data acquisition plus the
+  `timing` factor family;
+- validation baseline is 515 passing tests and 87.80% production coverage.
 
 The executable point-in-time boundary and deterministic walk-forward mechanism
 are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
@@ -80,69 +83,69 @@ and paired Yahoo prices. The implementation:
 - derives `f_score_annual` only from two complete, consecutive 10-K periods;
 - merges partial 10-K/A amendments without erasing unaffected annual fields;
 - normalizes the share-count comparison for splits and feeds the resulting
-  score into the unchanged governed `Piotroski baixo` Deal Breaker.
+  score into the unchanged governed `Piotroski baixo` Deal Breaker;
+- derives `rsi_14`, `momentum_3m/6m/12m` and `distance_52w_high`
+  (`backtesting/point_in_time_timing.py`) from a continuous, split-adjusted
+  price series reconstructed per symbol at each cutoff, mirroring
+  `analytics/indicators.py`'s exact formulas and trading-day windows; proven
+  that forward/reverse splits create no artificial momentum and that a
+  not-yet-known split or a future price never leaks into an earlier replay.
 
 No portfolio-performance result or calibration exists yet. Governed score
 weights, Deal Breakers, ranking, decisions, the personal watchlist and
 `run_all.py` remain unchanged.
 
-The recommended next bounded task is **point-in-time timing-factor coverage**.
+The recommended next bounded task is **remaining point-in-time valuation
+coverage**: `forward_pe` (needs analyst estimates), `ev_ebitda` (needs a
+depreciation/amortization tag, not yet collected), `ev_ebit` (needs a clean
+total-debt figure), `peg` (needs a growth estimate) and
+`shareholder_yield`/`fcf_yield` (need dividend/FCF tags not yet collected).
+`target_upside` also remains unbuilt and needs a genuine point-in-time
+analyst-target source, not a current-data substitute. Running the
+broad-market/ADR collections (`docs/UNIVERSE_SOURCES.md`) is a valid,
+independent alternative next step if data-source acquisition rather than
+factor coverage is preferred.
+
 Before implementation, read:
 
+- `docs/SEC_EDGAR_DATA.md`;
+- `docs/PRICE_HISTORY_DATA.md`;
 - `docs/POINT_IN_TIME_DATA.md`;
 - `docs/ANALYTICAL_ROADMAP.md`;
 - `docs/BACKLOG.md`;
-- `docs/SEC_EDGAR_DATA.md`;
-- `docs/PRICE_HISTORY_DATA.md`;
 - `backtesting/point_in_time.py`;
 - `backtesting/point_in_time_fundamentals.py`;
-- `backtesting/price_history.py`;
-- `analytics/indicators.py`;
-- `tests/test_indicators.py`;
-- the `timing` section of `config/features.yaml`.
+- `backtesting/point_in_time_valuation.py`;
+- `backtesting/point_in_time_timing.py`;
+- `analytics/fundamentals.py` (existing live formulas to mirror, where they
+  exist);
+- the `valuation` section of `config/features.yaml`.
 
 Preserve the current as-of and multi-period contracts. Do not substitute current
 data, change governed configuration or include PR-034 performance/risk analytics
-in the same change.
-
-Important unit boundary: `HistoricalObservation(field_name="price")` now stores
-the as-traded close because valuation needs the actual price/share units. Do not
-feed that raw series directly into momentum across a split. For timing only,
-construct a continuous series at each cutoff by dividing each earlier as-traded
-price by the cumulative split ratios effective after that price and on or before
-the cutoff's latest price date. Use only `snapshot.splits`; a future split must
-not alter an earlier replay. Keep the as-traded `price` unchanged for
-`market_cap`.
-
-Suggested acceptance boundary:
-
-1. derive `rsi_14`, `momentum_3m/6m/12m` and `distance_52w_high` using the
-   existing indicator semantics and explicit trading-day windows;
-2. use only price observations and split events visible at the cutoff;
-3. prove forward and reverse splits do not create artificial momentum;
-4. leave indicators missing when the required history is insufficient;
-5. preserve any timing value already supplied and keep `target_upside` missing
-   unless a genuine point-in-time analyst-target source is added separately;
-6. add deterministic offline tests plus the full 80% coverage gate;
-7. synchronize architecture, backlog, changelog and canonical handoff.
+in the same change. Each new ratio must stay assign-if-absent (never overwrite a
+value the input frame already supplies) and must leave a ratio missing, not
+invented, when its raw components are unavailable at the cutoff -- the same
+discipline already proven in `point_in_time_fundamentals.py` and
+`point_in_time_valuation.py`.
 
 ### Ready-to-paste continuation prompt
 
 ```text
-Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/POINT_IN_TIME_DATA.md and
-docs/PRICE_HISTORY_DATA.md. Verify that git status is clean and that commits
-4fd9e6c and f1c2c8e are present. Run the full test/coverage gate; expect 506
-tests and 87.67% production coverage. Then implement one bounded increment:
-point-in-time timing-factor derivation from the complete price history visible
-in each AsOfSnapshot. Preserve the as-traded `price` used by valuation, but
-construct a separate continuous timing series normalized only by splits already
-effective at that cutoff. Mirror analytics/indicators.py semantics for rsi_14,
-momentum_3m/6m/12m and distance_52w_high; do not invent target_upside or values
-for insufficient windows. Prove no future price or split leaks backward, cover
-forward/reverse splits, preserve preexisting timing fields, run the full gate,
-update living documentation and leave one atomic commit with a clean tree.
-Do not change governed weights, thresholds, Deal Breakers, run_all.py, portfolio
-performance/risk analytics, scheduling or live trading.
+Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/SEC_EDGAR_DATA.md and
+docs/PRICE_HISTORY_DATA.md. Verify that git status is clean and that the
+point-in-time timing-factor commit is present. Run the full test/coverage
+gate; expect 515 tests and 87.80% production coverage. Then implement one
+bounded increment: extend backtesting/point_in_time_valuation.py (or a new,
+equally-scoped module) with as many of forward_pe, ev_ebitda, ev_ebit, peg,
+shareholder_yield and fcf_yield as the currently collected raw SEC/price
+fields honestly support -- state explicitly, per ratio, which remain
+impossible without a new data source, rather than approximating them.
+Preserve the assign-if-absent, missing-not-invented contract already used by
+derive_point_in_time_ratios/valuation/timing. Add deterministic offline tests,
+run the full gate, update living documentation and leave one atomic commit
+with a clean tree. Do not change governed weights, thresholds, Deal Breakers,
+run_all.py, portfolio performance/risk analytics, scheduling or live trading.
 ```
 
 ## Parallel work with Codex

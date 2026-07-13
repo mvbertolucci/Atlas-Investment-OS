@@ -47,9 +47,10 @@ def derive_point_in_time_valuation(frame: pd.DataFrame) -> pd.DataFrame:
     ainda não coletada), `ev_ebit` (exige um enterprise_value limpo, com
     dívida total e não só de longo prazo), `peg` (exige estimativa de
     crescimento), `shareholder_yield`/`fcf_yield` (exigem tags de dividendo/
-    fluxo de caixa livre ainda não coletadas), e toda a família de fatores
-    `timing` (`rsi_14`, `momentum_*`, `distance_52w_high`), que precisam da
-    série de preço inteira em cada corte, não de um único valor pontual.
+    fluxo de caixa livre ainda não coletadas). A família de fatores `timing`
+    (`rsi_14`, `momentum_*`, `distance_52w_high`), que precisa da série de
+    preço inteira em cada corte, é derivada separadamente por
+    `backtesting.point_in_time_timing.derive_point_in_time_timing`.
     """
     result = frame.copy()
 

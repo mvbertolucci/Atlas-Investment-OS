@@ -183,9 +183,16 @@
 - [ ] Extend valuation coverage: `forward_pe`, `ev_ebitda` (needs a D&A
       tag), `ev_ebit`, `peg`, `shareholder_yield`/`fcf_yield` (need
       dividend/FCF tags)
-- [ ] Derive the `timing` factor family (`rsi_14`, `momentum_*`,
-      `distance_52w_high`) from the same paired price series -- needs the
-      whole series at each cutoff, not one point value
+- [x] Derive the `timing` factor family (`rsi_14`, `momentum_3m/6m/12m`,
+      `distance_52w_high`) from the same paired price series
+      (`backtesting/point_in_time_timing.py`, wired into
+      `walk_forward.replay_decision_batch`). Reconstructs a continuous,
+      split-adjusted close series per symbol at each cutoff -- mirrors
+      `analytics/indicators.py`'s exact formulas and trading-day windows.
+      Proven that forward/reverse splits create no artificial momentum and
+      that a not-yet-known split or a future price never leaks into an
+      earlier replay. `target_upside` remains unbuilt (needs a genuine
+      point-in-time analyst-target source).
 - [x] Checkpointed multi-ticker collector
       (`backtesting/sec_edgar_collector.py`, mirroring
       `universe/collector.py`'s resumable design). Verified against a real

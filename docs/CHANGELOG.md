@@ -1,5 +1,34 @@
 # Changelog
 
+## Point-in-time timing-factor derivation
+
+### Added
+
+- `backtesting/point_in_time_timing.py`: derives `rsi_14`,
+  `momentum_3m/6m/12m` and `distance_52w_high` from the complete price
+  history visible in each `AsOfSnapshot`, mirroring
+  `analytics/indicators.py`'s exact formulas and trading-day windows.
+- A continuous, split-adjusted close series per symbol: each earlier
+  as-traded price is divided only by split ratios effective after that
+  price and on or before the cutoff's latest visible price date, using
+  only `snapshot.splits`.
+- Wired into `walk_forward.replay_decision_batch`, alongside the existing
+  ratio, F-Score and valuation derivation steps.
+
+### Preserved
+
+- A symbol without enough visible history for a given window leaves only
+  that indicator missing (NaN), never inferred or borrowed.
+- A split not yet known at the cutoff, or a price beyond the cutoff, never
+  adjusts or enters an earlier replay's series.
+- Preexisting timing values already supplied by the input frame are never
+  overwritten. `target_upside` remains unbuilt.
+
+### Validation
+
+- 515 automated tests passed.
+- 87.80% production coverage overall.
+
 ## Two-fiscal-year point-in-time F-Score
 
 ### Added

@@ -88,10 +88,12 @@ overwrites a value the input frame already supplies.
 (needs a depreciation/amortization tag, not yet collected), `ev_ebit`
 (needs a clean total-debt figure, not just `long_term_debt`), `peg` (needs
 a growth estimate), `shareholder_yield`/`fcf_yield` (need dividend/FCF tags
-not yet collected), and the entire `timing` factor family (`rsi_14`,
-`momentum_3m/6m/12m`, `distance_52w_high`) -- these need the *whole* price
-series available at each cutoff, not one point-in-time value; a natural
-next increment reusing this same paired series.
+not yet collected). The `timing` factor family (`rsi_14`,
+`momentum_3m/6m/12m`, `distance_52w_high`) needed the *whole* price series
+available at each cutoff, not one point-in-time value; it now reuses this
+same paired series in `backtesting/point_in_time_timing.py` -- see that
+module and `docs/ATLAS_CONTEXT.md` for the continuous, split-adjusted
+series it reconstructs.
 
 ## Verified end to end against real, live data
 

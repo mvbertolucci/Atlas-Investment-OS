@@ -2,11 +2,11 @@
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
 **Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition + paired
-historical price series
+historical price series + point-in-time `timing` factor derivation
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 506 tests passing / 87.67% production coverage
+**Validation baseline:** 515 tests passing / 87.80% production coverage
 
 ## 1. Product mission
 
@@ -209,21 +209,32 @@ produced derived gross margins of 48.6% / 68.2%, market caps of ~$4.1T /
 different Investment Scores (48.4 AVOID / 58.9 HOLD) with Model Confidence
 risen to 40.0% now that `valuation` factors are partially populated. Two
 complete, consecutive 10-Ks now derive `f_score_annual` at each cutoff and
-feed the governed Piotroski rule. Still not complete: the rest of `valuation`
+feed the governed Piotroski rule. `backtesting/point_in_time_timing.py` now
+derives the `timing` factor family (`rsi_14`, `momentum_3m/6m/12m`,
+`distance_52w_high`) from the same paired price series: it reconstructs a
+continuous, split-adjusted close series per symbol at each cutoff (dividing
+each earlier as-traded price only by split ratios effective after that price
+and on or before the cutoff's latest visible price date, using only
+`snapshot.splits`), then mirrors `analytics/indicators.py`'s exact formulas
+and trading-day windows. Proven not to leak: a split not yet known at the
+cutoff never adjusts the series, and a price beyond the cutoff never enters
+it. Still not complete: the rest of `valuation`
 (`forward_pe`, `ev_ebitda`, `ev_ebit`, `peg`,
-`shareholder_yield`, `fcf_yield`), the `timing` factor family (needs the
-whole price series per cutoff, not one value), historical index membership
+`shareholder_yield`, `fcf_yield`), `target_upside` (needs a genuine
+point-in-time analyst-target source), historical index membership
 and delistings all remain unbuilt. See `docs/SEC_EDGAR_DATA.md`
 and `docs/PRICE_HISTORY_DATA.md` for the full "what is covered / what is
 not" accounting.
 
 The historical price layer now restores as-traded closes and applies explicit
 point-in-time split events to the observed share count. `market_cap`, `pe`,
-`pb` and `altman_z` therefore remain dimensionally consistent before and after
-forward or reverse splits without leaking the event into an earlier cutoff.
+`pb`, `altman_z` and now the `timing` factors therefore remain dimensionally
+consistent before and after forward or reverse splits without leaking the
+event into an earlier cutoff.
 
-**Open threads, in priority order:** (1) extend valuation/timing coverage using
-the paired price series; (2) run the broad-market/ADR collections when resumed;
+**Open threads, in priority order:** (1) extend remaining valuation coverage
+(`forward_pe`, `ev_ebitda`, `ev_ebit`, `peg`, `shareholder_yield`/`fcf_yield`)
+and `target_upside`; (2) run the broad-market/ADR collections when resumed;
 (3)
 PR-034 portfolio validation, once a real dataset is usable end to end at
 scale (today's real verification covers 2 companies, one date).
