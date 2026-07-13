@@ -63,8 +63,8 @@
 - [x] Real portfolio wired to scoring/decisions; sell-only rebalance mode
 - [x] Sell/buy priority classification (on demand: CLI, artifact, API, SDK)
 - [x] Deterministic walk-forward replay mechanism
-- [ ] Portfolio performance and risk validation (historical target and metric
-      cores complete; execution/returns/factor contribution still open)
+- [ ] Portfolio performance and risk validation (target, next-open execution
+      and metric cores complete; real data/factor contribution still open)
 - [ ] Prospective shadow portfolio
 - [ ] Scheduling (deferred until analytical validation)
 - [ ] Notifications (requires channel decision)

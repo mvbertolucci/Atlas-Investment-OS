@@ -1,0 +1,5 @@
+name: Atlas Next-Session Open Execution
+execution_timing: next_session_open
+max_wait_calendar_days: 7
+base_currency: USD
+require_all_prices: true

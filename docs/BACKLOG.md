@@ -221,8 +221,9 @@
         explicit sector-concentration coverage
       - [x] Build point-in-time model-portfolio targets from the same governed
         scoring/universe/ranking path; retain coverage gaps and config hashes
-      - [ ] Govern execution timing and convert targets to effective-date
-        validation rebalances
+      - [x] Govern next-session-open execution and convert targets to dated
+        rebalances only when every attributed opening price is present
+      - [ ] Acquire/version real exchange sessions and opening prices
       - [ ] Acquire complete total-return/benchmark/delisting evidence
       - [ ] Add sector and factor contribution without look-ahead
       - [ ] Run broad real validation and report coverage

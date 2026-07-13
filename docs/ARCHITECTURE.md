@@ -145,10 +145,12 @@ the user's real `config/portfolio.csv`.
 
 - `backtesting/point_in_time.py`
 - `backtesting/historical_portfolio.py`
+- `backtesting/historical_execution.py`
 - `backtesting/portfolio_validation.py`
 - `config/portfolio_validation.yaml`
 - `docs/POINT_IN_TIME_DATA.md`
 - `docs/HISTORICAL_MODEL_PORTFOLIO.md`
+- `docs/HISTORICAL_EXECUTION.md`
 - `docs/PORTFOLIO_VALIDATION.md`
 
 The point-in-time layer defines the immutable evidence boundary for future
@@ -172,6 +174,9 @@ Historical target construction reuses the walk-forward scoring frame plus the
 governed universe, ranking and model-portfolio builders. Targets retain
 coverage gaps and configuration hashes and require a separate explicit
 execution date before becoming validation rebalances.
+The execution layer selects the first attributed session opening strictly
+after each decision and requires an exact USD opening price for every position;
+missing evidence blocks the entire rebalance. It contains no provider call.
 
 ### Outcome layer
 

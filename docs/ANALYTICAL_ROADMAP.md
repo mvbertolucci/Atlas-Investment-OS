@@ -45,9 +45,11 @@ promise.
    volatility, drawdown, turnover, estimated costs and position concentration,
    and withholds aggregate metrics for incomplete periods. Historical portfolio
    target construction now reuses the same governed point-in-time scoring,
-   universe and ranking route. Execution timing, a complete real return
-   dataset, factor contribution and a real broad run remain open. See
-   `docs/HISTORICAL_MODEL_PORTFOLIO.md` and `docs/PORTFOLIO_VALIDATION.md`.
+   universe and ranking route, followed by an explicit next-session-open
+   execution boundary. Real calendar/opening-price acquisition, a complete
+   total-return dataset, factor contribution and a broad run remain open. See
+   `docs/HISTORICAL_MODEL_PORTFOLIO.md`, `docs/HISTORICAL_EXECUTION.md` and
+   `docs/PORTFOLIO_VALIDATION.md`.
 10. **PR-035 — Prospective shadow portfolio.** Freeze real-time model-portfolio
    recommendations and evaluate them forward without capital or broker access.
 11. **PR-036 — Controlled calibration.** Consider weight or threshold changes

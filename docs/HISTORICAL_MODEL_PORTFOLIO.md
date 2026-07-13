@@ -36,19 +36,21 @@ and applies the same contract independently to every snapshot.
 
 ## Decision time is not execution time
 
-A target cannot enter return validation until the caller explicitly invokes
-`target.to_rebalance(effective_on)`. The effective date cannot precede the
-decision date. Atlas does not assume that information available at a cutoff
-could be traded at the same closing price that helped form the decision.
+A target cannot enter return validation until an explicit execution convention
+converts it to a rebalance. `backtesting/historical_execution.py` now governs
+that boundary as the first attributed session opening strictly after the
+decision, requiring a price for every position. The lower-level
+`target.to_rebalance(effective_on)` still requires an explicit date and rejects
+dates before the decision.
 
-The still-open execution-calendar adapter must state how weekends, holidays,
-market open/close timing and the first executable price are handled. Until
-that convention and total-return evidence exist, these targets must not be
-joined to returns or described as historical performance.
+Weekends and holidays come from supplied session evidence, never a weekday
+guess. See `docs/HISTORICAL_EXECUTION.md`. Until a real versioned calendar,
+opening-price evidence and total returns exist, these targets must not be
+described as historical performance.
 
 ## Remaining boundary
 
-- choose and govern the execution-date/price convention;
+- acquire and version the real exchange calendar and opening-price evidence;
 - acquire complete, dividend-inclusive returns for every held symbol and the
   benchmark, including terminal-event treatment;
 - map explicit effective dates to validation periods;

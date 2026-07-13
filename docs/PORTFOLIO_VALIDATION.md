@@ -9,9 +9,11 @@ not construct a historical portfolio, fetch data, change Atlas scores or claim
 that the current model has achieved any real historical performance.
 
 Point-in-time model-portfolio targets can now be built for explicit cutoffs;
-see `docs/HISTORICAL_MODEL_PORTFOLIO.md`. Converting those targets into return
-periods still requires an explicit execution calendar and complete real total
-returns. Factor contribution also remains open until historical factor
+the next-session-open execution convention is also executable when attributed
+sessions and opening prices are supplied. See
+`docs/HISTORICAL_MODEL_PORTFOLIO.md` and `docs/HISTORICAL_EXECUTION.md`.
+Real calendar/opening-price acquisition and complete total returns remain
+open. Factor contribution also remains open until historical factor
 exposures and subsequent returns can be joined without look-ahead bias.
 
 ## Run from a versioned local input
@@ -96,8 +98,8 @@ whether validation is `complete` or `incomplete`.
 
 ## Remaining PR-034 work
 
-- govern the execution-date/price convention and convert historical targets
-  into dated validation rebalances;
+- acquire/version real exchange sessions and opening-price observations for
+  the governed execution convention;
 - acquire complete total-return and benchmark series with dividends and
   delisting treatment;
 - add sector and factor contribution based on exposures known at each cutoff;

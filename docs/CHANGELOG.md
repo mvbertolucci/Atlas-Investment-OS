@@ -25,6 +25,11 @@
   construction errors instead of smaller accidental portfolios.
 - An explicit target-to-rebalance boundary requiring the caller to provide an
   execution date that cannot precede the decision cutoff.
+- A governed next-session-open execution policy with explicit exchange-session
+  and opening-price evidence, a seven-calendar-day maximum wait and no partial
+  execution when any position price is missing.
+- Audit output retaining the policy, selected session, accepted prices and
+  machine-readable failure reasons; no provider or order simulation added.
 
 ### Preserved
 
@@ -34,12 +39,12 @@
 
 ### Validation
 
-- 25 deterministic PR-034 tests cover historical targets, anti-look-ahead,
-  calculations, costs, drift-aware turnover, terminal events, missing evidence,
-  assumptions and report serialization.
-- 554 automated tests passed.
-- 88.49% production coverage overall; historical-target and validation modules
-  have 86% and 90% direct coverage, respectively.
+- 34 deterministic PR-034 tests cover historical targets, anti-look-ahead,
+  next-session execution, calculations, costs, drift-aware turnover, terminal
+  events, missing evidence, assumptions and report serialization.
+- 563 automated tests passed.
+- 88.52% production coverage overall; historical-target, execution and
+  validation modules have 87%, 89% and 90% direct coverage, respectively.
 
 ## Collector advancement after permanent provider failures
 
