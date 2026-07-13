@@ -134,3 +134,12 @@ class AtlasClient:
 
     def outcomes(self) -> Any:
         return self._get("/outcomes")["outcomes"]
+
+    def priority(self) -> Any:
+        return self._get("/priority")["priority"]
+
+    def priority_sell(self) -> Any:
+        return self._get("/priority/sell")["sell"]
+
+    def priority_buy(self) -> Any:
+        return self._get("/priority/buy")["buy"]

@@ -63,6 +63,9 @@ def route(path: str, data: dict[str, Any]) -> tuple[int, Any]:
                 "/market",
                 "/portfolio",
                 "/outcomes",
+                "/priority",
+                "/priority/sell",
+                "/priority/buy",
             ],
         }
 
@@ -88,6 +91,17 @@ def route(path: str, data: dict[str, Any]) -> tuple[int, Any]:
 
     if parts == ["outcomes"]:
         return 200, {"outcomes": data.get("outcomes")}
+
+    if parts == ["priority"]:
+        return 200, {"priority": data.get("priority")}
+
+    if parts == ["priority", "sell"]:
+        priority = data.get("priority") or {}
+        return 200, {"sell": priority.get("sell")}
+
+    if parts == ["priority", "buy"]:
+        priority = data.get("priority") or {}
+        return 200, {"buy": priority.get("buy")}
 
     return 404, {"error": "recurso não encontrado", "path": clean}
 

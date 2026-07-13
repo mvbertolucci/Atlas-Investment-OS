@@ -26,6 +26,10 @@ def _contract() -> dict:
         ],
         "portfolio": {"portfolio_name": "Main"},
         "outcomes": {"hit_rate": {"hit_rate": 100.0}},
+        "priority": {
+            "sell": {"items": [{"symbol": "BBB", "action": "SELL"}]},
+            "buy": {"items": [{"symbol": "CCC", "candidate_rank": 1}]},
+        },
     }
 
 
@@ -76,6 +80,27 @@ def test_sub_resources_are_wrapped() -> None:
     assert route("/outcomes", _contract())[1]["outcomes"] == {
         "hit_rate": {"hit_rate": 100.0}
     }
+
+
+def test_priority_full_and_sub_resources() -> None:
+    status, payload = route("/priority", _contract())
+    assert status == 200
+    assert payload["priority"]["sell"]["items"][0]["symbol"] == "BBB"
+
+    status, payload = route("/priority/sell", _contract())
+    assert status == 200
+    assert payload["sell"]["items"][0]["action"] == "SELL"
+
+    status, payload = route("/priority/buy", _contract())
+    assert status == 200
+    assert payload["buy"]["items"][0]["symbol"] == "CCC"
+
+
+def test_priority_sub_resources_when_priority_absent() -> None:
+    data = {**_contract(), "priority": None}
+    status, payload = route("/priority/sell", data)
+    assert status == 200
+    assert payload["sell"] is None
 
 
 def test_trailing_slash_and_query_are_normalized() -> None:

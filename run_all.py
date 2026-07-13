@@ -49,6 +49,12 @@ from ranking import (
 from reports.excel import write_latest_and_history
 from reports.morning_brief import render_morning_brief, write_morning_brief
 from dashboard import build_dashboard_view, write_dashboard_view
+from priority import (
+    PriorityReport,
+    build_buy_priority,
+    build_sell_priority,
+    write_priority_report,
+)
 from reports.report_engine import build_company_reports
 from scoring.investment import score_dataframe
 from storage.history_db import HistoryDatabase
@@ -72,6 +78,8 @@ EXECUTION_METRICS_FILE = LOGS / "execution_metrics.csv"
 PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
 OUTCOME_REPORT_FILE = OUTPUT / "outcome_report.json"
 DASHBOARD_REPORT_FILE = OUTPUT / "dashboard.json"
+PRIORITY_REPORT_FILE = OUTPUT / "priority_report.json"
+RESEARCH_RANKING_REPORT_FILE = OUTPUT / "research_ranking_report.json"
 UNIVERSE_REPORT_FILE = OUTPUT / "universe_report.json"
 RANKING_REPORT_FILE = OUTPUT / "ranking_report.json"
 
@@ -385,13 +393,14 @@ def generate_dashboard(
     portfolio_report: PortfolioReport | None = None,
     outcome_report: OutcomeAnalyticsReport | None = None,
     universe_report: UniverseReport | None = None,
+    priority_report: PriorityReport | None = None,
 ) -> Path | None:
     """
     Emite o contrato read-only do dashboard (output/dashboard.json).
 
     Pura agregação das visões que o Atlas já produziu nesta execução
-    (mercado, empresas, carteira e outcomes); não recomputa nem altera nada.
-    Guardado por `dashboard_enabled` (default True).
+    (mercado, empresas, carteira, outcomes e prioridade); não recomputa nem
+    altera nada. Guardado por `dashboard_enabled` (default True).
     """
     if not settings.get("dashboard_enabled", True):
         return None
@@ -401,6 +410,7 @@ def generate_dashboard(
         market=universe_report,
         portfolio=portfolio_report,
         outcomes=outcome_report,
+        priority=priority_report,
     )
 
     write_dashboard_view(view, DASHBOARD_REPORT_FILE)
@@ -411,6 +421,58 @@ def generate_dashboard(
         len(view.companies),
     )
     return DASHBOARD_REPORT_FILE
+
+
+def generate_priority_report(
+    settings: dict,
+    *,
+    ranking_report: RankingReport | None,
+    portfolio_report: PortfolioReport | None,
+) -> tuple[Path, PriorityReport] | None:
+    """
+    Classificação individual de prioridade de venda (carteira atual) e de
+    compra (screener, quando o universo amplo já foi coletado). Não
+    distribui peso nem aplica teto de setor -- apenas ordena por qualidade.
+    Guardado por priority_enabled (default True).
+    """
+    if not settings.get("priority_enabled", True):
+        return None
+
+    weights_by_symbol: dict[str, float] = {}
+    held_symbols: frozenset[str] | None = None
+
+    if portfolio_report is not None:
+        weights_by_symbol = dict(
+            portfolio_report.allocation.get("by_symbol", {})
+        )
+        held_symbols = frozenset(weights_by_symbol)
+
+    sell = build_sell_priority(
+        ranking_report.to_dict()["companies"] if ranking_report else (),
+        held_symbols=held_symbols,
+        weights_by_symbol=weights_by_symbol,
+    )
+
+    buy = None
+    if RESEARCH_RANKING_REPORT_FILE.exists():
+        research_data = json.loads(
+            RESEARCH_RANKING_REPORT_FILE.read_text(encoding="utf-8")
+        )
+        buy = build_buy_priority(
+            research_data["companies"],
+            held_symbols=held_symbols or frozenset(),
+        )
+
+    report = PriorityReport(sell=sell, buy=buy)
+    write_priority_report(report, PRIORITY_REPORT_FILE)
+
+    logger.info(
+        "Priority Report: %s holdings classificados; %s candidatos de "
+        "compra disponíveis.",
+        len(sell.items),
+        len(buy.items) if buy is not None else 0,
+    )
+    return PRIORITY_REPORT_FILE, report
 
 
 def generate_excel_reports(
@@ -662,12 +724,24 @@ def main() -> None:
                 )
             )
 
+        priority_result = generate_priority_report(
+            settings,
+            ranking_report=ranking_report,
+            portfolio_report=portfolio_report,
+        )
+        priority_file, priority_report = (
+            priority_result
+            if priority_result is not None
+            else (None, None)
+        )
+
         dashboard_file = generate_dashboard(
             df,
             settings,
             portfolio_report=portfolio_report,
             outcome_report=outcome_analytics,
             universe_report=universe_report,
+            priority_report=priority_report,
         )
 
         print_console_table(df)
@@ -731,6 +805,9 @@ def main() -> None:
 
         if dashboard_file is not None:
             print(f"Dashboard JSON  : {dashboard_file}")
+
+        if priority_file is not None:
+            print(f"Priority JSON   : {priority_file}")
 
         if universe_report is not None:
             print(f"Universe JSON   : {UNIVERSE_REPORT_FILE}")
