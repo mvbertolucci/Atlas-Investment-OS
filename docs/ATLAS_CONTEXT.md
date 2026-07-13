@@ -70,10 +70,10 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 
 ## 4. Authoritative configuration
 
-- `config/features.yaml`: feature definitions and registry.
-- `config/model.yaml`: model composition.
-- `config/weights.json`: scoring weights used by the current pipeline.
-- `config/deal_breakers.json`: risk and exclusion rules.
+- `config/features.yaml`: feature definitions and per-feature weights.
+- `config/model.yaml`: `factor_weights` — the scoring weight vector used by the
+  current pipeline (business/valuation/financial/timing).
+- `config/deal_breakers.json`: risk penalty rules and sector exemptions.
 - `config/settings.json`: runtime paths and provider settings.
 - `config/watchlist.csv`: analyzed universe.
 - `config/portfolio.csv`: optional real portfolio input; start from `portfolio.example.csv`.
@@ -135,6 +135,12 @@ A task is complete only when:
 - External Yahoo data can be incomplete or unstable; tests should not depend on live network access.
 - Outcome returns use the first valid Atlas price observed on or after each due
   date; evaluation lag remains explicit.
+- Investment and factor scores are cross-sectional percentile ranks within each
+  run's watchlist batch, not absolute levels; identical fundamentals score
+  differently when watchlist composition changes (measured swing up to ~11–15
+  points on small watchlists). Outcome score-calibration pools buckets across
+  decision dates and is only strictly comparable when the watchlist is stable —
+  treat cross-run calibration as indicative. See `docs/SCORING_MODEL.md`.
 
 ## 9. First actions for a new Codex session
 

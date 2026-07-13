@@ -211,7 +211,7 @@ def run_health_check(
 
     items.append(
         _check_file(
-            config / "weights.json"
+            config / "model.yaml"
         )
     )
 

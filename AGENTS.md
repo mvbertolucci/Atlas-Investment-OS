@@ -20,7 +20,7 @@ Evolve Atlas as a reproducible, auditable and explainable investment decision sy
 
 - Do not silently change scoring semantics, weights, thresholds or Deal Breakers.
 - Treat `config/features.yaml` as the authoritative feature registry.
-- Treat `config/model.yaml`, `config/weights.json` and `config/deal_breakers.json` as governed business configuration; explain any modification.
+- Treat `config/model.yaml`, `config/features.yaml` and `config/deal_breakers.json` as governed business configuration; explain any modification. Their values are pinned by `tests/test_governed_config.py`.
 - Portfolio rebalance output is advisory only.
 - Runtime artifacts in `output/`, `logs/` and local SQLite databases must not be committed.
 - Never hide failing tests or weaken assertions merely to make CI pass.
