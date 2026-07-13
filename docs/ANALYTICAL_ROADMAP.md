@@ -33,8 +33,13 @@ promise.
    availability, constituent and delisting rules required to avoid future-data
    and survivorship bias. The executable boundary is documented in
    `docs/POINT_IN_TIME_DATA.md`.
-8. **PR-033 — Walk-forward backtest.** Recreate each decision using only data
-   available at that date and compare against explicit benchmarks.
+8. **PR-033 — Walk-forward backtest (mechanism complete).** Recreates each
+   decision using only data available at that date, through the existing
+   governed scoring engine (`backtesting/walk_forward.py`), proven with
+   synthetic offline fixtures. No real historical point-in-time dataset
+   exists to run it against yet -- that acquisition, and comparison against
+   explicit benchmarks, remains future work. See
+   `docs/WALK_FORWARD_BACKTEST.md`.
 9. **PR-034 — Portfolio validation.** Report return, volatility, drawdown,
    turnover, estimated costs, concentration and factor contribution.
 10. **PR-035 — Prospective shadow portfolio.** Freeze real-time model-portfolio

@@ -1,11 +1,11 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-037` (US-listed ADR screener)
+**Last synchronized baseline:** `PR-033` (walk-forward replay mechanism)
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 411 tests passing / 86.61% production coverage
+**Validation baseline:** 435 tests passing / 87.32% production coverage
 
 ## 1. Product mission
 
@@ -176,8 +176,25 @@ same as before) -- so ranking and buy-priority can run over the broad-market
 or ADR screener with distinct output filenames the moment their collection
 completes. **The collection itself is not started** (deliberately deferred,
 expected to take substantially longer than the 503-name S&P 500 collection --
-see `docs/UNIVERSE_SOURCES.md`); that remains the next concrete action when
-resumed.
+see `docs/UNIVERSE_SOURCES.md`).
+
+**PR-033 (walk-forward) is now merged, but as a mechanism, not a real
+backtest.** `backtesting/walk_forward.py` deterministically replays Atlas
+decisions at explicit historical cutoffs through the unchanged, governed
+`score_dataframe`, using only `PointInTimeDataset.as_of(decision_at)`
+evidence visible at that time -- proven with synthetic, offline fixtures
+(no network, no live provider). **No real historical point-in-time dataset
+exists in this repository** (PR-032 deliberately excluded historical-data
+acquisition, and none has been added since); running this engine against
+real market history, and PR-034's return/risk validation, both still need
+that dataset to be acquired first -- a separate, materially harder problem
+most free providers do not solve (they do not expose "value as known on
+date X" with revision history). See `docs/WALK_FORWARD_BACKTEST.md`.
+
+**Open threads, in priority order:** (1) acquire a real, versioned,
+point-in-time-correct historical dataset -- the actual blocker for any real
+backtest; (2) run the broad-market/ADR collections when resumed; (3) PR-034
+portfolio validation, once (1) exists.
 
 See `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md` for the full backlog.
 

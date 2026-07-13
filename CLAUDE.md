@@ -39,18 +39,22 @@ For the full regression gate:
 
 ## Current handoff
 
-- Released version: `v1.2.0`; development baseline: `PR-037`.
-- Validation baseline: 411 tests / 86.61% production coverage.
+- Released version: `v1.2.0`; development baseline: `PR-033`.
+- Validation baseline: 435 tests / 87.32% production coverage.
 - v1.1 Integrated Portfolio Intelligence and v1.2 Outcome Analytics are
   complete.
 - v2.0 Platform is in progress. The point-in-time data contract is complete;
-  deterministic walk-forward backtesting remains the next analytical
-  increment. In parallel: the real portfolio is wired end to end
-  (`portfolio.rebalance_mode = "sell_only"` by default), an on-demand
-  sell/buy priority classification exists (`priority/`), and two more
-  screeners (broad US market, US-listed ADRs) are infrastructure-only —
-  see `docs/ATLAS_CONTEXT.md` section 6.
-- Next planned increment: parametrize `portfolio/model_portfolio.py` to
-  accept any of the three universe/ranking policies (today hardcoded to
-  the S&P 500 one), so ranking/buy-priority work over the broad-market or
-  ADR screener as soon as their collection eventually runs.
+  the walk-forward *mechanism* (`backtesting/walk_forward.py`) is merged,
+  proven with synthetic offline fixtures only -- **no real historical
+  point-in-time dataset exists yet**, so this is not a real backtest of
+  Atlas's history (see `docs/WALK_FORWARD_BACKTEST.md`). In parallel: the
+  real portfolio is wired end to end (`portfolio.rebalance_mode =
+  "sell_only"` by default), an on-demand sell/buy priority classification
+  exists (`priority/`), two more screeners (broad US market, US-listed
+  ADRs) are infrastructure-only, and `portfolio/model_portfolio.py` can run
+  ranking over any of the three screeners via `--universe-policy`/`--label`
+  — see `docs/ATLAS_CONTEXT.md` section 6.
+- Open threads, in priority order: (1) acquire a real, versioned,
+  point-in-time-correct historical dataset -- the actual blocker for any
+  real backtest; (2) run the broad-market/ADR collections when resumed;
+  (3) PR-034 portfolio validation, once (1) exists.

@@ -7,6 +7,17 @@ from backtesting.point_in_time import (
     PointInTimeDataset,
     UniverseMembership,
 )
+from backtesting.walk_forward import (
+    HistoricalInputManifest,
+    IncompleteDecision,
+    ReplayedDecision,
+    WalkForwardReport,
+    compute_governed_config_hashes,
+    monthly_decision_calendar,
+    reconstruct_snapshot_frame,
+    run_walk_forward,
+    write_walk_forward_report,
+)
 
 __all__ = [
     "AsOfSnapshot",
@@ -14,4 +25,13 @@ __all__ = [
     "HistoricalObservation",
     "PointInTimeDataset",
     "UniverseMembership",
+    "HistoricalInputManifest",
+    "IncompleteDecision",
+    "ReplayedDecision",
+    "WalkForwardReport",
+    "compute_governed_config_hashes",
+    "monthly_decision_calendar",
+    "reconstruct_snapshot_frame",
+    "run_walk_forward",
+    "write_walk_forward_report",
 ]
