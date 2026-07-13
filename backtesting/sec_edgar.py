@@ -12,19 +12,63 @@ SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_COMPANYFACTS_URL_TEMPLATE = (
     "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
 )
-TAXONOMY = "us-gaap"
 
-# Tags XBRL nativos mapeados para o nome canônico do Atlas. Deliberadamente
-# pequeno e só de conceitos NATIVOS para esta primeira fatia -- conceitos
-# derivados (EBIT, Working Capital não existem como tag da SEC) e múltiplos
-# de valuation (que exigem uma série de PREÇO, que a SEC não tem) ficam para
-# um incremento futuro documentado, nunca aproximados silenciosamente aqui.
-TAG_TO_FIELD = {
-    "Assets": "total_assets",
-    "NetIncomeLoss": "net_income",
-    "Revenues": "total_revenue",
-    "AssetsCurrent": "current_assets",
-    "LiabilitiesCurrent": "current_liabilities",
+# Nome canônico do Atlas -> tags XBRL candidatas, em ordem de prioridade,
+# cada uma com sua taxonomia. Mais de uma tag por campo porque a MESMA
+# empresa pode trocar de tag ao longo dos anos (ex.: "Revenues" era comum
+# até ~2018, quando muitas empresas migraram para
+# "RevenueFromContractWithCustomerExcludingAssessedTax" com o novo padrão de
+# reconhecimento de receita) -- todas as candidatas são extraídas e
+# mescladas, não apenas a primeira com dado, para não perder parte da
+# história de uma empresa que atravessou essa troca. "shares_outstanding"
+# normalmente vive na taxonomia "dei", não "us-gaap".
+#
+# Deliberadamente ainda não cobre TODOS os ~25 campos fundamentalistas do
+# Atlas -- conceitos derivados que não são tag nativa da SEC (EBIT, Working
+# Capital) e múltiplos de valuation (exigem uma série de PREÇO, que a SEC
+# não tem) ficam para incremento futuro documentado, nunca aproximados
+# silenciosamente aqui. "operating_income" é mantido com esse nome (não
+# renomeado para "ebit") para que a decisão de usá-lo como proxy de EBIT
+# fique explícita e visível para quem for consumir este dado.
+FIELD_TAG_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
+    "total_assets": (("us-gaap", "Assets"),),
+    "net_income": (("us-gaap", "NetIncomeLoss"),),
+    "total_revenue": (
+        ("us-gaap", "Revenues"),
+        ("us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax"),
+        ("us-gaap", "SalesRevenueNet"),
+    ),
+    "current_assets": (("us-gaap", "AssetsCurrent"),),
+    "current_liabilities": (("us-gaap", "LiabilitiesCurrent"),),
+    "gross_profit": (("us-gaap", "GrossProfit"),),
+    "long_term_debt": (
+        ("us-gaap", "LongTermDebtNoncurrent"),
+        ("us-gaap", "LongTermDebt"),
+    ),
+    "retained_earnings": (
+        ("us-gaap", "RetainedEarningsAccumulatedDeficit"),
+    ),
+    "total_liabilities": (("us-gaap", "Liabilities"),),
+    "interest_expense": (("us-gaap", "InterestExpense"),),
+    "tax_provision": (("us-gaap", "IncomeTaxExpenseBenefit"),),
+    "pretax_income": (
+        (
+            "us-gaap",
+            "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+        ),
+        (
+            "us-gaap",
+            "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+        ),
+    ),
+    "repurchase_of_stock": (
+        ("us-gaap", "PaymentsForRepurchaseOfCommonStock"),
+    ),
+    "operating_income": (("us-gaap", "OperatingIncomeLoss"),),
+    "shares_outstanding": (
+        ("dei", "EntityCommonStockSharesOutstanding"),
+        ("us-gaap", "CommonStockSharesOutstanding"),
+    ),
 }
 
 _ACCEPTED_FORM_PREFIXES = ("10-K", "10-Q")
@@ -96,56 +140,72 @@ def extract_observations(
     symbol: str,
     company_facts: dict[str, Any],
     *,
-    tag_to_field: dict[str, str] = TAG_TO_FIELD,
-    taxonomy: str = TAXONOMY,
+    field_tag_candidates: dict[
+        str, tuple[tuple[str, str], ...]
+    ] = FIELD_TAG_CANDIDATES,
 ) -> tuple[HistoricalObservation, ...]:
     """
     Converte um subconjunto de tags XBRL nativos de um payload companyfacts
-    em HistoricalObservation. Só as tags em `tag_to_field` são extraídas --
-    um conceito ausente dessa lista fica simplesmente ausente, nunca
-    aproximado. Cada revisão (accn) vira sua própria observação versionada;
-    `available_at` usa a convenção conservadora de `available_at_from_filed`.
+    em HistoricalObservation. Só os campos em `field_tag_candidates` são
+    extraídos -- um conceito ausente dessa lista fica simplesmente ausente,
+    nunca aproximado.
+
+    Para cada campo canônico, TODAS as tags candidatas (podendo vir de
+    taxonomias diferentes) são extraídas e mescladas -- não apenas a
+    primeira com dado -- porque a mesma empresa pode ter usado tags
+    diferentes em períodos diferentes da sua história (ex.: troca de tag de
+    receita em ~2018). Cada revisão (accn) vira sua própria observação
+    versionada; `available_at` usa a convenção conservadora de
+    `available_at_from_filed`.
 
     Restrito a formulários 10-K/10-Q (o núcleo periódico) -- outros tipos de
     filing que carregam XBRL (ex.: exibições de 8-K) ficam de fora nesta
     fatia.
     """
     symbol = _text(symbol, "symbol").upper()
-    facts = company_facts.get("facts", {}).get(taxonomy, {})
+    facts_by_taxonomy = company_facts.get("facts", {})
     observations: list[HistoricalObservation] = []
     seen_identities: set[tuple[str, str, str, str]] = set()
 
-    for tag, field_name in tag_to_field.items():
-        concept = facts.get(tag)
-        if not concept:
-            continue
+    for field_name, candidates in field_tag_candidates.items():
+        for taxonomy, tag in candidates:
+            concept = facts_by_taxonomy.get(taxonomy, {}).get(tag)
+            if not concept:
+                continue
 
-        for unit_entries in concept.get("units", {}).values():
-            for entry in unit_entries:
-                required = ("end", "val", "filed", "accn", "form")
-                if any(key not in entry for key in required):
-                    continue
+            for unit_entries in concept.get("units", {}).values():
+                for entry in unit_entries:
+                    required = ("end", "val", "filed", "accn", "form")
+                    if any(key not in entry for key in required):
+                        continue
 
-                form = str(entry["form"])
-                if not form.startswith(_ACCEPTED_FORM_PREFIXES):
-                    continue
+                    form = str(entry["form"])
+                    if not form.startswith(_ACCEPTED_FORM_PREFIXES):
+                        continue
 
-                revision_id = str(entry["accn"])
-                identity = (symbol, field_name, str(entry["end"]), revision_id)
-                if identity in seen_identities:
-                    continue
-                seen_identities.add(identity)
-
-                observations.append(
-                    HistoricalObservation(
-                        symbol=symbol,
-                        field_name=field_name,
-                        value=entry["val"],
-                        observed_on=entry["end"],
-                        available_at=available_at_from_filed(str(entry["filed"])),
-                        source=f"SEC EDGAR ({form})",
-                        revision_id=revision_id,
+                    revision_id = str(entry["accn"])
+                    identity = (
+                        symbol,
+                        field_name,
+                        str(entry["end"]),
+                        revision_id,
                     )
-                )
+                    if identity in seen_identities:
+                        continue
+                    seen_identities.add(identity)
+
+                    observations.append(
+                        HistoricalObservation(
+                            symbol=symbol,
+                            field_name=field_name,
+                            value=entry["val"],
+                            observed_on=entry["end"],
+                            available_at=available_at_from_filed(
+                                str(entry["filed"])
+                            ),
+                            source=f"SEC EDGAR ({form}, {taxonomy}:{tag})",
+                            revision_id=revision_id,
+                        )
+                    )
 
     return tuple(observations)

@@ -10,11 +10,11 @@ already consume -- proven against **real, live SEC data**, not just
 synthetic fixtures.
 
 **This delivers a small, real vertical slice, not a complete historical
-dataset.** It covers 5 native fundamental concepts for one company at a
-time, fetched on demand. It does not yet cover: most of Atlas's ~25
-fundamental fields, derived concepts, valuation multiples, historical
-index membership, historical prices, or delisting records. See "What is
-covered" and "What is not" below.
+dataset.** It covers 15 native fundamental concepts for one company at a
+time, fetched on demand. It does not yet cover: derived concepts requiring
+several raw components, valuation multiples, historical index membership,
+historical prices, or delisting records. See "What is covered" and "What
+is not" below.
 
 ## Why SEC EDGAR
 
@@ -38,19 +38,43 @@ value traces back to a named, independently-verifiable accession number.
   header identifying the requester (name/contact), per SEC's fair-use
   policy -- not an API key, just an identifying header on every request.
 
-## Mapping (`backtesting/sec_edgar.TAG_TO_FIELD`)
+## Mapping (`backtesting/sec_edgar.FIELD_TAG_CANDIDATES`)
 
-| XBRL tag (us-gaap) | Atlas field |
+| Atlas field | XBRL tag candidates (taxonomy:tag, priority order) |
 |---|---|
-| `Assets` | `total_assets` |
-| `NetIncomeLoss` | `net_income` |
-| `Revenues` | `total_revenue` |
-| `AssetsCurrent` | `current_assets` |
-| `LiabilitiesCurrent` | `current_liabilities` |
+| `total_assets` | `us-gaap:Assets` |
+| `net_income` | `us-gaap:NetIncomeLoss` |
+| `total_revenue` | `us-gaap:Revenues`, `us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax`, `us-gaap:SalesRevenueNet` |
+| `current_assets` | `us-gaap:AssetsCurrent` |
+| `current_liabilities` | `us-gaap:LiabilitiesCurrent` |
+| `gross_profit` | `us-gaap:GrossProfit` |
+| `long_term_debt` | `us-gaap:LongTermDebtNoncurrent`, `us-gaap:LongTermDebt` |
+| `retained_earnings` | `us-gaap:RetainedEarningsAccumulatedDeficit` |
+| `total_liabilities` | `us-gaap:Liabilities` |
+| `interest_expense` | `us-gaap:InterestExpense` |
+| `tax_provision` | `us-gaap:IncomeTaxExpenseBenefit` |
+| `pretax_income` | `us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest`, `us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments` |
+| `repurchase_of_stock` | `us-gaap:PaymentsForRepurchaseOfCommonStock` |
+| `operating_income` | `us-gaap:OperatingIncomeLoss` (kept under this name, not silently renamed to `ebit` -- see below) |
+| `shares_outstanding` | `dei:EntityCommonStockSharesOutstanding`, `us-gaap:CommonStockSharesOutstanding` |
 
-Deliberately small and **native-tag-only** for this increment. A concept
-absent from this table is simply absent from the output -- never
-approximated or backfilled.
+Deliberately **native-tag-only**. A concept absent from this table is
+simply absent from the output -- never approximated or backfilled.
+
+**Multiple candidates per field are all extracted and merged**, not just
+the first one with data: the same company can use different tags in
+different eras (e.g. many companies switched from `Revenues` to
+`RevenueFromContractWithCustomerExcludingAssessedTax` around the 2018
+revenue-recognition standard change). Taking only the first candidate with
+*any* data would silently drop the part of a company's history tagged
+under the other name. `shares_outstanding` is read from the `dei`
+taxonomy first (where it is conventionally reported), falling back to
+`us-gaap`.
+
+Verified against real, live SEC data for Apple Inc.: 2,350 observations
+across these 15 fields (up from 5/647 in the first increment), values
+matching Apple's real financial scale (e.g. gross profit ~$124B, shares
+outstanding ~14.7B, operating income ~$86.7B as of the most recent 10-Q).
 
 ## `available_at` convention
 
@@ -75,28 +99,34 @@ feeds it real data).
 
 - `extract_observations(symbol, company_facts)`: pure conversion, tested
   with synthetic fixtures shaped like the real API response
-  (`tests/test_sec_edgar.py`) -- tag-to-field mapping, form-type filtering
-  (10-K/10-Q only; 8-K exhibits and other XBRL-carrying forms are
-  excluded), identity deduplication, and multi-revision handling verified
-  end to end through the real `PointInTimeDataset`.
-- Verified manually against **real, live data** for Apple Inc.: 647
-  observations extracted across the 5 tags, correct point-in-time
+  (`tests/test_sec_edgar.py`) -- field-to-tag mapping across multiple
+  candidates and taxonomies, form-type filtering (10-K/10-Q only; 8-K
+  exhibits and other XBRL-carrying forms are excluded), identity
+  deduplication, cross-era tag-switch merging, and multi-revision handling
+  verified end to end through the real `PointInTimeDataset`.
+- Verified manually against **real, live data** for Apple Inc.: 2,350
+  observations extracted across the 15 fields, correct point-in-time
   reconstruction via `as_of`, real dollar figures matching Apple's actual
-  balance-sheet scale.
+  financial scale.
+- **XBRL taxonomy drift is now partially handled**, not just documented as
+  a gap: the highest-value fields (`total_revenue`, `long_term_debt`,
+  `pretax_income`, `shares_outstanding`) carry multiple candidate tags
+  across the eras/taxonomies companies actually used, and all candidates
+  are merged rather than only the first with data.
 
 ## What is not covered (explicit follow-up, not silently assumed)
 
-- **Most Atlas fundamentals.** Only 5 of roughly 25 fields Atlas's scoring
+- **Some Atlas fundamentals.** 15 of roughly 25 fields Atlas's scoring
   reads (see `analytics/fundamentals.py`, `analytics/mapper.py`) have a
-  mapping. Missing native concepts (e.g. `GrossProfit`,
-  `LongTermDebtNoncurrent`, `InterestExpense`,
-  `RetainedEarningsAccumulatedDeficit`,
-  `PaymentsForRepurchaseOfCommonStock`) are a straightforward table
-  extension.
+  mapping. Remaining native concepts not yet mapped (e.g. per-share EPS
+  tags, specific margin/ratio line items only some filers break out) are a
+  straightforward table extension.
 - **Derived concepts.** `EBIT` and `Working Capital` are not native SEC
-  tags; EBIT is commonly approximated by `OperatingIncomeLoss`, Working
-  Capital by `AssetsCurrent - LiabilitiesCurrent` -- a deliberate design
-  decision to make explicitly, not silently fold into the tag table.
+  tags. `operating_income` (`OperatingIncomeLoss`) is mapped as a commonly
+  used EBIT *proxy*, kept under its own name rather than silently renamed
+  to `ebit`, so that decision stays visible to whoever consumes it; Working
+  Capital is `current_assets - current_liabilities`, both already mapped,
+  but the subtraction itself is not yet computed anywhere.
 - **Valuation multiples** (PE, PB, EV/EBITDA, PEG, dividend/buyback
   yields). SEC EDGAR has no price data at all; these need a historical
   price series (Yahoo's daily history is not restated the way fundamentals
@@ -110,11 +140,12 @@ feeds it real data).
 - **Bulk/checkpointed collection across many tickers.** Today's functions
   fetch one company at a time, on demand -- there is no batch collector
   analogous to `universe/collector.py`'s resumable, checkpointed design
-  yet. Building one is the natural next step once tag coverage is wider.
-- **XBRL taxonomy drift.** Tag names have changed across years for some
-  concepts (e.g. revenue tags evolved); the 5 tags mapped here are stable,
-  long-standing ones, but wider coverage will need to handle
-  tag-name variants per era.
+  yet. Building one is the natural next step now that tag coverage is
+  wider.
+- **Further tag-drift coverage.** Multi-candidate merging is applied to
+  the fields most likely to need it; other concepts still use a single
+  candidate tag and may need alternates added as real coverage gaps are
+  found (e.g. by running the collector across many companies/eras).
 
 ## Compliance
 

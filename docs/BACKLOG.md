@@ -135,15 +135,22 @@
 ### Real historical data acquisition (the actual blocker for a real backtest)
 
 - [x] `backtesting/sec_edgar.py`: SEC EDGAR XBRL -> `HistoricalObservation`,
-      free/public/no-key, verified against **live SEC data** for Apple Inc.
-      (647 observations, 5 native fundamental tags: `total_assets`,
-      `net_income`, `total_revenue`, `current_assets`,
-      `current_liabilities`). Conservative `available_at` convention
-      (midnight UTC the day after filing). See `docs/SEC_EDGAR_DATA.md` for
-      the full "what is covered / what is not" accounting.
-- [ ] Widen tag coverage toward Atlas's ~25 fundamental fields (most native
-      tags are a straightforward table extension; `EBIT`/`Working Capital`
-      need an explicit derivation decision -- not native SEC concepts)
+      free/public/no-key. Conservative `available_at` convention (midnight
+      UTC the day after filing). See `docs/SEC_EDGAR_DATA.md` for the full
+      "what is covered / what is not" accounting.
+- [x] Widened tag coverage to 15 fields (from the initial 5), verified
+      against **live SEC data** for Apple Inc. (2,350 observations):
+      `total_assets`, `net_income`, `total_revenue`, `current_assets`,
+      `current_liabilities`, `gross_profit`, `long_term_debt`,
+      `retained_earnings`, `total_liabilities`, `interest_expense`,
+      `tax_provision`, `pretax_income`, `repurchase_of_stock`,
+      `operating_income` (explicit EBIT proxy, not silently renamed),
+      `shares_outstanding` (from the `dei` taxonomy). Multiple candidate
+      tags per field are extracted and merged (not just the first with
+      data), handling real cross-era tag switches (e.g. the ~2018 revenue-
+      recognition tag change) -- `EBIT`/`Working Capital` proper and the
+      remaining ~10 fields still need an explicit derivation decision or
+      further native-tag additions.
 - [ ] Pair a historical price series (valuation multiples need price, which
       SEC EDGAR does not have)
 - [ ] Build a checkpointed multi-ticker collector (mirroring
