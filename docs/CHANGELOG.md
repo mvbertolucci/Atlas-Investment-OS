@@ -30,6 +30,10 @@
   execution when any position price is missing.
 - Audit output retaining the policy, selected session, accepted prices and
   machine-readable failure reasons; no provider or order simulation added.
+- A schema-versioned execution-evidence artifact plus pure adapter from
+  Yahoo-shaped bars to observed SPY-proxy sessions and opening prices.
+- `America/New_York` DST-aware 09:30 timestamps, reference-session filtering
+  and split-restored as-traded `Open` units, with manifest/temporal validation.
 
 ### Preserved
 
@@ -39,12 +43,14 @@
 
 ### Validation
 
-- 34 deterministic PR-034 tests cover historical targets, anti-look-ahead,
-  next-session execution, calculations, costs, drift-aware turnover, terminal
-  events, missing evidence, assumptions and report serialization.
-- 563 automated tests passed.
-- 88.52% production coverage overall; historical-target, execution and
-  validation modules have 87%, 89% and 90% direct coverage, respectively.
+- 41 deterministic PR-034 tests cover historical targets, anti-look-ahead,
+  execution evidence, next-session execution, calculations, costs, drift-aware
+  turnover, terminal events, missing evidence, assumptions and report
+  serialization.
+- 570 automated tests passed.
+- 88.50% production coverage overall; historical-target, execution-evidence,
+  execution and validation modules have 87%, 87%, 90% and 90% direct coverage,
+  respectively.
 
 ## Collector advancement after permanent provider failures
 

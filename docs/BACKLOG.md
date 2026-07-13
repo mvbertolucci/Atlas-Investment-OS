@@ -223,7 +223,9 @@
         scoring/universe/ranking path; retain coverage gaps and config hashes
       - [x] Govern next-session-open execution and convert targets to dated
         rebalances only when every attributed opening price is present
-      - [ ] Acquire/version real exchange sessions and opening prices
+      - [x] Add a versioned observed-session/open-price artifact and pure
+        Yahoo-bar adapter with DST and split-unit handling
+      - [ ] Run bounded real acquisition for reference/selected-symbol bars
       - [ ] Acquire complete total-return/benchmark/delisting evidence
       - [ ] Add sector and factor contribution without look-ahead
       - [ ] Run broad real validation and report coverage

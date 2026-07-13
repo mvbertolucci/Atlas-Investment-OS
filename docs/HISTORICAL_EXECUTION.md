@@ -6,6 +6,9 @@
 point-in-time model-portfolio target and a validation rebalance. It performs no
 provider request and does not simulate orders, fills, shares or market impact.
 It consumes attributed trading sessions and opening-price observations.
+`backtesting/execution_evidence.py` can now produce those contracts from
+already-acquired Yahoo-shaped bars in a versioned JSON artifact; see
+`docs/EXECUTION_EVIDENCE.md`.
 
 ## Governed convention
 
@@ -44,8 +47,9 @@ session date as `effective_on`.
 
 ## Remaining boundary
 
-The repository still has no versioned broad exchange calendar or historical
-opening-price acquisition artifact. Those inputs must be collected and
-attributed before historical targets can be executed at scale. Complete
+The repository now has a versioned artifact schema and pure Yahoo-bar adapter,
+but no broad real artifact has been collected. Real reference/position bars
+must still be acquired and kept as attributed runtime data before targets can
+be executed at scale. Complete
 dividend-inclusive holding-period returns and terminal-event evidence are also
 still required before the PR-034 metric runner can produce real results.

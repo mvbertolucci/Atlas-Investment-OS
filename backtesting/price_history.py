@@ -19,7 +19,9 @@ def _row_date(timestamp) -> date:
     )
 
 
-def _split_events(price_history: pd.DataFrame) -> tuple[tuple[date, float], ...]:
+def extract_split_events(
+    price_history: pd.DataFrame,
+) -> tuple[tuple[date, float], ...]:
     if "Stock Splits" not in price_history.columns:
         return ()
     events: list[tuple[date, float]] = []
@@ -89,7 +91,7 @@ def extract_price_observations(
     if "Close" not in price_history.columns:
         return ()
 
-    split_events = _split_events(price_history)
+    split_events = extract_split_events(price_history)
     observations: list[HistoricalObservation] = []
     for timestamp, row in price_history.iterrows():
         close = row["Close"]
@@ -129,5 +131,5 @@ def extract_split_records(
             known_at=available_at_from_trade_date(effective_on),
             source=source,
         )
-        for effective_on, ratio in _split_events(price_history)
+        for effective_on, ratio in extract_split_events(price_history)
     )

@@ -44,6 +44,11 @@ future economic information to a historical decision.
 `StockSplitRecord` events. Each event enters an as-of snapshot only after its
 effective date and conservative next-day availability timestamp.
 
+`extract_split_events` is also reused by the PR-034 execution-evidence adapter
+to restore historical `Open` values to as-traded units. That adapter builds
+observed-session/opening-price artifacts only; it does not change the `price`
+observations used by scoring. See `docs/EXECUTION_EVIDENCE.md`.
+
 ## Stock-split correction for market capitalization
 
 `shares_outstanding` (SEC EDGAR, `dei:EntityCommonStockSharesOutstanding`)

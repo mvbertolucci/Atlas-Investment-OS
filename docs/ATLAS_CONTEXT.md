@@ -4,12 +4,13 @@
 **Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition + paired
 historical price series + point-in-time `timing` factor derivation + extended
 point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
-plus deterministic PR-034 target, next-open execution and validation cores.
+plus deterministic PR-034 target, execution-evidence, next-open execution and
+validation cores.
 
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 563 tests passing / 88.52% production coverage
+**Validation baseline:** 570 tests passing / 88.50% production coverage
 
 ## 1. Product mission
 
@@ -205,10 +206,12 @@ now reuse the exact walk-forward scoring route plus governed universe/ranking/
 portfolio policies, retain coverage gaps and config hashes, and require an
 explicit execution date. A governed next-session-open layer now requires an
 attributed session and every USD opening price before creating a rebalance.
-Real calendar/open-price acquisition, complete total-return evidence, factor
-contribution and a broad run remain open; see
+An offline adapter now versions observed SPY-session/open-price evidence from
+existing Yahoo bars with DST and split-unit correction. The broad real artifact,
+complete total-return evidence, factor contribution and a broad run remain open;
+see
 `docs/HISTORICAL_MODEL_PORTFOLIO.md`, `docs/HISTORICAL_EXECUTION.md` and
-`docs/PORTFOLIO_VALIDATION.md`.
+`docs/EXECUTION_EVIDENCE.md` and `docs/PORTFOLIO_VALIDATION.md`.
 
 **Real progress on (1), now end to end:** `backtesting/sec_edgar.py` +
 `backtesting/sec_edgar_collector.py` acquire 17 native fundamental fields

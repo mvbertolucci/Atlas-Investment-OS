@@ -146,11 +146,13 @@ the user's real `config/portfolio.csv`.
 - `backtesting/point_in_time.py`
 - `backtesting/historical_portfolio.py`
 - `backtesting/historical_execution.py`
+- `backtesting/execution_evidence.py`
 - `backtesting/portfolio_validation.py`
 - `config/portfolio_validation.yaml`
 - `docs/POINT_IN_TIME_DATA.md`
 - `docs/HISTORICAL_MODEL_PORTFOLIO.md`
 - `docs/HISTORICAL_EXECUTION.md`
+- `docs/EXECUTION_EVIDENCE.md`
 - `docs/PORTFOLIO_VALIDATION.md`
 
 The point-in-time layer defines the immutable evidence boundary for future
@@ -177,6 +179,9 @@ execution date before becoming validation rebalances.
 The execution layer selects the first attributed session opening strictly
 after each decision and requires an exact USD opening price for every position;
 missing evidence blocks the entire rebalance. It contains no provider call.
+The execution-evidence adapter turns existing Yahoo-shaped bars into a
+schema-versioned observed-session/open-price artifact, with DST-aware regular
+opens and split-restored as-traded prices. It is also offline.
 
 ### Outcome layer
 
