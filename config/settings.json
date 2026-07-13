@@ -8,6 +8,7 @@
   "portfolio_name": "Atlas Portfolio",
   "portfolio_cash": 0.0,
   "portfolio_currency": "BRL",
+  "portfolio_rebalance_mode": "sell_only",
   "universe_enabled": true,
   "universe_policy_path": "config/universe.yaml",
   "research_universe_path": "config/research_universe.csv",

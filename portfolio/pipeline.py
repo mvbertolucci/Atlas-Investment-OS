@@ -12,7 +12,7 @@ from portfolio.concentration import analyze_allocation_concentration
 from portfolio.loader import load_portfolio_csv
 from portfolio.models import Holding, Portfolio
 from portfolio.quality import calculate_allocation_quality
-from portfolio.rebalance import build_rebalance_plan
+from portfolio.rebalance import build_rebalance_plan, build_sell_only_plan
 from portfolio.report import PortfolioReport, build_portfolio_report
 from reports.report_engine import build_company_reports
 
@@ -89,6 +89,9 @@ def enrich_portfolio_from_analysis(
     )
 
 
+REBALANCE_MODES = ("sell_only", "auto")
+
+
 def build_portfolio_intelligence(
     portfolio_path: Path,
     analysis_df: pd.DataFrame,
@@ -96,7 +99,23 @@ def build_portfolio_intelligence(
     portfolio_name: str | None = None,
     cash: float = 0.0,
     currency: str = "BRL",
+    rebalance_mode: str = "sell_only",
 ) -> PortfolioReport:
+    """
+    rebalance_mode:
+    - "sell_only" (default): sinaliza apenas venda de holdings em AVOID;
+      todo o resto fica HOLD no peso atual. Nunca sugere aumentar peso em
+      uma posição já existente -- o capital liberado vira caixa, para ser
+      realocado em novos papéis fora deste motor (screener/ranking).
+    - "auto": modo histórico, com pesos-alvo calculados por qualidade e
+      possíveis sugestões de compra em holdings já existentes.
+    """
+    if rebalance_mode not in REBALANCE_MODES:
+        raise ValueError(
+            f"rebalance_mode inválido: {rebalance_mode!r}. "
+            f"Use um de {REBALANCE_MODES!r}."
+        )
+
     portfolio = load_portfolio_csv(
         portfolio_path,
         portfolio_name=portfolio_name,
@@ -111,10 +130,17 @@ def build_portfolio_intelligence(
         allocation,
         concentration=concentration,
     )
-    rebalance = build_rebalance_plan(
-        allocation.portfolio,
-        quality=quality,
-    )
+
+    if rebalance_mode == "sell_only":
+        rebalance = build_sell_only_plan(
+            allocation.portfolio,
+            quality=quality,
+        )
+    else:
+        rebalance = build_rebalance_plan(
+            allocation.portfolio,
+            quality=quality,
+        )
 
     return build_portfolio_report(
         allocation,

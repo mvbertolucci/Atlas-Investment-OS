@@ -9,6 +9,7 @@ from portfolio.rebalance import (
     RebalanceError,
     RebalancePolicy,
     build_rebalance_plan,
+    build_sell_only_plan,
 )
 from reports.report_models import CompanyReport
 
@@ -446,4 +447,155 @@ def test_plan_is_serializable() -> None:
 
     assert isinstance(data["actions"], list)
     assert "estimated_turnover" in data
+
+
+def _sell_only_portfolio(
+    *,
+    minimum_trade_value: float = 500.0,
+) -> Portfolio:
+    return Portfolio(
+        name="SellOnly",
+        cash=0,
+        holdings=(
+            Holding(
+                symbol="AAA",
+                quantity=10,
+                average_price=100,
+                current_price=100,
+                company_report=_report("AAA", "AVOID", 20),
+            ),
+            Holding(
+                symbol="BBB",
+                quantity=10,
+                average_price=100,
+                current_price=100,
+                company_report=_report("BBB", "STRONG_BUY", 95),
+            ),
+            Holding(
+                symbol="CCC",
+                quantity=10,
+                average_price=100,
+                current_price=100,
+                company_report=_report("CCC", "HOLD", 60),
+            ),
+        ),
+    )
+
+
+def test_sell_only_flags_avoid_and_holds_everyone_else() -> None:
+    plan = build_sell_only_plan(_sell_only_portfolio())
+
+    by_symbol = {action.symbol: action for action in plan.actions}
+
+    assert by_symbol["AAA"].action == "SELL"
+    assert by_symbol["AAA"].target_weight == 0.0
+
+    assert by_symbol["BBB"].action == "HOLD"
+    assert by_symbol["BBB"].target_weight == pytest.approx(
+        by_symbol["BBB"].current_weight
+    )
+
+    assert by_symbol["CCC"].action == "HOLD"
+    assert by_symbol["CCC"].target_weight == pytest.approx(
+        by_symbol["CCC"].current_weight
+    )
+
+
+def test_sell_only_never_produces_buy() -> None:
+    """
+    Mesmo uma decisao STRONG_BUY nao deve gerar sugestao de aumentar peso:
+    este motor nunca realoca capital para dentro de posicoes existentes.
+    """
+    plan = build_sell_only_plan(_sell_only_portfolio())
+
+    assert all(
+        action.action != "BUY"
+        for action in plan.actions
+    )
+    assert plan.required_cash == 0.0
+
+
+def test_sell_only_releases_cash_from_avoid_sale() -> None:
+    plan = build_sell_only_plan(_sell_only_portfolio())
+
+    # AAA: 10 * 100 = 1000 vendido integralmente.
+    assert plan.released_cash == pytest.approx(1000.0)
+
+
+def test_sell_only_respects_minimum_trade_value() -> None:
+    portfolio = Portfolio(
+        name="TinyAvoid",
+        cash=0,
+        holdings=(
+            Holding(
+                symbol="AAA",
+                quantity=1,
+                average_price=10,
+                current_price=10,
+                company_report=_report("AAA", "AVOID", 20),
+            ),
+            Holding(
+                symbol="BBB",
+                quantity=100,
+                average_price=100,
+                current_price=100,
+                company_report=_report("BBB", "HOLD", 60),
+            ),
+        ),
+    )
+
+    plan = build_sell_only_plan(
+        portfolio,
+        policy=RebalancePolicy(minimum_trade_value=500.0),
+    )
+
+    by_symbol = {action.symbol: action for action in plan.actions}
+    # AAA vale so 10 -- abaixo do minimo de 500, nao vira SELL.
+    assert by_symbol["AAA"].action == "HOLD"
+
+
+def test_sell_only_missing_company_report_is_hold_and_warned() -> None:
+    portfolio = Portfolio(
+        name="Missing",
+        cash=0,
+        holdings=(
+            Holding(
+                symbol="AAA",
+                quantity=10,
+                average_price=100,
+                current_price=100,
+                company_report=None,
+            ),
+        ),
+    )
+
+    plan = build_sell_only_plan(portfolio)
+
+    assert plan.actions[0].action == "HOLD"
+    assert any(
+        "AAA" in warning
+        for warning in plan.warnings
+    )
+
+
+def test_sell_only_type_and_value_validation() -> None:
+    with pytest.raises(TypeError):
+        build_sell_only_plan(object())
+
+    empty_value_portfolio = Portfolio(
+        name="Empty",
+        cash=0,
+        holdings=(),
+    )
+
+    with pytest.raises(RebalanceError):
+        build_sell_only_plan(empty_value_portfolio)
+
+
+def test_sell_only_plan_is_serializable() -> None:
+    plan = build_sell_only_plan(_sell_only_portfolio())
+    data = plan.to_dict()
+
+    assert isinstance(data["actions"], list)
+    assert data["required_cash"] == 0.0
     assert isinstance(data["warnings"], list)

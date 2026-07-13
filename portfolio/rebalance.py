@@ -311,6 +311,147 @@ def _reason(
     )
 
 
+def build_sell_only_plan(
+    portfolio: Portfolio,
+    *,
+    quality: PortfolioQualityResult | None = None,
+    policy: RebalancePolicy = DEFAULT_REBALANCE_POLICY,
+) -> RebalancePlan:
+    """
+    Gera um plano consultivo apenas de venda.
+
+    Sinaliza SELL para holdings cuja decisão atual é AVOID; todas as demais
+    permanecem HOLD no peso atual -- este motor nunca sugere aumentar peso em
+    uma posição já existente. O capital liberado pela venda vira caixa; a
+    intenção é realocá-lo em novos papéis (via screener/ranking), fora deste
+    motor, em vez de redistribuí-lo entre as posições que já existem.
+    """
+
+    if not isinstance(portfolio, Portfolio):
+        raise TypeError(
+            "build_sell_only_plan exige um objeto Portfolio."
+        )
+
+    if portfolio.total_value <= 0:
+        raise RebalanceError(
+            "A carteira precisa ter valor total positivo."
+        )
+
+    _validate_policy(policy)
+
+    current_weights = _current_weights(portfolio)
+
+    actions: list[RebalanceAction] = []
+    released_cash = 0.0
+    turnover_numerator = 0.0
+
+    for holding in portfolio.holdings:
+        current_weight = current_weights.get(
+            holding.symbol,
+            0.0,
+        )
+
+        report = holding.company_report
+        decision = (
+            report.decision
+            if report is not None
+            else ""
+        )
+
+        is_avoid = decision == "AVOID"
+        trade_value = (
+            -(current_weight * portfolio.total_value)
+            if is_avoid
+            else 0.0
+        )
+
+        if (
+            is_avoid
+            and abs(trade_value) >= policy.minimum_trade_value
+        ):
+            action = "SELL"
+            target_weight = 0.0
+            released_cash += abs(trade_value)
+            reason = (
+                "Decisão atual: AVOID. Vender integralmente; capital "
+                "liberado destina-se a novos papéis (screener), não a "
+                "realocação interna da carteira."
+            )
+        else:
+            action = "HOLD"
+            target_weight = current_weight
+            trade_value = 0.0
+            reason = (
+                "Sem sinal de venda nesta execução; nenhuma realocação "
+                f"interna é sugerida. Decisão atual: {decision or 'N/A'}."
+            )
+
+        turnover_numerator += abs(trade_value)
+
+        actions.append(
+            RebalanceAction(
+                symbol=holding.symbol,
+                action=action,
+                current_weight=current_weight,
+                target_weight=target_weight,
+                target_value=target_weight * portfolio.total_value,
+                trade_value=trade_value,
+                reason=reason,
+                priority=0 if action == "SELL" else 50,
+            )
+        )
+
+    actions.sort(
+        key=lambda item: (
+            item.priority,
+            item.symbol,
+        )
+    )
+
+    warnings: list[str] = []
+
+    missing_reports = tuple(
+        holding.symbol
+        for holding in portfolio.holdings
+        if holding.company_report is None
+    )
+
+    if missing_reports:
+        warnings.append(
+            "Holdings sem CompanyReport: "
+            + ", ".join(missing_reports)
+        )
+
+    if quality is not None:
+        if not isinstance(
+            quality,
+            PortfolioQualityResult,
+        ):
+            raise TypeError(
+                "quality deve ser um PortfolioQualityResult."
+            )
+
+        warnings.extend(quality.warnings)
+
+    estimated_turnover = (
+        turnover_numerator
+        / portfolio.total_value
+    )
+
+    return RebalancePlan(
+        actions=tuple(actions),
+        required_cash=0.0,
+        released_cash=round(released_cash, 2),
+        estimated_turnover=min(
+            1.0,
+            round(estimated_turnover, 6),
+        ),
+        warnings=tuple(
+            dict.fromkeys(warnings)
+        ),
+    )
+
+
 def build_rebalance_plan(
     portfolio: Portfolio,
     *,
