@@ -65,4 +65,4 @@
 - [ ] Documentation
 - [ ] Changelog
 - [ ] Release notes
-- [ ] Tag v1.0.0
+- [x] Tag v1.0.0

@@ -164,6 +164,7 @@ def test_print_health_report_success_and_failure(capsys) -> None:
         HealthReport([HealthItem("ready", True)])
     )
     success_output = capsys.readouterr().out
+    assert "[OK] ready" in success_output
     assert "Environment Ready." in success_output
     assert "Health Score : 100.0%" in success_output
 
@@ -174,5 +175,6 @@ def test_print_health_report_success_and_failure(capsys) -> None:
             )
         )
     failure_output = capsys.readouterr().out
+    assert "[FAIL] broken" in failure_output
     assert "Environment NOT Ready." in failure_output
     assert "reason" in failure_output

@@ -56,3 +56,21 @@ def test_generate_morning_brief_forwards_portfolio_report(
     assert result_path == output
     assert text == "portfolio brief"
     assert received == [report, report]
+
+
+def test_console_text_replaces_unencodable_rating_symbols() -> None:
+    result = run_all._safe_console_text(
+        "Rating: ★★★★",
+        encoding="cp1252",
+    )
+
+    assert result == "Rating: ????"
+
+
+def test_console_text_preserves_unicode_for_utf8() -> None:
+    result = run_all._safe_console_text(
+        "Rating: ★★★★",
+        encoding="utf-8",
+    )
+
+    assert result == "Rating: ★★★★"

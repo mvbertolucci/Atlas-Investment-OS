@@ -310,7 +310,9 @@ def print_health_report(
 
     for item in report.items:
 
-        icon = "✔" if item.success else "✖"
+        # Keep terminal output compatible with Windows consoles whose active
+        # code page cannot encode Unicode status symbols.
+        icon = "[OK]" if item.success else "[FAIL]"
 
         print(
             f"{icon} {item.name}"

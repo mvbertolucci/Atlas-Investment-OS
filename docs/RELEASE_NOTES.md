@@ -1,7 +1,8 @@
-# Release Notes — Atlas v1.0.0 / v1.1 development baseline
+# Release Notes — Atlas v1.2.0
 
-Atlas v1.0.0 establishes the Portfolio Intelligence domain while preserving
-the complete Decision Intelligence pipeline delivered in v0.9.0.
+Atlas v1.2.0 completes Outcome Analytics and the integration of Portfolio
+Intelligence while preserving the Decision Intelligence pipeline delivered in
+earlier releases.
 
 ## Highlights
 
@@ -33,12 +34,27 @@ and advisory-only rebalance actions.
 SQLite snapshots support comparisons, trends and alerts. `CompanyReport`
 remains the common presentation contract used by Excel and Morning Brief.
 
+### Outcome Analytics
+
+Atlas now captures immutable decision snapshots, evaluates returns over
+configurable horizons and reports directional hit rate, score calibration and
+factor, decision-rule and Deal Breaker attribution.
+
+The same analytical contract is available through:
+
+- `output/outcome_report.json`;
+- conditional Outcome worksheets in Excel;
+- a concise Outcome Analytics section in Morning Brief.
+
+Outcome Analytics is descriptive. It does not modify scoring weights,
+thresholds, Deal Breakers or final decisions.
+
 ## Validated baseline
 
-At PR-019.6, the repository baseline validates with:
+The v1.2.0 / PR-019.6 repository baseline validates with:
 
-- 269 automated tests passing;
-- 87.31% measured production coverage;
+- 271 automated tests passing;
+- 87.28% measured production coverage;
 - 80% minimum coverage enforced in CI;
 - no known functional regression;
 - normalized repository line endings.
@@ -51,4 +67,5 @@ python run_all.py
 ```
 
 Confirm that existing artifacts remain available, including
-`output/latest.xlsx`, Morning Brief output, SQLite history, logs and metrics.
+`output/latest.xlsx`, Morning Brief output, Outcome JSON, SQLite history, logs
+and metrics.

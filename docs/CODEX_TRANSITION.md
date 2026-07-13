@@ -28,7 +28,7 @@ Codex can work through the Codex app, IDE extension, CLI or cloud. Choose the At
 
 At the start of the first Codex thread, paste:
 
-> Read AGENTS.md and docs/ATLAS_CONTEXT.md first. Do not modify anything yet. Run git status, show the last 10 commits, run the full test suite, and report whether the repository matches the documented PR-018.2 baseline.
+> Read AGENTS.md and docs/ATLAS_CONTEXT.md first. Do not modify anything yet. Run git status, show the last 10 commits, run the full test suite, and report whether the repository matches the documented release baseline.
 
 Review its report before asking for feature work.
 
@@ -36,7 +36,7 @@ Review its report before asking for feature work.
 
 Use this prompt:
 
-> Implement PR-018.3: add Portfolio Intelligence to the Morning Brief. Preserve all current company-level sections and optional-portfolio behavior. Add deterministic tests, run the full suite, update ATLAS_CONTEXT, FEATURES_STATUS, BACKLOG, ROADMAP and CHANGELOG, and show a concise diff and validation summary. Do not merge or push without my explicit approval.
+> Inspect docs/BACKLOG.md and propose one bounded task from the next planned milestone. Preserve current financial semantics and output contracts. Add deterministic tests, run the full suite, update the living documents and show a concise diff and validation summary. Do not merge or push without my explicit approval.
 
 ## Stage 4 — Review before accepting
 

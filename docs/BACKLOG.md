@@ -33,7 +33,7 @@
 - [x] Add sector-aware Deal Breakers
 - [x] Remove obsolete Confidence Score code
 
-## Active milestone — v1.1 Integrated Portfolio Intelligence
+## Completed milestone — v1.1 Integrated Portfolio Intelligence
 
 ### PR-018.0 — Baseline and documentation
 
@@ -90,7 +90,7 @@
 - [x] Document configuration ownership and authoritative sources
 - [x] Review package boundaries and public interfaces
 
-## Next milestone — v1.2 Outcome Analytics
+## Completed milestone — v1.2 Outcome Analytics
 
 - [x] Define outcome snapshot model
 - [x] Configure evaluation horizons and capture decisions automatically
@@ -98,3 +98,10 @@
 - [x] Calculate hit rate and calibration metrics
 - [x] Attribute results to factors, rules and Deal Breakers
 - [x] Add outcome reports and regression tests
+
+## Planned milestone — v2.0 Platform
+
+- [ ] Define a read-only dashboard contract
+- [ ] Expose company, portfolio and outcome views without changing decisions
+- [ ] Add scheduling and notifications only after the dashboard boundary is stable
+- [ ] Keep API, SDK and AI assistant as separate increments

@@ -17,6 +17,8 @@
 
 - [ ] `output/latest.xlsx`
 - [ ] `output/morning_brief.md`
+- [ ] `output/outcome_report.json`
+- [ ] `output/portfolio_report.json` when a portfolio is configured
 - [ ] `data/atlas_history.db`
 - [ ] `logs/atlas.log`
 - [ ] `logs/execution_metrics.csv`
@@ -31,12 +33,16 @@
 - [ ] Diagnostics
 - [ ] Historical Trends
 - [ ] History Summary
+- [ ] Outcome Summary
+- [ ] Outcome Calibration when mature results exist
+- [ ] Outcome Attribution when mature results exist
 
 ## Documentation
 
 - [ ] `docs/ATLAS_CONTEXT.md` reflects the delivered baseline
 - [ ] `docs/CHANGELOG.md` records the change
 - [ ] `docs/FEATURES_STATUS.md` and `docs/BACKLOG.md` are synchronized
+- [ ] `VERSION`, README and release notes declare the same version
 
 ## Release
 

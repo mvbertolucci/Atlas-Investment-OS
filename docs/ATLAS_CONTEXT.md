@@ -2,8 +2,8 @@
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
 **Last synchronized baseline:** `PR-019.6`
-**Declared release:** `1.0.0`  
-**Validation baseline:** 269 tests passing / 87.31% production coverage
+**Declared release:** `1.2.0`
+**Validation baseline:** 271 tests passing / 87.28% production coverage
 
 ## 1. Product mission
 
@@ -91,7 +91,7 @@ Any change to business configuration must be explicit, tested and documented.
 
 ## 6. Current milestone and next task
 
-### v1.1 — Integrated Portfolio Intelligence
+### v1.1 — Integrated Portfolio Intelligence (complete)
 
 Completed:
 
@@ -102,16 +102,17 @@ Completed:
 - PR-018.4 operational coverage hardening;
 - PR-018.5 legacy/configuration consolidation.
 
-Current functional milestone:
+Latest functional milestone:
 
-- **v1.2 — Outcome Analytics.**
+- **v1.2 — Outcome Analytics (complete).**
 - PR-019.1 decision snapshot and persistence foundation is complete.
 - PR-019.2 configurable horizons and automatic decision capture is complete.
 - PR-019.3 future-price evaluation and horizon returns is complete.
 - PR-019.4 hit rate and score calibration metrics is complete.
 - PR-019.5 factor, rule and Deal Breaker attribution is complete.
 - PR-019.6 JSON, Excel and Morning Brief outcome reports is complete.
-- Next: define the next product milestone before changing financial semantics.
+- Next: define the first bounded v2.0 Platform increment before changing
+  financial semantics.
 
 ## 7. Definition of done
 

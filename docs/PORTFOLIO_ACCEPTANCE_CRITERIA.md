@@ -32,4 +32,4 @@
 - [ ] `pytest`
 - [ ] `python run_all.py`
 - [ ] `git status`
-- [ ] `git tag -a v1.0.0`
+- [x] `git tag -a v1.0.0`

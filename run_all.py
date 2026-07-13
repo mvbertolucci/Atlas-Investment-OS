@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -398,6 +399,24 @@ def generate_portfolio_intelligence(
     return report_path, report
 
 
+def _safe_console_text(
+    value: object,
+    encoding: str | None = None,
+) -> str:
+    text = str(value)
+    target_encoding = encoding or getattr(
+        sys.stdout,
+        "encoding",
+        None,
+    )
+    if not target_encoding:
+        return text
+    return text.encode(
+        target_encoding,
+        errors="replace",
+    ).decode(target_encoding)
+
+
 def print_console_table(df: pd.DataFrame) -> None:
     columns = [
         "symbol",
@@ -425,11 +444,12 @@ def print_console_table(df: pd.DataFrame) -> None:
     print()
 
     if available_columns:
-        print(
+        table = (
             df[available_columns]
             .head(20)
             .to_string(index=False)
         )
+        print(_safe_console_text(table))
     else:
         print(
             "[AVISO] Nenhuma coluna de resumo foi encontrada."
@@ -524,7 +544,7 @@ def main() -> None:
 
         print_console_table(df)
 
-        print(brief_text)
+        print(_safe_console_text(brief_text))
         print()
 
         print("=" * 70)

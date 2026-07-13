@@ -6,9 +6,9 @@ intelligence and reports.
 
 ## Current release
 
-`v1.0.0`
+`v1.2.0`
 
-Development baseline: `PR-019.6`.
+Release baseline: `PR-019.6`.
 
 ## Main capabilities
 

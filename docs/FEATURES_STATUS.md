@@ -1,7 +1,8 @@
 # Feature Status
 
+**Release:** v1.2.0
 **Baseline:** PR-019.6
-**Test baseline:** 269 passing / 87.31% production coverage
+**Test baseline:** 271 passing / 87.28% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|

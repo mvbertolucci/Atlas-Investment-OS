@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.2.0 — Outcome Analytics release
+
+### Consolidated
+
+- Completed the v1.1 Integrated Portfolio Intelligence milestone.
+- Completed the v1.2 Outcome Analytics milestone through PR-019.1–PR-019.6.
+- Aligned `VERSION`, README, roadmap, backlog, feature status and release notes.
+- Established v2.0 Platform as the next planned milestone.
+- Made Health Check status output compatible with Windows consoles that use a
+  legacy code page.
+
+### Validation
+
+- 271 automated tests passed.
+- 87.28% production coverage overall with an enforced 80% CI floor.
+
 ## PR-019.6 — Outcome reports and presentation integration
 
 ### Added

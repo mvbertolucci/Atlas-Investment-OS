@@ -70,7 +70,7 @@ Update at least the affected entries in:
 A commit message should identify the logical delivery, for example:
 
 ```text
-PR-018.3: Add Portfolio Intelligence to Morning Brief
+feat: add a read-only dashboard summary
 ```
 
 Before merging, review:
