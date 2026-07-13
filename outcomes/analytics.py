@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -60,6 +61,9 @@ class OutcomeAnalyticsReport:
     factor_attribution: tuple[dict[str, Any], ...]
     decision_attribution: tuple[dict[str, Any], ...]
     deal_breaker_attribution: tuple[dict[str, Any], ...]
+    # Aditivo (default = ()): descreve a estabilidade da watchlist entre datas
+    # de decisão. Não altera nenhum campo existente do contrato JSON.
+    watchlist_drift: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -83,6 +87,10 @@ class OutcomeAnalyticsReport:
             "deal_breaker_attribution": [
                 dict(row)
                 for row in self.deal_breaker_attribution
+            ],
+            "watchlist_drift": [
+                dict(row)
+                for row in self.watchlist_drift
             ],
         }
 
@@ -397,6 +405,67 @@ def _categorical_rows(
     return tuple(rows)
 
 
+def calculate_watchlist_drift(
+    dataset: pd.DataFrame,
+) -> tuple[dict[str, Any], ...]:
+    """
+    Mede a estabilidade da composição da watchlist entre datas de decisão.
+
+    A calibração de score (calculate_score_calibration) agrupa buckets de TODAS
+    as datas, assumindo que um score significa a mesma qualidade entre
+    execuções. Isso só vale se o conjunto de símbolos for estável -- os scores
+    do Atlas são percentis cross-sectionais dentro do lote de cada execução
+    (ver docs/SCORING_MODEL.md). Esta função quantifica a suposição: para cada
+    transição entre datas consecutivas retorna o Jaccard (interseção/união) e
+    quantos símbolos entraram/saíram. `stable` é True quando nada mudou.
+
+    Não altera score algum; é diagnóstico. Retorna () quando há menos de duas
+    datas (nada a comparar).
+    """
+    if dataset.empty:
+        return ()
+
+    required = {"decision_date", "symbol"}
+    missing = required.difference(dataset.columns)
+    if missing:
+        raise ValueError(
+            "Dataset sem colunas obrigatórias: "
+            + ", ".join(sorted(missing))
+        )
+
+    frame = dataset.dropna(subset=["decision_date", "symbol"])
+    dates = sorted(frame["decision_date"].unique())
+    if len(dates) < 2:
+        return ()
+
+    symbols_by_date = {
+        date: set(frame.loc[frame["decision_date"] == date, "symbol"])
+        for date in dates
+    }
+
+    rows: list[dict[str, Any]] = []
+    for previous, current in zip(dates, dates[1:]):
+        before = symbols_by_date[previous]
+        after = symbols_by_date[current]
+        union = before | after
+        intersection = before & after
+        rows.append(
+            {
+                "from_date": str(previous),
+                "to_date": str(current),
+                "jaccard": (
+                    round(len(intersection) / len(union), 4)
+                    if union
+                    else 1.0
+                ),
+                "added_count": len(after - before),
+                "removed_count": len(before - after),
+                "stable": before == after,
+            }
+        )
+    return tuple(rows)
+
+
 def calculate_decision_attribution(
     dataset: pd.DataFrame,
 ) -> tuple[dict[str, Any], ...]:
@@ -432,6 +501,17 @@ def build_outcome_analytics_report(
     bucket_size: int = 20,
 ) -> OutcomeAnalyticsReport:
     dataset = build_outcome_dataset(database)
+
+    watchlist_drift = calculate_watchlist_drift(dataset)
+    unstable = [row for row in watchlist_drift if not row["stable"]]
+    if unstable:
+        logging.getLogger("atlas").warning(
+            "Watchlist composition changed across %d decision-date "
+            "transition(s); cross-run score calibration pools "
+            "non-comparable buckets. See docs/SCORING_MODEL.md.",
+            len(unstable),
+        )
+
     return OutcomeAnalyticsReport(
         hit_rate=calculate_hit_rate(
             dataset,
@@ -457,4 +537,5 @@ def build_outcome_analytics_report(
         deal_breaker_attribution=(
             calculate_deal_breaker_attribution(dataset)
         ),
+        watchlist_drift=watchlist_drift,
     )
