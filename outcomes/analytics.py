@@ -225,6 +225,20 @@ def calculate_score_calibration(
     *,
     bucket_size: int = 20,
 ) -> tuple[dict[str, Any], ...]:
+    """
+    Bucketiza um score em faixas fixas 0-100 e mede o retorno médio por faixa
+    e horizonte.
+
+    LIMITAÇÃO CONHECIDA (não é bug): os scores do Atlas são percentis
+    cross-sectionais dentro da watchlist de cada execução (ver
+    factors/engine.py::pct_rank e docs/SCORING_MODEL.md). Como este cálculo
+    agrupa snapshots de TODAS as datas de decisão na mesma faixa, um bucket
+    (ex.: [80,100)) não representa a mesma qualidade absoluta entre execuções
+    quando a composição da watchlist muda. A calibração só é estritamente
+    comparável com watchlist estável; caso contrário, é indicativa. Corrigir
+    isto (score absoluto ou normalização por execução) muda a semântica do
+    modelo e exige decisão de produto — não fazer aqui silenciosamente.
+    """
     if score_column not in CALIBRATION_SCORES:
         raise ValueError(
             "score_column não é um score calibrável do Atlas."

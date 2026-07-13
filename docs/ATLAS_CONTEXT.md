@@ -135,6 +135,12 @@ A task is complete only when:
 - External Yahoo data can be incomplete or unstable; tests should not depend on live network access.
 - Outcome returns use the first valid Atlas price observed on or after each due
   date; evaluation lag remains explicit.
+- Investment and factor scores are cross-sectional percentile ranks within each
+  run's watchlist batch, not absolute levels; identical fundamentals score
+  differently when watchlist composition changes (measured swing up to ~11–15
+  points on small watchlists). Outcome score-calibration pools buckets across
+  decision dates and is only strictly comparable when the watchlist is stable —
+  treat cross-run calibration as indicative. See `docs/SCORING_MODEL.md`.
 
 ## 9. First actions for a new Codex session
 

@@ -70,6 +70,18 @@ configured through `outcome_calibration_bucket_size`.
 Calibration is descriptive. It does not change Atlas weights, thresholds or
 decisions.
 
+### Known limitation — relative scores across runs
+
+Score buckets pool observations across all decision dates. Atlas factor and
+investment scores are cross-sectional percentile ranks within each run's
+watchlist batch (see `docs/SCORING_MODEL.md`), so a given bucket (for example
+`[80, 100)`) does not mean the same absolute quality across runs when the
+watchlist composition changes. Calibration is therefore only strictly
+comparable while the watchlist is stable; otherwise treat cross-run calibration
+as indicative rather than absolute. Hit rate and decision/Deal-Breaker
+attribution are less exposed because they key on the categorical decision, not
+the score level.
+
 ## PR-019.5 attribution
 
 Decision snapshots now retain Business, Valuation, Financial and Timing scores,
