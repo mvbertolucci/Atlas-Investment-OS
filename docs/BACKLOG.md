@@ -102,7 +102,7 @@
 ## In-progress milestone — v2.0 Platform
 
 - [x] Define a read-only dashboard contract (`dashboard/`, see `docs/DASHBOARD_CONTRACT.md`)
-- [ ] Expose company, portfolio and outcome views without changing decisions
-      (wire `run_all.py` to emit `output/dashboard.json`)
+- [x] Expose company, portfolio and outcome views without changing decisions
+      (`run_all.py` emits `output/dashboard.json`, guarded by `dashboard_enabled`)
 - [ ] Add scheduling and notifications only after the dashboard boundary is stable
 - [ ] Keep API, SDK and AI assistant as separate increments

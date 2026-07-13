@@ -49,12 +49,23 @@ the serialized shape, so consumers can reconcile. A contract change is an
 explicit decision, never incidental — same governance discipline as scoring
 configuration.
 
+## Pipeline exposure
+
+`run_all.generate_dashboard(df, settings, portfolio_report, outcome_report)`
+assembles the view from the objects the run already produced and writes
+`output/dashboard.json` after the Excel and Morning Brief steps. It is:
+
+- **guarded** by the `dashboard_enabled` runtime setting (default `true`);
+- **additive** — a new artifact that changes no existing output;
+- **read-only** — it forwards `to_dict()` output and computes nothing.
+
+`companies` comes from `reports.report_engine.build_company_reports(df)`;
+`portfolio` and `outcomes` are the run's reports when present. `market` is
+currently `null` and will be populated (with alert integration) in a later
+increment.
+
 ## Scope boundary
 
-This increment defines and tests the contract only. Separate, later increments:
-
-- **Expose** it through the pipeline (emit `output/dashboard.json` from
-  `run_all.py`).
-- REST API, scheduling, notifications, SDK and AI assistant.
-
-Because it is isolated and read-only, adopting it changes no existing behavior.
+Still separate, later increments: REST API, scheduling, notifications, SDK and
+AI assistant. Because the contract is read-only and additive, adopting it
+changes no existing behavior.
