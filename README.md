@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.2.0`
 
-Release baseline: `PR-019.6`.
+Development baseline: `PR-027` on release `v1.2.0`.
 
 ## Main capabilities
 
@@ -26,6 +26,7 @@ Release baseline: `PR-019.6`.
 - Portfolio quality, ranking and advisory rebalance suggestions
 - Health Check, logging and execution metrics
 - Automated regression tests
+- Explicit market-universe eligibility and data-coverage contract
 
 ## Current integration status
 
@@ -44,6 +45,9 @@ Outcome attribution also relates returns to factor-score bands, final decisions
 and named Deal Breakers.
 Outcome summaries are published to JSON, conditional Excel worksheets and the
 Morning Brief without changing scoring or decision semantics.
+The analytical track now defines a versioned U.S. liquid-equity research
+universe as the foundation for Market Mapper, model-portfolio and point-in-time
+validation work. It is not yet connected to the main pipeline.
 
 ## Quick start
 

@@ -1,8 +1,8 @@
 # Feature Status
 
 **Release:** v1.2.0
-**Baseline:** PR-019.6
-**Test baseline:** 271 passing / 87.28% production coverage
+**Baseline:** PR-027
+**Test baseline:** 320 passing / 87.96% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
@@ -19,8 +19,9 @@
 | Advisory rebalance | Yes | Yes | Yes | Yes | Operational |
 | Health check and execution metrics | Yes | Yes | N/A | N/A | Operational; 100% direct coverage |
 | Outcome Analytics | Yes | Yes | Yes | Yes | Operational; JSON, Excel and Morning Brief reports |
+| Market-universe eligibility | Yes | No | No | No | Contract operational; pipeline integration is PR-028 |
 | Backtesting | No | No | No | No | Future milestone |
-| Dashboard/API | No | No | No | No | Future platform |
+| Dashboard/API/SDK | Yes | Yes | N/A | N/A | Read-only platform contracts operational |
 
 ## Conditional outputs
 

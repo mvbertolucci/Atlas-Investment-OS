@@ -53,6 +53,11 @@
 - [x] Dashboard (read-only contract + `output/dashboard.json`)
 - [x] REST API (read-only, stdlib; `api/`)
 - [x] SDK (read-only Python client; `sdk/`)
-- [ ] Scheduling
-- [ ] Notifications
-- [ ] AI assistant
+- [x] Market-universe and analytical-method contract
+- [ ] Market Mapper and universe coverage
+- [ ] Robust ranking and advisory model portfolio
+- [ ] Point-in-time walk-forward validation
+- [ ] Prospective shadow portfolio
+- [ ] Scheduling (deferred until analytical validation)
+- [ ] Notifications (requires channel decision)
+- [ ] AI assistant (requires provider/key decision)

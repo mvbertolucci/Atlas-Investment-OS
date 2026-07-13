@@ -108,5 +108,21 @@
       see `docs/API_CONTRACT.md`). Optional later: FastAPI/OpenAPI, auth.
 - [x] Read-only Python SDK (`sdk/`, HTTP or offline file transport;
       see `docs/SDK.md`)
-- [ ] Add scheduling and notifications only after the dashboard boundary is stable
-- [ ] Keep the AI assistant as a separate increment
+
+### Analytical-method priority
+
+- [x] PR-027 Define the market-universe and analytical-method contract
+- [ ] PR-028 Integrate the Market Mapper and publish universe coverage
+- [ ] PR-029 Add robust market/sector ranking with absolute safeguards
+- [ ] PR-030 Build an advisory model portfolio under explicit constraints
+- [ ] PR-031 Define the point-in-time historical-data contract
+- [ ] PR-032 Implement deterministic walk-forward backtesting
+- [ ] PR-033 Add portfolio performance and risk validation
+- [ ] PR-034 Track a prospective shadow portfolio
+- [ ] PR-035 Calibrate only from versioned out-of-sample evidence
+
+### Deferred platform effects
+
+- [ ] Scheduling — resume after the analytical method is validated
+- [ ] Notifications — requires an explicit external channel/config decision
+- [ ] AI assistant — requires an explicit LLM provider/key decision

@@ -1,11 +1,11 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-025` (v2.0 Platform, fourth increment — SDK)
+**Last synchronized baseline:** `PR-027` (market-universe and analytical-method contract)
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 312 tests passing / 87.67% production coverage
+**Validation baseline:** 320 tests passing / 87.96% production coverage
 
 ## 1. Product mission
 
@@ -78,6 +78,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 - `config/deal_breakers.json`: risk penalty rules and sector exemptions.
 - `config/settings.json`: runtime paths and provider settings.
 - `config/watchlist.csv`: analyzed universe.
+- `config/universe.yaml`: research eligibility, benchmark and rebalance policy.
 - `config/portfolio.csv`: optional real portfolio input; start from `portfolio.example.csv`.
 
 Any change to business configuration must be explicit, tested and documented.
@@ -128,10 +129,12 @@ read-only Platform increments, each its own merged PR:
 - Python SDK — `sdk/`, HTTP or offline-file transport (`docs/SDK.md`).
 
 Every increment is additive/read-only: no score, decision or existing output
-changed. Next candidates (not started): Scheduling, Notifications (has real
-external effect — needs explicit config/channel decision) and the AI assistant
-(needs an LLM provider/key decision). See `docs/BACKLOG.md` for the current
-checklist.
+changed. The analytical-method track now has priority: PR-027 defines the
+market-universe contract; PR-028 will integrate the Market Mapper. Model
+portfolio construction, point-in-time validation and a prospective shadow
+portfolio follow in bounded increments. Scheduling is deferred; Notifications
+and the AI assistant still require explicit external decisions. See
+`docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md`.
 
 ## 7. Definition of done
 

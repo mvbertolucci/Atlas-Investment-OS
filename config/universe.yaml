@@ -1,0 +1,21 @@
+name: Atlas US Liquid Equities
+benchmark: S&P 500
+rebalance_frequency: monthly
+allowed_quote_types:
+  - EQUITY
+allowed_currencies:
+  - USD
+allowed_countries:
+  - United States
+min_market_cap: 1000000000
+min_price: 5
+min_volume: 100000
+required_fields:
+  - symbol
+  - quote_type
+  - currency
+  - country
+  - sector
+  - price
+  - market_cap
+  - volume

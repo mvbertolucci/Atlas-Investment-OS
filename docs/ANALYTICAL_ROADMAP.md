@@ -1,0 +1,74 @@
+# Analytical Roadmap — Market to Model Portfolio
+
+## Objective
+
+Evolve Atlas from analysis of a manually selected watchlist into a reproducible
+method that maps an explicit market universe, ranks eligible companies, builds
+an advisory model portfolio and validates it without look-ahead bias.
+
+The analytical track has priority over Scheduling, Notifications and the AI
+assistant. It remains decision support: no trade execution and no performance
+promise.
+
+## Sequence
+
+1. **PR-027 — Market Universe and Analytical Method Contract.** Define the
+   initial universe, benchmark, rebalance frequency, minimum liquidity and data
+   requirements, with standardized exclusion reasons and coverage reporting.
+2. **PR-028 — Market Mapper integration.** Enrich provider output with asset
+   type and liquidity fields, evaluate the configured universe in the main
+   pipeline and publish the universe report.
+3. **PR-029 — Robust analytical ranking.** Separate relative market/sector
+   rank from absolute economic safeguards; do not change governed weights
+   without evidence.
+4. **PR-030 — Advisory model-portfolio builder.** Select eligible candidates
+   and assign transparent weights under position, sector, cash and turnover
+   constraints.
+5. **PR-031 — Point-in-time data contract.** Define observation, availability,
+   constituent and delisting rules required to avoid future-data and
+   survivorship bias.
+6. **PR-032 — Walk-forward backtest.** Recreate each decision using only data
+   available at that date and compare against explicit benchmarks.
+7. **PR-033 — Portfolio validation.** Report return, volatility, drawdown,
+   turnover, estimated costs, concentration and factor contribution.
+8. **PR-034 — Prospective shadow portfolio.** Freeze real-time model-portfolio
+   recommendations and evaluate them forward without capital or broker access.
+9. **PR-035 — Controlled calibration.** Consider weight or threshold changes
+   only from versioned, out-of-sample evidence.
+
+## Initial universe policy
+
+The canonical `config/universe.yaml` starts deliberately narrow:
+
+- U.S. listed equities represented by `quote_type: EQUITY`;
+- USD and United States domicile;
+- minimum USD 1 billion market capitalization;
+- minimum USD 5 observed price;
+- minimum 100,000 observed daily volume;
+- monthly rebalance frequency;
+- S&P 500 analytical benchmark.
+
+These are research eligibility rules, not recommendations. They are explicit
+and version-controlled so later changes can be measured rather than silently
+changing the tested population.
+
+## PR-027 boundary
+
+PR-027 adds only a domain contract and pure evaluation over an existing
+DataFrame. It does not expand the watchlist, call a provider, alter the main
+pipeline, calculate scores, build a portfolio or change a decision. Provider
+and pipeline integration belongs to PR-028.
+
+## Validation principles
+
+- Every exclusion has a machine-readable reason.
+- Missing required data excludes an asset instead of silently imputing
+  eligibility.
+- Duplicate symbols are explicit failures.
+- Backtests must distinguish in-sample, validation and untouched test periods.
+- Historical fundamentals require an availability date; current fundamentals
+  must never be projected backward.
+- Historical universe membership must include removals and delistings.
+- Returns must state dividend, currency, fee, tax and transaction-cost
+  treatment.
+- A shadow portfolio is forward evidence, not a promise of performance.

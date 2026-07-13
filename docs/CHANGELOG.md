@@ -1,5 +1,25 @@
 # Changelog
 
+## PR-027 — Market Universe and Analytical Method Contract
+
+### Added
+
+- Canonical `config/universe.yaml` research policy.
+- Immutable universe policy, member and report domain contracts.
+- Pure eligibility evaluation with coverage, duplicate and standardized
+  exclusion reporting.
+- Analytical roadmap from market mapping through shadow-portfolio validation.
+
+### Preserved
+
+- No provider or main-pipeline integration.
+- No scoring weight, threshold, Deal Breaker or decision change.
+
+### Validation
+
+- 320 automated tests passed.
+- 87.96% production coverage overall with the 80% CI floor preserved.
+
 ## Claude Code project handoff
 
 ### Added

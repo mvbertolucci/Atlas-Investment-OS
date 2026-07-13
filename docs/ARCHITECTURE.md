@@ -100,6 +100,17 @@ conditional Excel sheets and the Morning Brief.
 - `analytics/alerts.py`
 - `reports/history_report.py`
 
+### Market-universe layer
+
+- `config/universe.yaml`
+- `universe/models.py`
+- `universe/pipeline.py`
+
+The universe layer is a pure eligibility boundary over already collected data.
+It reports coverage and standardized exclusion reasons without calculating a
+score or changing a decision. Provider and main-pipeline integration is a
+separate increment.
+
 ### Outcome layer
 
 - `outcomes/models.py`
@@ -132,7 +143,8 @@ same report object to conditional Excel worksheets and Morning Brief rendering.
 2. Rebalance output is advisory only; Atlas must not execute trades.
 3. Cash is represented as a portfolio asset where supported by the portfolio
    contract.
-4. `config/features.yaml` is the authoritative valuation-feature definition.
+4. `config/features.yaml` is the authoritative feature definition;
+   `config/universe.yaml` is the authoritative research-universe policy.
 5. Runtime output, logs and local databases remain outside version control.
 6. New integrations must preserve existing public interfaces and regression
    tests unless a migration is explicitly documented.
