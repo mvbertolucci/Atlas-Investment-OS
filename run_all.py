@@ -34,6 +34,8 @@ from outcomes.pipeline import (
     evaluate_due_outcomes,
 )
 from outcomes.report import write_outcome_report
+from portfolio.exceptions import PortfolioError
+from portfolio.loader import load_portfolio_csv
 from portfolio.pipeline import (
     build_portfolio_intelligence,
     write_portfolio_report,
@@ -120,6 +122,63 @@ def load_watchlist(
         )
 
     return watchlist_path, watchlist
+
+
+def merge_watchlist_with_portfolio(
+    watchlist: pd.DataFrame,
+    settings: dict,
+) -> pd.DataFrame:
+    """
+    A watchlist (`config/watchlist.csv`) é curada manualmente -- ativos que
+    o usuário se interessou em acompanhar. A carteira real
+    (`config/portfolio.csv`, gitignored) é populada a partir do arquivo de
+    investimentos real do usuário. Os dois são fontes distintas e nenhum
+    sobrescreve o outro em disco.
+
+    Para que o motor de rebalance sell-only tenha um `CompanyReport` de
+    cada posição real (`portfolio.pipeline.enrich_portfolio_from_analysis`
+    só liga um holding a um `CompanyReport` do mesmo símbolo), o universo
+    efetivamente coletado/pontuado nesta run precisa incluir também os
+    símbolos da carteira -- só em memória, nunca gravado de volta em
+    `watchlist.csv`. Símbolos já presentes na watchlist não são duplicados.
+
+    Ausência ou erro de leitura de `portfolio.csv` não interrompe a run:
+    a análise segue apenas com a watchlist, como antes de a carteira
+    existir.
+    """
+    portfolio_path = ROOT / settings.get(
+        "portfolio_path",
+        "config/portfolio.csv",
+    )
+    if not portfolio_path.exists():
+        return watchlist
+
+    try:
+        portfolio = load_portfolio_csv(portfolio_path)
+    except PortfolioError:
+        logger.warning(
+            "Não foi possível ler %s para incluir a carteira no universo "
+            "analisado; seguindo apenas com a watchlist.",
+            portfolio_path,
+        )
+        return watchlist
+
+    existing = {
+        str(symbol).strip().upper()
+        for symbol in watchlist.get("symbol", pd.Series(dtype=str))
+    }
+    extra_rows = [
+        {"symbol": holding.symbol, "name": holding.symbol}
+        for holding in portfolio.holdings
+        if holding.symbol not in existing
+    ]
+    if not extra_rows:
+        return watchlist
+
+    return pd.concat(
+        [watchlist, pd.DataFrame(extra_rows)],
+        ignore_index=True,
+    )
 
 
 def collect_market_data(
@@ -644,12 +703,21 @@ def main() -> None:
         watchlist_path, watchlist = load_watchlist(
             settings
         )
+        analysis_universe = merge_watchlist_with_portfolio(
+            watchlist, settings
+        )
 
         print()
         print("=" * 70)
         print("ATLAS DECISION INTELLIGENCE PLATFORM")
         print("=" * 70)
         print(f"Watchlist       : {watchlist_path}")
+        if len(analysis_universe) != len(watchlist):
+            print(
+                f"Carteira        : +{len(analysis_universe) - len(watchlist)} "
+                "símbolo(s) da carteira real incluído(s) só nesta análise "
+                "(watchlist.csv não é alterado)"
+            )
         print(f"History DB      : {HISTORY_DATABASE}")
         print(f"Execution log   : {LOGS / 'atlas.log'}")
         print()
@@ -657,7 +725,7 @@ def main() -> None:
         with StageTimer(metrics, "download_time"):
             df = collect_market_data(
                 settings,
-                watchlist,
+                analysis_universe,
             )
 
         metrics.companies = len(df)

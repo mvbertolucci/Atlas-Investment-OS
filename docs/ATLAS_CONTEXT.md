@@ -6,12 +6,15 @@ historical price series + point-in-time `timing` factor derivation + extended
 point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
 plus deterministic PR-034 target, execution-evidence, total-return-evidence,
 next-open execution, validation, per-sector return-contribution and
-weighted-average factor-exposure cores.
+weighted-average factor-exposure cores. Watchlist/portfolio decoupling:
+`config/watchlist.csv` is manually curated research symbols again, distinct
+from `config/portfolio.csv` (real holdings); `run_all.merge_watchlist_with_portfolio`
+merges the two in memory only, per run.
 
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 593 tests passing / 88.63% production coverage
+**Validation baseline:** 598 tests passing / 88.62% production coverage
 
 ## 1. Product mission
 
@@ -83,12 +86,20 @@ Outcome JSON + Excel + Morning Brief + execution metrics
   current pipeline (business/valuation/financial/timing).
 - `config/deal_breakers.json`: risk penalty rules and sector exemptions.
 - `config/settings.json`: runtime paths and provider settings.
-- `config/watchlist.csv`: analyzed universe.
+- `config/watchlist.csv`: manually curated research symbols -- assets the
+  user chose to track, not the real portfolio. Edited by hand only; never
+  written to by the pipeline.
 - `config/research_universe.csv`: dated broad research population, separate
   from the personal watchlist and collected only by explicit batch commands.
 - `config/universe.yaml`: research eligibility, benchmark and rebalance policy.
 - `config/model_portfolio.yaml`: advisory construction constraints.
-- `config/portfolio.csv`: optional real portfolio input; start from `portfolio.example.csv`.
+- `config/portfolio.csv`: optional real portfolio input (gitignored,
+  populated from the user's real holdings); start from
+  `portfolio.example.csv`. Distinct file from `watchlist.csv` -- neither
+  overwrites the other. `run_all.merge_watchlist_with_portfolio` merges the
+  two **only in memory**, for the duration of one run, so every real holding
+  gets a scored `CompanyReport` (required for the sell-only rebalance
+  engine) without polluting the manually curated watchlist on disk.
 
 Any change to business configuration must be explicit, tested and documented.
 
@@ -155,8 +166,11 @@ Since PR-032, the following are also merged, in parallel to the walk-forward
 track (none of it changes governed scoring):
 
 - **Real portfolio wired end to end.** `config/portfolio.csv` (real holdings,
-  gitignored -- never committed) is populated and scored via
-  `config/watchlist.csv`. `portfolio.rebalance` gained a `sell_only` mode
+  gitignored -- never committed) is populated and scored: `run_all.py`
+  merges its symbols into the manually curated `config/watchlist.csv`
+  **only in memory** for the duration of one run (see section 4 above),
+  never overwriting either file, so every holding gets a `CompanyReport`.
+  `portfolio.rebalance` gained a `sell_only` mode
   (now the default): flags SELL only for AVOID holdings, holds everyone
   else at current weight, never suggests buying more of an existing
   position -- freed cash is meant for new candidates from the screener, not

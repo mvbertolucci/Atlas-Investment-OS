@@ -31,8 +31,8 @@ The GitHub Actions workflow executes the tests on Python 3.12.
 
 Current historical-data baseline validates:
 
-- 593 automated tests;
-- 88.63% measured production coverage;
+- 598 automated tests;
+- 88.62% measured production coverage;
 - 100% direct coverage for Health Check, execution metrics, logger and
   technical indicators;
 - an enforced 80% floor in GitHub Actions through `.coveragerc`.

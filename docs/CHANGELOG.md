@@ -1,5 +1,33 @@
 # Changelog
 
+## Decouple the research watchlist from the real portfolio
+
+### Fixed
+
+- `config/watchlist.csv` (manually curated research symbols) had been
+  overwritten with the real portfolio's 24 symbols earlier the same day, to
+  give `portfolio.rebalance`'s sell-only engine a `CompanyReport` for every
+  holding. That conflated two conceptually distinct sources -- assets the
+  user chose to track versus real holdings pulled from the user's actual
+  investment file. Restored `config/watchlist.csv` to its intended six
+  research symbols (Adobe, FMC, Microsoft, Lockheed Martin, AMD, Akamai).
+
+### Added
+
+- `run_all.merge_watchlist_with_portfolio(watchlist, settings)`: merges
+  `config/portfolio.csv`'s symbols into the analysis universe **only in
+  memory**, for the duration of one run -- never written back to either
+  CSV. Every real holding still gets a scored `CompanyReport` (required for
+  sell-only rebalance), and the manually curated watchlist stays exactly
+  what the user put there. Symbols already on the watchlist are not
+  duplicated; a missing or unreadable `portfolio.csv` degrades gracefully
+  to watchlist-only analysis, matching pre-portfolio behavior.
+
+### Validation
+
+- 598 automated tests passed.
+- 88.62% production coverage overall.
+
 ## PR-034 — Weighted-average factor exposure
 
 ### Added

@@ -76,8 +76,15 @@ and pushes are being held back deliberately until explicitly requested:
     `ValidationPeriod.factor_exposures`) and
     `backtesting/historical_portfolio.py` (reads it from the governed
     scoring pass already computed at each cutoff);
+  - also new and not yet committed, unrelated to PR-034: restored
+    `config/watchlist.csv` to its intended manually curated research
+    symbols (it had been overwritten with the real portfolio's 24 symbols
+    earlier the same day) and added `run_all.merge_watchlist_with_portfolio`
+    so the real portfolio still gets scored `CompanyReport`s for sell-only
+    rebalance, merged in memory only, never written back to either CSV --
+    see the "Fixed"/"Added" entries at the top of `docs/CHANGELOG.md`;
 - released version remains `v1.2.0`;
-- validation baseline is 593 passing tests and 88.63% production coverage.
+- validation baseline is 598 passing tests and 88.62% production coverage.
 
 A broad-market universe collection (`universe.collector --market` against
 `config/universe_market.yaml`, ~7,093 NASDAQ Trader symbols) may still be
@@ -192,10 +199,11 @@ same change.
 ```text
 Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/PORTFOLIO_VALIDATION.md and
 docs/BACKLOG.md fully before changing anything. Verify git status and that
-master includes the PR-034 merge, per-sector return contribution and
+master includes the PR-034 merge, per-sector return contribution,
 weighted-average factor exposure (PortfolioRebalance.factor_exposures,
-ValidationPeriod.factor_exposures). Run the full test/coverage gate; expect
-593 tests and 88.63% production coverage. Report any mismatch before
+ValidationPeriod.factor_exposures) and the watchlist/portfolio decoupling
+(run_all.merge_watchlist_with_portfolio). Run the full test/coverage gate;
+expect 598 tests and 88.62% production coverage. Report any mismatch before
 editing. Do not push without explicit approval, even after committing.
 
 Check whether a broad-market universe.collector --market process or

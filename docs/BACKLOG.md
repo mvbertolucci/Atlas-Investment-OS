@@ -115,9 +115,17 @@
 ### Portfolio workflow
 
 - [x] Real portfolio populated (`config/portfolio.csv`, gitignored) and
-      wired to the scoring/decision pipeline via `config/watchlist.csv`
+      wired to the scoring/decision pipeline
 - [x] Sell-only rebalance mode (no internal reallocation) --
       `portfolio.rebalance_mode = "sell_only"` (default)
+- [x] `config/watchlist.csv` (manually curated research symbols) and
+      `config/portfolio.csv` (real holdings) are distinct files again --
+      neither overwrites the other. A 2026-07-13 session had merged the
+      real portfolio's 24 symbols directly into `watchlist.csv` to give the
+      sell-only engine `CompanyReport`s to match against; corrected the same
+      day: `run_all.merge_watchlist_with_portfolio` merges the two **only in
+      memory**, once per run, so the analyzed/scored universe covers both
+      without polluting either source file
 
 ### Analytical-method priority
 
