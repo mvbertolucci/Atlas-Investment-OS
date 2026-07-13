@@ -26,7 +26,7 @@ promise.
    personal watchlist, with deterministic batch boundaries.
 5. **PR-030B — Incremental broad-universe collection (complete).** Collect, retry and
    checkpoint bounded batches without losing completed market observations.
-6. **PR-031 — Advisory model-portfolio builder.** Select eligible candidates
+6. **PR-031 — Advisory model-portfolio builder (complete).** Select eligible candidates
    and assign transparent weights under position, sector, cash and turnover
    constraints.
 7. **PR-032 — Point-in-time data contract.** Define observation, availability,
@@ -75,6 +75,10 @@ provider requests; see `docs/UNIVERSE_SOURCES.md`.
 PR-030B adds a manually invoked, one-batch-at-a-time collector with atomic
 checkpoints, retries and safe resume. It does not alter `run_all.py`, scores or
 the watchlist; see `docs/UNIVERSE_COLLECTION.md`.
+
+PR-031 applies the existing governed score, universe and ranking contracts to a
+complete checkpoint, then selects 20 equal-weight positions under explicit
+position and sector caps. See `docs/MODEL_PORTFOLIO.md`.
 
 ## Validation principles
 

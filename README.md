@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.2.0`
 
-Development baseline: `PR-030B` on release `v1.2.0`.
+Development baseline: `PR-031` on release `v1.2.0`.
 
 ## Main capabilities
 
@@ -30,6 +30,7 @@ Development baseline: `PR-030B` on release `v1.2.0`.
 - Market/sector analytical ranking with governed candidate safeguards
 - Dated 503-security research-universe snapshot, separate from the watchlist
 - Retriable, checkpointed collection of that universe in bounded batches
+- Constrained, equal-weight advisory model portfolio over the broad ranking
 
 ## Current integration status
 

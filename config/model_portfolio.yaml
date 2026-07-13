@@ -1,0 +1,7 @@
+name: Atlas Equal-Weight Research Portfolio
+target_positions: 20
+weighting_method: equal
+max_position_weight: 0.05
+max_sector_weight: 0.20
+cash_weight: 0.0
+max_initial_turnover: 1.0

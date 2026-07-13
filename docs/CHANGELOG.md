@@ -1,5 +1,30 @@
 # Changelog
 
+## PR-031 — Constrained advisory model portfolio
+
+### Added
+
+- Broad-universe analysis over the completed local collection checkpoint.
+- Versioned equal-weight portfolio policy: 20 positions, 5% position cap, 20%
+  sector cap, no structural cash and 100% maximum initial turnover.
+- Advisory portfolio contract with ranks, existing scores, reference prices,
+  target and sector weights, source dates and diversification warnings.
+- Local broad universe, ranking and model-portfolio JSON outputs.
+
+### Preserved
+
+- No new alpha score and no change to governed score weights, Deal Breakers or
+  ranking safeguards.
+- `run_all.py`, the personal watchlist and the real portfolio remain unchanged.
+- Output is advisory only and is not historical validation or a trade order.
+
+### Validation
+
+- 355 automated tests passed.
+- 87.33% production coverage overall.
+- Operational broad run: 503 observations, 475 universe-eligible companies,
+  253 safeguarded candidates and 20 constrained model positions.
+
 ## PR-030B — Checkpointed broad-universe collection
 
 ### Added

@@ -130,6 +130,17 @@ The ranking orders existing Investment, Opportunity and Conviction outputs at
 market and sector level. Candidate safeguards reuse Universe eligibility,
 Confidence Score and governed Deal Breakers; no new score is calculated.
 
+### Advisory model-portfolio layer
+
+- `config/model_portfolio.yaml`
+- `portfolio/model_portfolio.py`
+
+The model builder consumes a complete local collection, reuses the executable
+normalization/scoring/universe/ranking path and constructs an equal-weight
+portfolio under pinned position, sector, cash and initial-turnover constraints.
+It writes ignored research artifacts and remains separate from `run_all.py` and
+the user's real `config/portfolio.csv`.
+
 ### Outcome layer
 
 - `outcomes/models.py`

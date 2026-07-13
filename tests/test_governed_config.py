@@ -70,3 +70,16 @@ def test_feature_store_factor_weight_blocks_sum_to_one() -> None:
         block = features[factor]
         total = sum(float(cfg["weight"]) for cfg in block.values())
         assert total == pytest.approx(1.0), f"{factor} weights sum to {total}"
+
+
+def test_model_portfolio_constraints_are_pinned() -> None:
+    policy = _load_yaml("model_portfolio.yaml")
+    assert policy == {
+        "name": "Atlas Equal-Weight Research Portfolio",
+        "target_positions": 20,
+        "weighting_method": "equal",
+        "max_position_weight": 0.05,
+        "max_sector_weight": 0.20,
+        "cash_weight": 0.0,
+        "max_initial_turnover": 1.0,
+    }

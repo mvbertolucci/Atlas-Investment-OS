@@ -116,7 +116,7 @@
 - [x] PR-029 Add robust market/sector ranking with absolute safeguards
 - [x] PR-030A Add a dated, reproducible 503-security research snapshot
 - [x] PR-030B Collect the expanded universe in checkpointed batches
-- [ ] PR-031 Build an advisory model portfolio under explicit constraints
+- [x] PR-031 Build an advisory model portfolio under explicit constraints
 - [ ] PR-032 Define the point-in-time historical-data contract
 - [ ] PR-033 Implement deterministic walk-forward backtesting
 - [ ] PR-034 Add portfolio performance and risk validation

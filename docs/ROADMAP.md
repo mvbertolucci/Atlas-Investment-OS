@@ -58,7 +58,7 @@
 - [x] Robust market/sector ranking with governed safeguards
 - [x] Reproducible 503-security research-universe snapshot
 - [x] Checkpointed broad-universe collection
-- [ ] Advisory model portfolio
+- [x] Advisory model portfolio
 - [ ] Point-in-time walk-forward validation
 - [ ] Prospective shadow portfolio
 - [ ] Scheduling (deferred until analytical validation)

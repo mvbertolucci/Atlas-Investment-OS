@@ -47,10 +47,11 @@ policy, summary, market/sector positions, candidate positions and safeguard
 reasons. This output is diagnostic and advisory. PR-030 will consume it under
 separate, explicit portfolio-construction constraints.
 
-## Current limitation
+## Execution scopes
 
-The current ranking covers only the configured watchlist. It does not yet
-discover or download all members of the U.S. market. Market and sector ranks
-therefore describe the analyzed batch, not the entire investable market. A
-broader reproducible constituent source is required before claiming full-market
-coverage.
+The normal `run_all.py` ranking still covers only the configured personal
+watchlist. The explicit `python -m portfolio.model_portfolio` research command
+applies the same ranking contract to the completed, dated broad-universe
+checkpoint and writes `output/research_ranking_report.json`. Ranks always
+describe their stated input snapshot; neither scope claims point-in-time
+historical membership.
