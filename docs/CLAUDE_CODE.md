@@ -33,7 +33,7 @@ $env:CLAUDE_CODE_GIT_BASH_PATH="C:\Program Files\Git\bin\bash.exe"
 In PowerShell:
 
 ```powershell
-Set-Location "C:\Users\marcu\OneDrive\Documents\Atlas Investimentos\Atlas_Investment_OS"
+Set-Location "C:\Users\marcu\OneDrive\Documents\Atlas Investimentos\Atlas_Investment_OS_codex"
 claude
 ```
 
@@ -51,25 +51,29 @@ the next bounded backlog task.
 
 ## Current historical-validation handoff
 
-Repository state prepared on 2026-07-13 (updated the same day after the
-timing-factor and extended-valuation increments):
+Repository state prepared on 2026-07-13:
 
-- branch: `master`;
-- latest functional commits (pushed to `origin/master`):
-  - `4fd9e6c fix(backtesting): normalize historical stock splits`;
-  - `f1c2c8e feat(backtesting): derive point-in-time annual f-score`;
-  - `05db637 feat(backtesting): derive point-in-time timing factors`;
-- a new, not-yet-committed increment on top of these: extended
-  `backtesting/point_in_time_valuation.py` (`enterprise_value`, `ev_ebit`,
-  `free_cash_flow`, `fcf_yield`, `shareholder_yield`) plus two new SEC EDGAR
-  tags in `backtesting/sec_edgar.py` (`capital_expenditures`,
-  `dividends_paid`);
-- confirm the current remote relation with `git status --short --branch` before
-  any fetch, push or integration action;
+- isolated worktree:
+  `C:\Users\marcu\OneDrive\Documents\Atlas Investimentos\Atlas_Investment_OS_codex`;
+- branch: `codex/pr034-execution-evidence`;
+- latest functional commit:
+  `e2016f7 feat(backtesting): version historical execution evidence`;
+- six local atomic functional commits on top of `master`:
+  - `246eec2 fix(universe): advance past exhausted failures`;
+  - `6129e81 feat(backtesting): add portfolio validation core`;
+  - `bb0ab3f feat(backtesting): add versioned validation runner`;
+  - `78c079e feat(backtesting): build historical portfolio targets`;
+  - `44f559c feat(backtesting): govern historical execution`;
+  - `e2016f7 feat(backtesting): version historical execution evidence`;
+- none of those local commits has been merged or pushed;
 - released version remains `v1.2.0`;
-- development baseline is PR-033 plus point-in-time data acquisition plus the
-  `timing` factor family plus extended `valuation` coverage;
 - validation baseline is 570 passing tests and 88.50% production coverage.
+
+A separate Claude Code session is running the long-lived broad-market
+collection in the main working directory. From this worktree, do not invoke
+`universe.collector`, stop or inspect that process, or read/write its checkpoint
+at `data/research_universe_collection_market.json`. Worktree source files are
+isolated, but runtime process/checkpoint ownership remains with that session.
 
 The executable point-in-time boundary and deterministic walk-forward mechanism
 are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
@@ -100,13 +104,15 @@ are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
   aggregate `dividends_paid / market_cap`, not a per-share rate, since no
   clean per-share dividend tag is collected).
 
-No real portfolio-performance result or calibration exists yet. A separate,
-deterministic PR-034 metric core now exists in
-`backtesting/portfolio_validation.py`; point-in-time portfolio targets now
-reuse the exact governed walk-forward/universe/ranking path, but an explicit
-next-session-open execution core now sits between targets and rebalances. Real
-calendar/opening-price evidence and complete returns are still required before
-the metric core can produce honest performance evidence.
+No real portfolio-performance result or calibration exists yet. The PR-034
+chain now includes a deterministic metric core, versioned offline runner,
+governed historical targets, next-session-open execution and a versioned
+execution-evidence adapter. `backtesting/execution_evidence.py` converts
+already-acquired Yahoo-shaped bars into observed reference sessions and
+split-restored opening prices without making provider calls. No broad real
+execution artifact has been acquired. Complete dividend-inclusive returns,
+benchmark returns and terminal-event evidence are still required before the
+metric core can produce honest performance evidence.
 Governed score weights, Deal Breakers, ranking, decisions, the personal
 watchlist and `run_all.py` remain unchanged.
 
@@ -119,27 +125,13 @@ directly -- inventing a from-scratch EBITDA definition with no live reference
 to validate against would be a new, undocumented approximation), and
 `target_upside` needs a genuine point-in-time analyst-target source.
 
-The recommended next bounded task is **running the broad-market/ADR
-collections** (`docs/UNIVERSE_SOURCES.md`, `docs/ANALYTICAL_ROADMAP.md`):
-`config/universe_market.yaml` and `config/universe_adr.yaml` are governed and
-ready, `universe.collector --market` is implemented and untested against a
-real run, and `portfolio.model_portfolio --universe-policy ... --label ...`
-is ready to rank over the result once collected. This is data acquisition,
-not new code -- a legitimate, independent alternative if a coding task is
-preferred is starting the **historical index membership / delisting-records**
-research thread (`docs/UNIVERSE_SOURCES.md` notes no free source has been
-found yet; this may turn out to be a research/design task rather than an
-implementation one).
-
-Before either, read:
-
-- `docs/UNIVERSE_SOURCES.md`;
-- `docs/UNIVERSE_COLLECTION.md`;
-- `docs/MODEL_PORTFOLIO.md`;
-- `docs/ANALYTICAL_ROADMAP.md`;
-- `docs/BACKLOG.md`;
-- `config/universe_market.yaml`, `config/universe_adr.yaml`;
-- `universe/collector.py`.
+The recommended next independent coding task is the bounded, offline contract
+for **dividend-inclusive total-return and terminal-event evidence**. First read
+`docs/PORTFOLIO_VALIDATION.md`, `docs/EXECUTION_EVIDENCE.md`,
+`backtesting/portfolio_validation.py`, `backtesting/validation_runner.py` and
+their tests. Preserve the existing incomplete-period rule: missing returns or
+unresolved delistings must suppress aggregate metrics, never be silently
+imputed. Do not acquire live data as part of that coding increment.
 
 Preserve the current as-of and multi-period contracts if any point-in-time
 code is touched. Do not substitute current data, change governed
@@ -149,21 +141,30 @@ change.
 ### Ready-to-paste continuation prompt
 
 ```text
-Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/UNIVERSE_SOURCES.md and
-docs/UNIVERSE_COLLECTION.md. Verify that git status is clean and that the
-extended point-in-time valuation commit is present. Run the full
-test/coverage gate; expect 570 tests and 88.50% production coverage. Then run
-the broad-market universe collection (universe.collector --market, mirroring
-the S&P 500 screener's already-proven checkpointed/resumable design) against
-config/universe_market.yaml, and report real coverage numbers (symbols
-evaluated, eligible count, failures) -- do not silently retry past a real
-failure, and do not touch the S&P 500 screener's own snapshot/checkpoint.
-Once complete, note whether portfolio.model_portfolio --universe-policy
-config/universe_market.yaml --label market is ready to run as a genuinely
-separate, later step. Update living documentation and leave one atomic commit
-with a clean tree (or none, if this is a pure data-acquisition run with no
-code change). Do not change governed weights, thresholds, Deal Breakers,
-run_all.py, portfolio performance/risk analytics, scheduling or live trading.
+Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/PORTFOLIO_VALIDATION.md,
+docs/EXECUTION_EVIDENCE.md and docs/BACKLOG.md fully before changing anything.
+Work only in the isolated
+Atlas_Investment_OS_codex worktree. Verify that branch
+codex/pr034-execution-evidence is clean, that e2016f7 is present in its history,
+and inspect the six functional commits above master. Run the full test/coverage
+gate; expect 570 tests and 88.50% production coverage. Report any mismatch
+before editing.
+
+A separate Claude Code session owns a live long-running broad-market
+universe.collector --market process in the main working directory. Do not
+invoke or interfere with that collector and do not read or write
+data/research_universe_collection_market.json from this worktree.
+
+Then implement the next smallest offline PR-034 increment: a versioned,
+source-attributed input contract/adapter for dividend-inclusive total-return,
+benchmark and terminal-event evidence consumed by the existing validation
+runner. Missing evidence and unresolved delistings must remain visible and
+must suppress aggregate metrics; never impute or fabricate returns. Add
+deterministic tests, run the focused and full coverage suites, update living
+documentation and leave one atomic local commit with a clean tree. Show the
+diff and validation summary. Do not merge or push without explicit approval.
+Do not make provider calls or change governed weights, thresholds, Deal
+Breakers, run_all.py, scheduling or live trading.
 ```
 
 ## Parallel work with Codex
