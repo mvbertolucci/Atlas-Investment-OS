@@ -108,6 +108,16 @@
       see `docs/API_CONTRACT.md`). Optional later: FastAPI/OpenAPI, auth.
 - [x] Read-only Python SDK (`sdk/`, HTTP or offline file transport;
       see `docs/SDK.md`)
+- [x] Sell/buy priority classification, on demand (`priority/`, CLI +
+      `output/priority_report.json` + API `/priority` + SDK; no weight or
+      sector construction -- see `docs/PRIORITY_REPORT.md`)
+
+### Portfolio workflow
+
+- [x] Real portfolio populated (`config/portfolio.csv`, gitignored) and
+      wired to the scoring/decision pipeline via `config/watchlist.csv`
+- [x] Sell-only rebalance mode (no internal reallocation) --
+      `portfolio.rebalance_mode = "sell_only"` (default)
 
 ### Analytical-method priority
 

@@ -37,6 +37,10 @@ def _contract() -> dict:
         ],
         "portfolio": {"portfolio_name": "Main"},
         "outcomes": {"hit_rate": {"hit_rate": 100.0}},
+        "priority": {
+            "sell": {"items": [{"symbol": "BBB", "action": "SELL"}]},
+            "buy": {"items": [{"symbol": "CCC", "candidate_rank": 1}]},
+        },
     }
 
 
@@ -72,6 +76,13 @@ def test_sub_resources_are_unwrapped(artifact: Path) -> None:
     assert client.market() is None
     assert client.portfolio() == {"portfolio_name": "Main"}
     assert client.outcomes() == {"hit_rate": {"hit_rate": 100.0}}
+
+
+def test_priority_methods(artifact: Path) -> None:
+    client = AtlasClient.for_file(artifact)
+    assert client.priority()["sell"]["items"][0]["symbol"] == "BBB"
+    assert client.priority_sell()["items"][0]["action"] == "SELL"
+    assert client.priority_buy()["items"][0]["symbol"] == "CCC"
 
 
 def test_missing_artifact_raises_service_unavailable(tmp_path: Path) -> None:

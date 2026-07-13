@@ -60,6 +60,8 @@
 - [x] Checkpointed broad-universe collection
 - [x] Advisory model portfolio
 - [x] Point-in-time historical-data contract
+- [x] Real portfolio wired to scoring/decisions; sell-only rebalance mode
+- [x] Sell/buy priority classification (on demand: CLI, artifact, API, SDK)
 - [ ] Deterministic walk-forward backtest
 - [ ] Portfolio performance and risk validation
 - [ ] Prospective shadow portfolio

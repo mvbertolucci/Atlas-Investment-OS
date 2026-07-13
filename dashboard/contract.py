@@ -8,7 +8,7 @@ from typing import Any
 # Versão do contrato. Incrementar SOMENTE de forma deliberada quando a forma
 # serializada mudar, para que consumidores (dashboard, API, SDK) saibam
 # reconciliar. Mudança de contrato é decisão explícita, nunca incidental.
-DASHBOARD_CONTRACT_VERSION = "1.0"
+DASHBOARD_CONTRACT_VERSION = "1.1"
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,7 @@ class DashboardView:
     market: dict[str, Any] | None = None
     portfolio: dict[str, Any] | None = None
     outcomes: dict[str, Any] | None = None
+    priority: dict[str, Any] | None = None
     contract_version: str = DASHBOARD_CONTRACT_VERSION
     generated_at: datetime = field(default_factory=datetime.now)
 
@@ -43,4 +44,5 @@ class DashboardView:
             "companies": [dict(company) for company in self.companies],
             "portfolio": self.portfolio,
             "outcomes": self.outcomes,
+            "priority": self.priority,
         }
