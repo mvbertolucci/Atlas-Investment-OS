@@ -40,26 +40,28 @@ For the full regression gate:
 ## Current handoff
 
 - Released version: `v1.2.0`; development baseline: `PR-033` + real SEC
-  EDGAR data acquisition (first slice).
-- Validation baseline: 445 tests / 87.29% production coverage.
+  EDGAR data acquisition (15 fields, checkpointed collector).
+- Validation baseline: 457 tests / 87.24% production coverage.
 - v1.1 Integrated Portfolio Intelligence and v1.2 Outcome Analytics are
   complete.
 - v2.0 Platform is in progress. The point-in-time data contract is complete;
   the walk-forward *mechanism* (`backtesting/walk_forward.py`) is merged,
-  proven with synthetic offline fixtures. `backtesting/sec_edgar.py` now
-  converts SEC EDGAR's free XBRL data into real `HistoricalObservation`
-  records -- verified against **live SEC data** for Apple Inc. (647
-  observations, 5 native tags). Still a small slice, not a complete
-  historical dataset (see `docs/SEC_EDGAR_DATA.md`). In parallel: the
-  real portfolio is wired end to end (`portfolio.rebalance_mode =
-  "sell_only"` by default), an on-demand sell/buy priority classification
-  exists (`priority/`), two more screeners (broad US market, US-listed
-  ADRs) are infrastructure-only, and `portfolio/model_portfolio.py` can run
-  ranking over any of the three screeners via `--universe-policy`/`--label`
-  — see `docs/ATLAS_CONTEXT.md` section 6.
-- Open threads, in priority order: (1) widen SEC EDGAR tag coverage and
-  build a checkpointed multi-ticker collector (mirroring
-  `universe/collector.py`); (2) pair a historical price series for
-  valuation multiples; (3) run the broad-market/ADR collections when
-  resumed; (4) PR-034 portfolio validation, once a real dataset is usable
-  end to end.
+  proven with synthetic offline fixtures. `backtesting/sec_edgar.py` +
+  `backtesting/sec_edgar_collector.py` convert SEC EDGAR's free XBRL data
+  into real, checkpointed `HistoricalObservation` records -- verified
+  against **live SEC data**: 2,350 observations across 15 fields for Apple
+  Inc., and a real checkpointed batch of Atlas's own watchlist (non-SEC-
+  registered tickers like `BEEF3.SA` fail explicitly, by design). Still a
+  small slice, not a complete historical dataset (see
+  `docs/SEC_EDGAR_DATA.md`). In parallel: the real portfolio is wired end
+  to end (`portfolio.rebalance_mode = "sell_only"` by default), an
+  on-demand sell/buy priority classification exists (`priority/`), two
+  more screeners (broad US market, US-listed ADRs) are
+  infrastructure-only, and `portfolio/model_portfolio.py` can run ranking
+  over any of the three screeners via `--universe-policy`/`--label` — see
+  `docs/ATLAS_CONTEXT.md` section 6.
+- Open threads, in priority order: (1) finish widening SEC EDGAR tag
+  coverage and decide the EBIT/Working Capital derivation; (2) pair a
+  historical price series for valuation multiples; (3) run the
+  broad-market/ADR collections when resumed; (4) PR-034 portfolio
+  validation, once a real dataset is usable end to end.
