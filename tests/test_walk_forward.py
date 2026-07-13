@@ -23,8 +23,10 @@ from backtesting.point_in_time import (
     DelistingRecord,
     HistoricalObservation,
     PointInTimeDataset,
+    StockSplitRecord,
     UniverseMembership,
 )
+from backtesting.point_in_time_valuation import derive_point_in_time_valuation
 from backtesting.walk_forward import (
     HistoricalInputManifest,
     WalkForwardReport,
@@ -152,6 +154,79 @@ def test_reconstruct_frame_with_no_observations_at_all() -> None:
 
     assert list(frame["symbol"]) == ["AAA"]
     assert list(frame.columns) == ["symbol"]
+
+
+def test_reconstruct_frame_carries_observation_dates_and_split_factor() -> None:
+    dataset = PointInTimeDataset(
+        observations=(
+            _observation(
+                "AAA", "shares_outstanding", 100.0,
+                "2020-06-30", "2020-07-31T00:00:00Z",
+            ),
+            _observation(
+                "AAA", "price", 50.0,
+                "2020-09-01", "2020-09-02T00:00:00Z",
+            ),
+        ),
+        memberships=(_membership("AAA"),),
+        splits=(
+            StockSplitRecord(
+                "AAA", "2020-08-31", 4,
+                "2020-09-01T00:00:00Z", "exchange",
+            ),
+            StockSplitRecord(
+                "AAA", "2021-01-01", 2,
+                "2021-01-02T00:00:00Z", "exchange",
+            ),
+        ),
+    )
+
+    frame = reconstruct_snapshot_frame(
+        dataset.as_of("2020-09-02T00:00:00Z")
+    )
+    row = frame.iloc[0]
+
+    assert row["shares_outstanding__observed_on"].isoformat() == "2020-06-30"
+    assert row["price__observed_on"].isoformat() == "2020-09-01"
+    assert row["shares_outstanding_split_factor"] == 4.0
+
+
+def test_market_cap_remains_continuous_across_split_without_lookahead() -> None:
+    dataset = PointInTimeDataset(
+        observations=(
+            _observation(
+                "AAA", "shares_outstanding", 100.0,
+                "2020-06-30", "2020-07-31T00:00:00Z",
+            ),
+            _observation(
+                "AAA", "price", 500.0,
+                "2020-08-28", "2020-08-29T00:00:00Z", "pre-split",
+            ),
+            _observation(
+                "AAA", "price", 125.0,
+                "2020-09-01", "2020-09-02T00:00:00Z", "post-split",
+            ),
+        ),
+        memberships=(_membership("AAA"),),
+        splits=(
+            StockSplitRecord(
+                "AAA", "2020-08-31", 4,
+                "2020-09-01T00:00:00Z", "exchange",
+            ),
+        ),
+    )
+
+    before = derive_point_in_time_valuation(
+        reconstruct_snapshot_frame(dataset.as_of("2020-08-29T00:00:00Z"))
+    ).iloc[0]
+    after = derive_point_in_time_valuation(
+        reconstruct_snapshot_frame(dataset.as_of("2020-09-02T00:00:00Z"))
+    ).iloc[0]
+
+    assert before["shares_outstanding_split_factor"] == 1.0
+    assert after["shares_outstanding_split_factor"] == 4.0
+    assert before["market_cap"] == pytest.approx(50_000.0)
+    assert after["market_cap"] == pytest.approx(50_000.0)
 
 
 # ---------------------------------------------------------------------------

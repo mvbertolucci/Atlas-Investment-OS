@@ -64,6 +64,21 @@ cutoff.
 The 2026-07-13 research snapshot remains valid for current research collection,
 but it must not be used as the membership set for earlier decisions.
 
+## Stock splits and unit consistency
+
+`StockSplitRecord` stores the symbol, effective date, ratio, conservative
+availability timestamp and source. Forward and reverse ratios are supported;
+duplicate events for the same symbol and date are invalid. A split enters an
+as-of snapshot only after it is both effective and available.
+
+Yahoo's historical close is normalized retrospectively for later splits while
+SEC shares outstanding are reported in the units valid on the observation
+date. Atlas first restores Yahoo closes to their as-traded units. During frame
+reconstruction it then applies only splits effective after the selected share
+observation and on or before the selected price observation. Future events are
+therefore used only to undo vendor unit normalization, never as economic input
+to an earlier decision. See `docs/PRICE_HISTORY_DATA.md`.
+
 ## Delistings
 
 Every terminal security event requires a `DelistingRecord` with effective date,

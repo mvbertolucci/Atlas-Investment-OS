@@ -6,7 +6,7 @@ historical price series
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 487 tests passing / 87.41% production coverage
+**Validation baseline:** 497 tests passing / 87.51% production coverage
 
 ## 1. Product mission
 
@@ -211,17 +211,19 @@ risen to 40.0% now that `valuation` factors are partially populated. Still
 not complete: `f_score_annual` (needs two fiscal years), the rest of
 `valuation` (`forward_pe`, `ev_ebitda`, `ev_ebit`, `peg`,
 `shareholder_yield`, `fcf_yield`), the `timing` factor family (needs the
-whole price series per cutoff, not one value), a stock-split correction for
-`market_cap` before a company's most recent split, historical index
-membership and delistings all remain unbuilt. See `docs/SEC_EDGAR_DATA.md`
+whole price series per cutoff, not one value), historical index membership
+and delistings all remain unbuilt. See `docs/SEC_EDGAR_DATA.md`
 and `docs/PRICE_HISTORY_DATA.md` for the full "what is covered / what is
 not" accounting.
 
-**Open threads, in priority order:** (1) correct `market_cap` for stock
-splits (Yahoo's price is retroactively split-adjusted, SEC's
-`shares_outstanding` is not); (2) two-fiscal-year replay for
-`f_score_annual`; (3) extend valuation/timing coverage using the paired
-price series; (4) run the broad-market/ADR collections when resumed; (5)
+The historical price layer now restores as-traded closes and applies explicit
+point-in-time split events to the observed share count. `market_cap`, `pe`,
+`pb` and `altman_z` therefore remain dimensionally consistent before and after
+forward or reverse splits without leaking the event into an earlier cutoff.
+
+**Open threads, in priority order:** (1) two-fiscal-year replay for
+`f_score_annual`; (2) extend valuation/timing coverage using the paired
+price series; (3) run the broad-market/ADR collections when resumed; (4)
 PR-034 portfolio validation, once a real dataset is usable end to end at
 scale (today's real verification covers 2 companies, one date).
 

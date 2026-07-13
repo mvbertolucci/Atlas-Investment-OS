@@ -5,6 +5,7 @@ from backtesting.point_in_time import (
     DelistingRecord,
     HistoricalObservation,
     PointInTimeDataset,
+    StockSplitRecord,
     UniverseMembership,
 )
 from backtesting.sec_edgar import (
@@ -14,6 +15,7 @@ from backtesting.sec_edgar import (
 )
 from backtesting.price_history import (
     extract_price_observations,
+    extract_split_records,
     fetch_price_history,
 )
 from backtesting.walk_forward import (
@@ -33,6 +35,7 @@ __all__ = [
     "DelistingRecord",
     "HistoricalObservation",
     "PointInTimeDataset",
+    "StockSplitRecord",
     "UniverseMembership",
     "HistoricalInputManifest",
     "IncompleteDecision",
@@ -47,5 +50,6 @@ __all__ = [
     "fetch_company_facts",
     "fetch_ticker_cik_map",
     "extract_price_observations",
+    "extract_split_records",
     "fetch_price_history",
 ]

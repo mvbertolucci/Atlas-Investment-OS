@@ -18,6 +18,7 @@ from backtesting.point_in_time import PointInTimeDataset, UniverseMembership
 from backtesting.price_history import (
     available_at_from_trade_date,
     extract_price_observations,
+    extract_split_records,
 )
 
 
@@ -113,3 +114,56 @@ def test_observations_feed_a_valid_point_in_time_dataset_and_as_of_picks_latest(
     snapshot = dataset.as_of("2026-01-06T12:00:00Z")
 
     assert snapshot.value("AAPL", "price") == pytest.approx(105.0)
+
+
+def test_split_adjusted_yahoo_close_is_restored_to_as_traded_price() -> None:
+    history = pd.DataFrame(
+        {
+            "Close": [124.8075, 129.04],
+            "Stock Splits": [0.0, 4.0],
+        },
+        index=pd.to_datetime(["2020-08-28", "2020-08-31"]),
+    )
+
+    observations = extract_price_observations("AAPL", history)
+
+    assert observations[0].value == pytest.approx(499.23)
+    assert observations[1].value == pytest.approx(129.04)
+
+
+def test_multiple_future_splits_are_applied_cumulatively_to_old_prices() -> None:
+    history = pd.DataFrame(
+        {
+            "Close": [10.0, 25.0, 20.0],
+            "Stock Splits": [0.0, 2.0, 3.0],
+        },
+        index=pd.to_datetime(["2020-01-01", "2021-01-01", "2022-01-01"]),
+    )
+
+    observations = extract_price_observations("AAA", history)
+
+    assert [item.value for item in observations] == pytest.approx(
+        [60.0, 75.0, 20.0]
+    )
+
+
+def test_extract_split_records_supports_forward_and_reverse_splits() -> None:
+    history = pd.DataFrame(
+        {
+            "Close": [10.0, 20.0],
+            "Stock Splits": [4.0, 0.1],
+        },
+        index=pd.to_datetime(["2020-08-31", "2024-01-10"]),
+    )
+
+    records = extract_split_records("abc", history)
+
+    assert [(item.symbol, item.ratio) for item in records] == [
+        ("ABC", 4.0),
+        ("ABC", 0.1),
+    ]
+    assert records[0].known_at.isoformat() == "2020-09-01T00:00:00+00:00"
+
+
+def test_missing_split_column_yields_no_split_records() -> None:
+    assert extract_split_records("AAA", _history({"2026-01-02": 10.0})) == ()

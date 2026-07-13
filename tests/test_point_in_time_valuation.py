@@ -41,6 +41,27 @@ def test_market_cap_is_price_times_shares_outstanding() -> None:
     assert _approx(result.iloc[0]["market_cap"], 5000.0)
 
 
+def test_market_cap_uses_split_adjusted_share_count() -> None:
+    frame = pd.DataFrame(
+        [_row(shares_outstanding_split_factor=4.0)]
+    )
+    result = derive_point_in_time_valuation(frame)
+
+    assert _approx(
+        result.iloc[0]["shares_outstanding_split_adjusted"], 400.0
+    )
+    assert _approx(result.iloc[0]["market_cap"], 20_000.0)
+
+
+def test_reverse_split_factor_reduces_share_count_consistently() -> None:
+    frame = pd.DataFrame(
+        [_row(shares_outstanding_split_factor=0.1)]
+    )
+    result = derive_point_in_time_valuation(frame)
+
+    assert _approx(result.iloc[0]["market_cap"], 500.0)
+
+
 def test_pe_matches_hand_computed_value() -> None:
     frame = pd.DataFrame([_row()])
     result = derive_point_in_time_valuation(frame)

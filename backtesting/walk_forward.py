@@ -217,7 +217,9 @@ class WalkForwardReport:
 def reconstruct_snapshot_frame(snapshot: AsOfSnapshot) -> pd.DataFrame:
     """
     Reconstrói um DataFrame a partir de um AsOfSnapshot: uma linha por membro
-    ativo, uma coluna por field_name de fato observado no snapshot.
+    ativo, uma coluna por field_name de fato observado no snapshot. Preserva
+    também `<campo>__observed_on`, necessário para alinhar unidades históricas,
+    e calcula o fator cumulativo de splits entre ações e preço.
 
     Pura reconstrução -- nenhum valor é inventado ou preenchido a partir de
     outra data ou símbolo. Um membro sem nenhuma observação disponível ainda
@@ -227,16 +229,34 @@ def reconstruct_snapshot_frame(snapshot: AsOfSnapshot) -> pd.DataFrame:
     field_names = sorted(
         {observation.field_name for observation in snapshot.observations}
     )
+    metadata_names = [f"{field_name}__observed_on" for field_name in field_names]
     rows: list[dict[str, Any]] = []
     for symbol in snapshot.members:
         row: dict[str, Any] = {"symbol": symbol}
         for field_name in field_names:
             try:
-                row[field_name] = snapshot.value(symbol, field_name)
+                observation = snapshot.observation(symbol, field_name)
+                row[field_name] = observation.value
+                row[f"{field_name}__observed_on"] = observation.observed_on
             except KeyError:
                 row[field_name] = None
+                row[f"{field_name}__observed_on"] = None
+        shares_observed_on = row.get("shares_outstanding__observed_on")
+        price_observed_on = row.get("price__observed_on")
+        if shares_observed_on is not None and price_observed_on is not None:
+            factor = 1.0
+            for split in snapshot.splits:
+                if (
+                    split.symbol == symbol
+                    and shares_observed_on < split.effective_on <= price_observed_on
+                ):
+                    factor *= split.ratio
+            row["shares_outstanding_split_factor"] = factor
         rows.append(row)
-    return pd.DataFrame(rows, columns=["symbol", *field_names])
+    columns = ["symbol", *field_names, *metadata_names]
+    if any("shares_outstanding_split_factor" in row for row in rows):
+        columns.append("shares_outstanding_split_factor")
+    return pd.DataFrame(rows, columns=columns)
 
 
 def replay_decision_batch(

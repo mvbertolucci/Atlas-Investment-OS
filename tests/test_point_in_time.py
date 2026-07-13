@@ -6,6 +6,7 @@ from backtesting.point_in_time import (
     DelistingRecord,
     HistoricalObservation,
     PointInTimeDataset,
+    StockSplitRecord,
     UniverseMembership,
 )
 
@@ -198,3 +199,34 @@ def test_snapshot_missing_value_remains_explicit() -> None:
 
     with pytest.raises(KeyError):
         snapshot.value("ABC", "roic")
+
+
+def test_split_record_validates_ratio_and_normalizes_symbol() -> None:
+    record = StockSplitRecord(
+        "abc", "2025-06-10", 4, "2025-06-11T00:00:00Z", "exchange"
+    )
+
+    assert record.symbol == "ABC"
+    assert record.ratio == 4.0
+
+    with pytest.raises(ValueError, match="não pode ser 1"):
+        StockSplitRecord(
+            "ABC", "2025-06-10", 1, "2025-06-11T00:00:00Z", "exchange"
+        )
+    with pytest.raises(ValueError, match="positivo"):
+        StockSplitRecord(
+            "ABC", "2025-06-10", 0, "2025-06-11T00:00:00Z", "exchange"
+        )
+
+
+def test_snapshot_exposes_only_splits_known_and_effective_at_cutoff() -> None:
+    record = StockSplitRecord(
+        "ABC", "2025-06-10", 4, "2025-06-11T00:00:00Z", "exchange"
+    )
+    dataset = PointInTimeDataset(splits=(record,))
+
+    assert dataset.as_of("2025-06-10T23:59:59Z").splits == ()
+    assert dataset.as_of("2025-06-11T00:00:00Z").splits == (record,)
+
+    with pytest.raises(ValueError, match="Split duplicado"):
+        PointInTimeDataset(splits=(record, record))

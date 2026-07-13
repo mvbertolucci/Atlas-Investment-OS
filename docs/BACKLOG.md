@@ -172,11 +172,11 @@
       ~$3.1T / `pe` 31.4 / `pb` 7.4 / `altman_z` 8.2 -- Model Confidence rose
       from ~32.5% to 40.0% now that `valuation` factors are partially
       populated. See `docs/PRICE_HISTORY_DATA.md`.
-- [ ] Correct `market_cap` for stock splits before the most recent split
+- [x] Correct `market_cap` for stock splits before the most recent split
       (Yahoo's paired price is retroactively split-adjusted; SEC's
-      `shares_outstanding` is not -- needs `Ticker.splits` applied as a
-      cumulative adjustment, plus `reconstruct_snapshot_frame` carrying
-      each field's `observed_on`; see docs/PRICE_HISTORY_DATA.md)
+      `shares_outstanding` is not -- implemented through restored as-traded
+      closes, explicit `StockSplitRecord` events and observed-date-aware
+      cumulative share adjustment; see docs/PRICE_HISTORY_DATA.md)
 - [ ] Extend valuation coverage: `forward_pe`, `ev_ebitda` (needs a D&A
       tag), `ev_ebit`, `peg`, `shareholder_yield`/`fcf_yield` (need
       dividend/FCF tags)

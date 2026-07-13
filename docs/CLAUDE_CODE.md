@@ -49,77 +49,57 @@ the architecture, current capabilities, governed financial configuration and
 the next bounded backlog task.
 ```
 
-## Current handoff — PR-032 to PR-033
+## Current historical-validation handoff
 
 Repository state prepared on 2026-07-13:
 
 - branch: `master`;
-- PR-032 implementation commit:
-  `529a901 feat(backtesting): define point-in-time data contract`;
 - confirm the current remote relation with `git status --short --branch` before
   any fetch, push or integration action;
 - released version remains `v1.2.0`;
-- development baseline is `PR-032`;
-- validation baseline is 370 passing tests and 87.43% production coverage.
+- development baseline is PR-033 plus point-in-time data acquisition;
+- validation baseline is 497 passing tests and 87.51% production coverage.
 
-PR-032 is complete. It added the executable point-in-time boundary in
-`backtesting/point_in_time.py`, its tests in `tests/test_point_in_time.py` and
-the canonical contract in `docs/POINT_IN_TIME_DATA.md`. The implementation:
+The executable point-in-time boundary and deterministic walk-forward mechanism
+are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
+and paired Yahoo prices. The implementation:
 
 - rejects timezone-naive decision and availability timestamps;
 - excludes observations unavailable at the decision cutoff;
 - preserves source revisions without projecting restatements backward;
 - reconstructs constituents from non-overlapping half-open intervals;
-- retains delistings with explicit `cash`, `zero`, `successor` or `unresolved`
-  return treatment.
+- retains delistings with explicit return treatment;
+- restores Yahoo closes to as-traded prices and aligns SEC share counts through
+  explicit forward/reverse `StockSplitRecord` events.
 
-No historical-data provider, walk-forward engine, portfolio-performance result
-or calibration was added. Governed score weights, Deal Breakers, ranking,
-decisions, the personal watchlist and `run_all.py` remain unchanged.
+No portfolio-performance result or calibration exists yet. Governed score
+weights, Deal Breakers, ranking, decisions, the personal watchlist and
+`run_all.py` remain unchanged.
 
-The next bounded task is **PR-033 — deterministic walk-forward backtesting**.
+The next bounded task is two-fiscal-year replay for `f_score_annual`.
 Before implementation, read:
 
 - `docs/POINT_IN_TIME_DATA.md`;
 - `docs/ANALYTICAL_ROADMAP.md`;
 - `docs/BACKLOG.md`;
-- `docs/MODEL_PORTFOLIO.md`;
+- `docs/SEC_EDGAR_DATA.md`;
+- `docs/PRICE_HISTORY_DATA.md`;
 - `backtesting/point_in_time.py`;
-- `tests/test_point_in_time.py`.
+- `backtesting/point_in_time_fundamentals.py`.
 
-PR-033 should consume `PointInTimeDataset.as_of(decision_at)` and recreate each
-decision using only evidence visible at that cutoff. Keep it deterministic and
-offline-testable. Do not use the current 2026-07-13 constituent snapshot for
-earlier dates, silently drop unresolved delistings, invent unavailable
-fundamentals, tune governed configuration or include PR-034 performance/risk
-analytics in the same change.
+Preserve the current as-of contract and derive F-Score inputs only when two
+comparable fiscal years are actually available. Do not substitute current data,
+silently impute a missing prior year, change governed configuration or include
+PR-034 performance/risk analytics in the same change.
 
-Suggested acceptance boundary for PR-033:
+Suggested acceptance boundary:
 
-1. versioned historical input manifest with source/config/code provenance;
-2. explicit decision calendar and timezone;
-3. deterministic as-of replay through existing Atlas analytical contracts;
-4. incomplete decisions reported with machine-readable reasons;
-5. reproducible local output that makes no performance promise;
-6. focused tests plus the full 80% coverage gate;
-7. synchronized architecture, backlog, changelog and canonical handoff.
-
-### Ready-to-paste continuation prompt
-
-```text
-Read CLAUDE.md, docs/ATLAS_CONTEXT.md and docs/POINT_IN_TIME_DATA.md. Verify
-that git status is clean and that commit 529a901 is present as the PR-032
-baseline. Run the full test and coverage gate; expect 370 tests and 87.43%
-production coverage. Then implement only PR-033: a deterministic,
-offline-testable walk-forward engine that consumes
-PointInTimeDataset.as_of(decision_at), recreates decisions using only evidence
-available at each cutoff, records provenance and reports incomplete decisions
-explicitly. Preserve all governed financial configuration and existing
-public/output contracts. Do not add performance/risk analytics, calibration,
-scheduling, live trading or silently substitute current data. Add focused
-tests, synchronize living documentation and leave one atomic commit with a
-clean working tree.
-```
+1. same-period fiscal facts are paired deterministically;
+2. prior-year data must be visible at the decision cutoff;
+3. incomplete comparisons remain missing and observable;
+4. no existing ratio or governed output is overwritten;
+5. focused tests plus the full 80% coverage gate;
+6. synchronized architecture, backlog, changelog and canonical handoff.
 
 ## Parallel work with Codex
 

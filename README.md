@@ -8,7 +8,8 @@ intelligence and reports.
 
 `v1.2.0`
 
-Development baseline: `PR-032` on release `v1.2.0`.
+Development baseline: `PR-033` plus point-in-time data acquisition on release
+`v1.2.0`.
 
 ## Main capabilities
 
@@ -33,6 +34,8 @@ Development baseline: `PR-032` on release `v1.2.0`.
 - Constrained, equal-weight advisory model portfolio over the broad ranking
 - Point-in-time historical-data contract for observations, constituents and
   delistings
+- Deterministic walk-forward replay with SEC fundamentals, paired historical
+  prices and split-consistent market capitalization
 
 ## Current integration status
 
@@ -58,8 +61,9 @@ Eligible companies are ranked using existing Atlas scores and absolute
 Deal-Breaker safeguards in `output/ranking_report.json`.
 The broad research snapshot has a resumable batch collector; normal
 `run_all.py` executions still use the smaller personal watchlist.
-The point-in-time contract now provides the validated input boundary for a
-future walk-forward engine; Atlas does not yet publish backtest performance.
+The point-in-time contract feeds a deterministic walk-forward replay mechanism.
+Real historical coverage remains incomplete and Atlas does not yet publish
+backtest performance.
 
 ## Quick start
 

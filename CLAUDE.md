@@ -43,7 +43,7 @@ For the full regression gate:
   EDGAR data acquisition + paired historical price series, now end to end
   (15 fields, checkpointed collector, ratio derivation, valuation
   derivation).
-- Validation baseline: 487 tests / 87.41% production coverage.
+- Validation baseline: 497 tests / 87.51% production coverage.
 - v1.1 Integrated Portfolio Intelligence and v1.2 Outcome Analytics are
   complete.
 - v2.0 Platform is in progress. The point-in-time data contract is complete;
@@ -60,9 +60,9 @@ For the full regression gate:
   Z of 10.9 / 8.2 (safe zone), and two genuinely different Investment
   Scores (48.4 AVOID / 58.9 HOLD) with Model Confidence risen to 40.0%.
   Still not a complete historical dataset -- `f_score_annual` (needs two
-  fiscal years), the rest of `valuation`, the `timing` factor family, and a
-  stock-split correction for `market_cap` before a company's most recent
-  split are unbuilt; see `docs/SEC_EDGAR_DATA.md` and
+  fiscal years), the rest of `valuation` and the `timing` factor family remain
+  unbuilt. Historical `market_cap` now handles forward and reverse splits
+  without look-ahead; see `docs/SEC_EDGAR_DATA.md` and
   `docs/PRICE_HISTORY_DATA.md`. In parallel: the real portfolio is wired
   end to end (`portfolio.rebalance_mode = "sell_only"` by default), an
   on-demand sell/buy priority classification exists (`priority/`), two more

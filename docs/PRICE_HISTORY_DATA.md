@@ -34,32 +34,44 @@ truly as-traded historical close through this endpoint at all** -- the
 series it returns is always retroactively adjusted for stock splits, to
 stay continuous for charting.
 
-## Known limitation: market_cap around stock splits (not corrected here)
+`extract_price_observations` now restores the as-traded close by multiplying
+each normalized close by the cumulative product of split ratios whose effective
+dates are later than that trade. This use of future events is solely a unit
+conversion that removes Yahoo's retrospective normalization; it does not expose
+future economic information to a historical decision.
+
+`extract_split_records` converts the same `Stock Splits` column into explicit
+`StockSplitRecord` events. Each event enters an as-of snapshot only after its
+effective date and conservative next-day availability timestamp.
+
+## Stock-split correction for market capitalization
 
 `shares_outstanding` (SEC EDGAR, `dei:EntityCommonStockSharesOutstanding`)
 is the *real* share count reported at each filing date -- never adjusted
-for a later split. Yahoo's paired price series *is* retroactively
-split-adjusted. Multiplying the two together is only dimensionally
-consistent for decision dates **at or after** the company's most recent
-stock split (or for a company with no split in the covered window): the
-price and the share count are both expressed in current-share-count terms.
+for a later split. `reconstruct_snapshot_frame` now retains every selected
+field's `observed_on` date and calculates
+`shares_outstanding_split_factor` from split events effective strictly after
+the share-count observation and on or before the paired price date.
 
-For a decision date **before** a split, `market_cap` (and everything that
-depends on it -- `pe`, `pb`, `altman_z`) comes out wrong by exactly the
-split ratio. This is a real, known gap, not silently assumed away -- see
-the corresponding open item in `docs/BACKLOG.md`. Fixing it properly needs
-`Ticker(symbol).splits` (ex-dividend-date-keyed split ratios) applied as a
-cumulative forward adjustment to each `shares_outstanding` observation, plus
-`reconstruct_snapshot_frame` carrying each field's `observed_on` (today it
-collapses straight to a value) -- a materially bigger structural change,
-deferred rather than half-implemented.
+`derive_point_in_time_valuation` multiplies the reported share count by that
+factor, exposes the exact result as `shares_outstanding_split_adjusted`, and
+uses it in `market_cap`, `pe`, `pb` and `altman_z`. Forward splits and reverse
+splits are supported. A regression test proves market-cap continuity across a
+4-for-1 split while separately proving that the event is not applied before it
+is effective.
+
+A live spot check against Yahoo's Apple history around 2020-08-31 confirmed the
+source behavior and conversion: the normalized 2020-08-28 close of 124.8075
+was restored to the approximately 499.23 as-traded close, while the split-date
+close remained 129.04 and the extracted event ratio was 4.0.
 
 ## Deriving market_cap and the valuation ratios (`point_in_time_valuation.py`)
 
 `derive_point_in_time_valuation(frame)` computes, once `price` and
 `shares_outstanding` are both present:
 
-- `market_cap = price × shares_outstanding`
+- `shares_outstanding_split_adjusted = shares_outstanding × split_factor`
+- `market_cap = price × shares_outstanding_split_adjusted`
 - `pe = market_cap / net_income`, only when `net_income > 0` (a P/E is
   conventionally not reported, and never negative, for a loss-making
   company -- feeding a negative value into a `higher_is_better: false`

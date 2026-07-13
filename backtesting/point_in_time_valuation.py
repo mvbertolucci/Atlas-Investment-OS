@@ -22,7 +22,8 @@ def _assign_if_absent(
 
 def derive_point_in_time_valuation(frame: pd.DataFrame) -> pd.DataFrame:
     """
-    Computa `market_cap` (preço × ações em circulação) e as razões de
+    Computa `market_cap` (preço × ações em circulação ajustadas por splits)
+    e as razões de
     valuation que dependem dele -- `pe`, `pb`, `altman_z` -- a partir de uma
     coluna `price` (ver `backtesting.price_history`, pareada por data) e das
     colunas brutas/derivadas já produzidas por
@@ -35,16 +36,11 @@ def derive_point_in_time_valuation(frame: pd.DataFrame) -> pd.DataFrame:
 
     Pura, assign-if-absent: nunca sobrescreve uma coluna já fornecida.
 
-    **Limitação documentada, não escondida**: o fechamento histórico do
-    Yahoo (`backtesting.price_history`) vem retroativamente ajustado por
-    desdobramentos (splits) futuros, mas `shares_outstanding` (SEC EDGAR) é
-    a contagem real de ações na data do filing, SEM esse ajuste. Logo,
-    `market_cap` (e `pe`/`pb`/`altman_z`, que dependem dele) só está correto
-    para datas de decisão NO OU APÓS o desdobramento mais recente da empresa
-    (ou para empresas sem desdobramento no período coberto) -- para datas
-    anteriores a um desdobramento, o valor sai errado por exatamente o fator
-    do desdobramento. Não corrigido neste incremento; ver
-    docs/PRICE_HISTORY_DATA.md e o item correspondente em docs/BACKLOG.md.
+    O frame reconstruído pode fornecer `shares_outstanding_split_factor`,
+    calculado apenas com eventos efetivos entre a data observada das ações e a
+    data observada do preço. A coluna auditável
+    `shares_outstanding_split_adjusted` preserva a quantidade usada no cálculo.
+    Sem o fator, o comportamento compatível permanece 1.0.
 
     NÃO computado aqui (fronteira explícita): `forward_pe` (exige estimativa
     de analistas), `ev_ebitda` (exige uma tag de depreciação/amortização
@@ -59,7 +55,16 @@ def derive_point_in_time_valuation(frame: pd.DataFrame) -> pd.DataFrame:
 
     price = _numeric(result, "price")
     shares_outstanding = _numeric(result, "shares_outstanding")
-    _assign_if_absent(result, "market_cap", price * shares_outstanding)
+    split_factor = _numeric(
+        result, "shares_outstanding_split_factor"
+    ).fillna(1.0)
+    adjusted_shares = shares_outstanding * split_factor
+    _assign_if_absent(
+        result,
+        "shares_outstanding_split_adjusted",
+        adjusted_shares,
+    )
+    _assign_if_absent(result, "market_cap", price * adjusted_shares)
 
     market_cap = pd.to_numeric(result["market_cap"], errors="coerce")
 

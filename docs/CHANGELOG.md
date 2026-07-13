@@ -1,5 +1,36 @@
 # Changelog
 
+## Point-in-time stock-split normalization
+
+### Added
+
+- Explicit forward/reverse `StockSplitRecord` events in the point-in-time
+  dataset and as-of snapshot.
+- Restoration of Yahoo's split-normalized closes to as-traded historical
+  prices.
+- Per-field observation dates and cumulative share-count adjustment between
+  the SEC observation date and paired price date.
+- Auditable `shares_outstanding_split_adjusted` input for `market_cap`, `pe`,
+  `pb` and `altman_z`.
+
+### Preserved
+
+- Split events never enter an as-of snapshot before they are effective and
+  available.
+- No governed score weight, threshold, Deal Breaker or live pipeline behavior
+  changed.
+- No performance or risk result was introduced.
+
+### Validation
+
+- 497 automated tests passed.
+- 87.51% production coverage overall.
+- Market capitalization remains continuous in a synthetic 4-for-1 split
+  regression; forward and reverse event extraction are covered offline.
+- A live Apple 2020 spot check restored Yahoo's normalized 124.8075 close to
+  approximately 499.23 before the 4-for-1 split and left the split-date close
+  unchanged.
+
 ## PR-032 — Point-in-time historical-data contract
 
 ### Added

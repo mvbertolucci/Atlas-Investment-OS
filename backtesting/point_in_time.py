@@ -115,6 +115,41 @@ class UniverseMembership:
 
 
 @dataclass(frozen=True)
+class StockSplitRecord:
+    """Effective split event used only to keep price/share units consistent."""
+
+    symbol: str
+    effective_on: date | datetime | str
+    ratio: float
+    known_at: datetime | str
+    source: str
+
+    def __post_init__(self) -> None:
+        effective_on = _date(self.effective_on, "effective_on")
+        try:
+            ratio = float(self.ratio)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("ratio de split deve ser numérico e positivo.") from exc
+        if ratio <= 0 or ratio != ratio:
+            raise ValueError("ratio de split deve ser numérico e positivo.")
+        if ratio == 1:
+            raise ValueError("ratio de split não pode ser 1.")
+        object.__setattr__(self, "symbol", _symbol(self.symbol))
+        object.__setattr__(self, "effective_on", effective_on)
+        object.__setattr__(self, "ratio", ratio)
+        object.__setattr__(self, "known_at", _utc_timestamp(self.known_at, "known_at"))
+        object.__setattr__(self, "source", _text(self.source, "source"))
+
+    @property
+    def identity(self) -> tuple[str, date]:
+        return (self.symbol, self.effective_on)
+
+    def is_known_and_effective(self, decision_at: datetime | str) -> bool:
+        cutoff = _utc_timestamp(decision_at, "decision_at")
+        return self.known_at <= cutoff and self.effective_on <= cutoff.date()
+
+
+@dataclass(frozen=True)
 class DelistingRecord:
     """Explicit terminal event and required return treatment."""
 
@@ -174,13 +209,19 @@ class AsOfSnapshot:
     members: tuple[str, ...]
     observations: tuple[HistoricalObservation, ...]
     delistings: tuple[DelistingRecord, ...]
+    splits: tuple[StockSplitRecord, ...] = ()
 
-    def value(self, symbol: str, field_name: str) -> Any:
+    def observation(
+        self, symbol: str, field_name: str
+    ) -> HistoricalObservation:
         key = (_symbol(symbol), _text(field_name, "field_name"))
         for observation in self.observations:
             if (observation.symbol, observation.field_name) == key:
-                return observation.value
+                return observation
         raise KeyError(key)
+
+    def value(self, symbol: str, field_name: str) -> Any:
+        return self.observation(symbol, field_name).value
 
 
 @dataclass(frozen=True)
@@ -188,11 +229,13 @@ class PointInTimeDataset:
     observations: tuple[HistoricalObservation, ...] = ()
     memberships: tuple[UniverseMembership, ...] = ()
     delistings: tuple[DelistingRecord, ...] = ()
+    splits: tuple[StockSplitRecord, ...] = ()
 
     def __post_init__(self) -> None:
         observations = tuple(self.observations)
         memberships = tuple(self.memberships)
         delistings = tuple(self.delistings)
+        splits = tuple(self.splits)
         identities: set[tuple[str, str, date, str]] = set()
         for observation in observations:
             if not isinstance(observation, HistoricalObservation):
@@ -208,9 +251,17 @@ class PointInTimeDataset:
             if record.symbol in delisting_symbols:
                 raise ValueError("Delistagem duplicada para o símbolo.")
             delisting_symbols.add(record.symbol)
+        split_identities: set[tuple[str, date]] = set()
+        for record in splits:
+            if not isinstance(record, StockSplitRecord):
+                raise TypeError("splits exige StockSplitRecord.")
+            if record.identity in split_identities:
+                raise ValueError("Split duplicado para símbolo e data.")
+            split_identities.add(record.identity)
         object.__setattr__(self, "observations", observations)
         object.__setattr__(self, "memberships", memberships)
         object.__setattr__(self, "delistings", delistings)
+        object.__setattr__(self, "splits", splits)
 
     @staticmethod
     def _validate_memberships(memberships: tuple[UniverseMembership, ...]) -> None:
@@ -264,7 +315,17 @@ class PointInTimeDataset:
                 key=lambda item: (item.effective_on, item.symbol),
             )
         )
-        return AsOfSnapshot(cutoff, members, available, delistings)
+        splits = tuple(
+            sorted(
+                (
+                    record
+                    for record in self.splits
+                    if record.is_known_and_effective(cutoff)
+                ),
+                key=lambda item: (item.effective_on, item.symbol),
+            )
+        )
+        return AsOfSnapshot(cutoff, members, available, delistings, splits)
 
     @classmethod
     def from_iterables(
@@ -273,5 +334,11 @@ class PointInTimeDataset:
         observations: Iterable[HistoricalObservation] = (),
         memberships: Iterable[UniverseMembership] = (),
         delistings: Iterable[DelistingRecord] = (),
+        splits: Iterable[StockSplitRecord] = (),
     ) -> "PointInTimeDataset":
-        return cls(tuple(observations), tuple(memberships), tuple(delistings))
+        return cls(
+            tuple(observations),
+            tuple(memberships),
+            tuple(delistings),
+            tuple(splits),
+        )
