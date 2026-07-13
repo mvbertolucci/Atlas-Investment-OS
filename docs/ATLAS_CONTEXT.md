@@ -5,7 +5,7 @@
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 457 tests passing / 87.24% production coverage
+**Validation baseline:** 467 tests passing / 87.33% production coverage
 
 ## 1. Product mission
 
@@ -191,27 +191,31 @@ that dataset to be acquired first -- a separate, materially harder problem
 most free providers do not solve (they do not expose "value as known on
 date X" with revision history). See `docs/WALK_FORWARD_BACKTEST.md`.
 
-**Real progress on (1):** `backtesting/sec_edgar.py` converts SEC EDGAR's
-free, public XBRL filing data into real `HistoricalObservation` records --
-verified against **live SEC data** for Apple Inc. (2,350 observations
-across 15 native fundamental tags, cross-era tag-switch merging, correct
-point-in-time reconstruction). `backtesting/sec_edgar_collector.py` adds a
-checkpointed, resumable multi-ticker collector mirroring
-`universe/collector.py`'s design -- verified against a real batch of
-Atlas's own watchlist (`ASML`/`AVAV`/`BNTX` collected; `BEEF3.SA`, a
-B3-only listing with no US SEC registration, correctly failed explicitly
-rather than being silently dropped -- confirming SEC EDGAR's hard coverage
-boundary). Still a small slice, not a complete dataset: roughly 10 of
-Atlas's ~25 fundamental fields remain unmapped, no `EBIT`/`Working Capital`
-derivation, no valuation multiples (need a paired price series), no
-historical index membership, no delistings. See `docs/SEC_EDGAR_DATA.md`
-for the full "what is covered / what is not" accounting.
+**Real progress on (1), now end to end:** `backtesting/sec_edgar.py` +
+`backtesting/sec_edgar_collector.py` acquire 15 native fundamental fields
+in checkpointed, resumable batches (verified against a real batch of
+Atlas's own watchlist; `BEEF3.SA`, a B3-only listing with no US SEC
+registration, correctly failed explicitly rather than being silently
+dropped). `backtesting/point_in_time_fundamentals.py` then derives the
+*ratios* `config/features.yaml` actually scores on (`gross_margin`,
+`current_ratio`, `roic`, `roe`, ...) from those raw fields -- **and the
+full loop is proven**: replaying a real walk-forward decision over real SEC
+data for Apple and Microsoft produced derived gross margins of 48.6% and
+68.2% (matching each company's real, independently known historical
+range) and two genuinely different Investment Scores (52.9 / 58.9, not
+both collapsed to a neutral 50). Still not a complete dataset:
+`f_score_annual` (needs two fiscal years) and `altman_z`/valuation
+multiples (need a paired price series, since SEC EDGAR has no price data)
+remain unbuilt, along with historical index membership and delistings. See
+`docs/SEC_EDGAR_DATA.md` for the full "what is covered / what is not"
+accounting.
 
-**Open threads, in priority order:** (1) finish widening SEC EDGAR tag
-coverage and decide the `EBIT`/`Working Capital` derivation; (2) pair a
-historical price series for valuation multiples; (3) run the
-broad-market/ADR collections when resumed; (4) PR-034 portfolio validation,
-once a real dataset is usable end to end.
+**Open threads, in priority order:** (1) pair a historical price series
+(unlocks valuation multiples and `altman_z`); (2) two-fiscal-year replay
+for `f_score_annual`; (3) run the broad-market/ADR collections when
+resumed; (4) PR-034 portfolio validation, once a real dataset is usable
+end to end at scale (today's real verification covers 2 companies, one
+date).
 
 See `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md` for the full backlog.
 

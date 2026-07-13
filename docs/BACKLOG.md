@@ -148,11 +148,23 @@
       `shares_outstanding` (from the `dei` taxonomy). Multiple candidate
       tags per field are extracted and merged (not just the first with
       data), handling real cross-era tag switches (e.g. the ~2018 revenue-
-      recognition tag change) -- `EBIT`/`Working Capital` proper and the
-      remaining ~10 fields still need an explicit derivation decision or
-      further native-tag additions.
-- [ ] Pair a historical price series (valuation multiples need price, which
-      SEC EDGAR does not have)
+      recognition tag change) -- two extra native tags added
+      (`operating_cash_flow`, `cash_and_equivalents`) to support the ratio
+      derivation below.
+- [x] `backtesting/point_in_time_fundamentals.py`: derives the *ratios*
+      `config/features.yaml` actually scores on (`gross_margin`,
+      `operating_margin`, `net_margin`, `current_ratio`, `working_capital`,
+      `total_equity`, `debt_to_equity`, `interest_coverage`, `roe`, `roic`)
+      from the raw SEC fields -- only fills gaps, never overwrites a ratio
+      already supplied. Wired into `run_walk_forward`. **Verified end to
+      end against real SEC data**: derived gross margin 48.6% (Apple) /
+      68.2% (Microsoft), matching each company's real historical range;
+      the full walk-forward engine produced two genuinely different
+      Investment Scores (52.9 / 58.9) instead of both collapsing to a
+      neutral 50. `f_score_annual` (needs two fiscal years) and `altman_z`
+      (needs `market_cap`, i.e. price) remain explicitly not derived.
+- [ ] Pair a historical price series (valuation multiples and `altman_z`
+      need price, which SEC EDGAR does not have)
 - [x] Checkpointed multi-ticker collector
       (`backtesting/sec_edgar_collector.py`, mirroring
       `universe/collector.py`'s resumable design). Verified against a real

@@ -10,6 +10,7 @@ from typing import Any, Iterable, Mapping
 import pandas as pd
 
 from backtesting.point_in_time import AsOfSnapshot, PointInTimeDataset
+from backtesting.point_in_time_fundamentals import derive_point_in_time_ratios
 from scoring.investment import score_dataframe
 
 
@@ -300,6 +301,12 @@ def replay_decision_batch(
     eligible = frame[frame["symbol"].isin(complete_symbols)].reset_index(
         drop=True
     )
+    # config/features.yaml lê razões (gross_margin, current_ratio, roic...),
+    # não os totais brutos que a reconstrução point-in-time produz -- sem
+    # isto, replay sobre dado real da SEC cairia quase todo em fatores
+    # neutros. derive_point_in_time_ratios só preenche o que está ausente,
+    # nunca sobrescreve uma razão já fornecida pela fonte.
+    eligible = derive_point_in_time_ratios(eligible)
     scored = score_dataframe(eligible, Path(model_path), Path(deal_breakers_path))
 
     replayed: list[ReplayedDecision] = []
