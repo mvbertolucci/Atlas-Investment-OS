@@ -104,5 +104,7 @@
 - [x] Define a read-only dashboard contract (`dashboard/`, see `docs/DASHBOARD_CONTRACT.md`)
 - [x] Expose company, portfolio and outcome views without changing decisions
       (`run_all.py` emits `output/dashboard.json`, guarded by `dashboard_enabled`)
+- [x] Read-only REST API over the contract (`api/`, stdlib, no new dependency;
+      see `docs/API_CONTRACT.md`). Optional later: FastAPI/OpenAPI, auth.
 - [ ] Add scheduling and notifications only after the dashboard boundary is stable
 - [ ] Keep API, SDK and AI assistant as separate increments

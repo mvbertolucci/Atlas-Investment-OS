@@ -48,10 +48,10 @@
 - [x] Rule and factor performance analysis
 - [x] JSON, Excel and Morning Brief outcome reports
 
-## v2.0 — Platform — Planned
+## v2.0 — Platform — In progress
 
-- [ ] Dashboard
-- [ ] REST API
+- [x] Dashboard (read-only contract + `output/dashboard.json`)
+- [x] REST API (read-only, stdlib; `api/`)
 - [ ] Scheduling
 - [ ] Notifications
 - [ ] SDK
