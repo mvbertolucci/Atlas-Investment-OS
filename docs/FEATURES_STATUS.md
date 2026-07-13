@@ -1,8 +1,8 @@
 # Feature Status
 
 **Release:** v1.2.0
-**Baseline:** PR-030A
-**Test baseline:** 340 passing / 88.05% production coverage
+**Baseline:** PR-030B
+**Test baseline:** 345 passing / 87.63% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
@@ -20,7 +20,7 @@
 | Health check and execution metrics | Yes | Yes | N/A | N/A | Operational; 100% direct coverage |
 | Outcome Analytics | Yes | Yes | Yes | Yes | Operational; JSON, Excel and Morning Brief reports |
 | Market-universe eligibility | Yes | Yes | No | No | Diagnostic JSON and Dashboard market view operational |
-| Broad research-universe source | Yes | No | No | No | 503-security snapshot; batch collection pending |
+| Broad research-universe collection | Yes | No | No | No | 503-security snapshot; resumable local checkpoints |
 | Analytical market/sector ranking | Yes | Yes | No | No | Diagnostic JSON; no new score or decision |
 | Backtesting | No | No | No | No | Future milestone |
 | Dashboard/API/SDK | Yes | Yes | N/A | N/A | Read-only platform contracts operational |

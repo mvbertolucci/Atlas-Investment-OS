@@ -1,5 +1,25 @@
 # Changelog
 
+## PR-030B — Checkpointed broad-universe collection
+
+### Added
+
+- One-batch-at-a-time Yahoo collection over the versioned research universe.
+- Atomic local checkpoint after every attempted symbol.
+- Automatic resume, completed-symbol skipping and configurable retries.
+- Persistent provider-failure diagnostics and snapshot compatibility checks.
+
+### Preserved
+
+- `run_all.py` and the personal watchlist remain unchanged.
+- No scoring, governed configuration, ranking, decision or portfolio change.
+- Runtime market observations remain outside version control.
+
+### Validation
+
+- 345 automated tests passed.
+- 87.63% production coverage overall.
+
 ## PR-030A — Reproducible research-universe expansion
 
 ### Added

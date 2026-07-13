@@ -57,7 +57,7 @@
 - [x] Market Mapper and universe coverage
 - [x] Robust market/sector ranking with governed safeguards
 - [x] Reproducible 503-security research-universe snapshot
-- [ ] Checkpointed broad-universe collection
+- [x] Checkpointed broad-universe collection
 - [ ] Advisory model portfolio
 - [ ] Point-in-time walk-forward validation
 - [ ] Prospective shadow portfolio

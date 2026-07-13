@@ -1,0 +1,327 @@
+from __future__ import annotations
+
+import argparse
+import json
+import math
+from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Iterable
+
+from analytics.fundamentals import compute_fundamentals
+from analytics.indicators import enrich_technicals
+from providers.yahoo import fetch_symbol
+from universe.sources import (
+    ConstituentBatch,
+    load_constituent_snapshot,
+    select_constituent_batch,
+)
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_STATE_PATH = ROOT / "data" / "research_universe_collection.json"
+STATE_SCHEMA_VERSION = 1
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _json_value(value: Any) -> Any:
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    if hasattr(value, "item"):
+        return _json_value(value.item())
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    raise TypeError(f"Valor não serializável no checkpoint: {type(value).__name__}")
+
+
+def _prepare_observation(raw: dict[str, Any]) -> dict[str, Any]:
+    enriched = compute_fundamentals(enrich_technicals(dict(raw)))
+    return {
+        key: _json_value(value)
+        for key, value in enriched.items()
+        if key != "history" and not key.startswith("_")
+    }
+
+
+@dataclass
+class CollectionState:
+    snapshot_date: str
+    total_constituents: int
+    created_at: str
+    updated_at: str
+    observations: dict[str, dict[str, Any]] = field(default_factory=dict)
+    failures: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": STATE_SCHEMA_VERSION,
+            "snapshot_date": self.snapshot_date,
+            "total_constituents": self.total_constituents,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "observations": self.observations,
+            "failures": self.failures,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "CollectionState":
+        if payload.get("schema_version") != STATE_SCHEMA_VERSION:
+            raise ValueError("Versão incompatível do checkpoint de coleta.")
+        return cls(
+            snapshot_date=str(payload["snapshot_date"]),
+            total_constituents=int(payload["total_constituents"]),
+            created_at=str(payload["created_at"]),
+            updated_at=str(payload["updated_at"]),
+            observations=dict(payload.get("observations", {})),
+            failures=dict(payload.get("failures", {})),
+        )
+
+
+@dataclass(frozen=True)
+class CollectionBatchResult:
+    batch_number: int
+    total_batches: int
+    attempted: int
+    succeeded: int
+    failed: int
+    skipped: int
+    completed_total: int
+    remaining_total: int
+
+
+def _snapshot_date(records: Iterable[dict[str, str]]) -> str:
+    dates = {row.get("snapshot_date", "").strip() for row in records}
+    if len(dates) != 1 or not next(iter(dates)):
+        raise ValueError("O universo deve possuir uma única snapshot_date.")
+    return next(iter(dates))
+
+
+def load_collection_state(
+    path: str | Path,
+    *,
+    snapshot_date: str,
+    total_constituents: int,
+    now: Callable[[], str] = _utc_timestamp,
+) -> CollectionState:
+    state_path = Path(path)
+    if state_path.exists():
+        state = CollectionState.from_dict(
+            json.loads(state_path.read_text(encoding="utf-8"))
+        )
+        if (
+            state.snapshot_date != snapshot_date
+            or state.total_constituents != total_constituents
+        ):
+            raise ValueError(
+                "Checkpoint pertence a outro snapshot do universo; "
+                "use outro arquivo ou arquive o checkpoint anterior."
+            )
+        return state
+
+    timestamp = now()
+    return CollectionState(
+        snapshot_date=snapshot_date,
+        total_constituents=total_constituents,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+
+
+def write_collection_state(
+    state: CollectionState,
+    path: str | Path,
+) -> Path:
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(output.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(state.to_dict(), ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    temporary.replace(output)
+    return output
+
+
+def select_next_incomplete_batch(
+    records: Iterable[dict[str, str]],
+    *,
+    batch_size: int,
+    completed_symbols: Iterable[str],
+) -> ConstituentBatch | None:
+    rows = list(records)
+    completed = set(completed_symbols)
+    if batch_size <= 0:
+        raise ValueError("batch_size deve ser positivo.")
+    total_batches = math.ceil(len(rows) / batch_size)
+    for batch_number in range(1, total_batches + 1):
+        batch = select_constituent_batch(
+            rows,
+            batch_size=batch_size,
+            batch_number=batch_number,
+        )
+        if any(row["symbol"] not in completed for row in batch.frame_rows):
+            return batch
+    return None
+
+
+def collect_constituent_batch(
+    batch: ConstituentBatch,
+    *,
+    snapshot_date: str,
+    state_path: str | Path = DEFAULT_STATE_PATH,
+    fetcher: Callable[..., dict[str, Any]] = fetch_symbol,
+    period: str = "2y",
+    interval: str = "1d",
+    retries: int = 2,
+    now: Callable[[], str] = _utc_timestamp,
+) -> CollectionBatchResult:
+    if retries < 0:
+        raise ValueError("retries não pode ser negativo.")
+    state = load_collection_state(
+        state_path,
+        snapshot_date=snapshot_date,
+        total_constituents=batch.total_constituents,
+        now=now,
+    )
+    attempted = succeeded = failed = skipped = 0
+
+    for constituent in batch.frame_rows:
+        symbol = constituent["symbol"]
+        if symbol in state.observations:
+            skipped += 1
+            continue
+
+        attempted += 1
+        last_error: Exception | None = None
+        for _ in range(retries + 1):
+            try:
+                raw = fetcher(
+                    symbol,
+                    constituent.get("name", ""),
+                    period=period,
+                    interval=interval,
+                )
+                observation = _prepare_observation(raw)
+                observation["universe_snapshot_date"] = snapshot_date
+                observation["universe_source_symbol"] = constituent.get(
+                    "source_symbol", symbol
+                )
+                state.observations[symbol] = observation
+                state.failures.pop(symbol, None)
+                succeeded += 1
+                last_error = None
+                break
+            except Exception as exc:  # provider boundary: persist exact failure
+                last_error = exc
+
+        timestamp = now()
+        if last_error is not None:
+            previous_attempts = int(
+                state.failures.get(symbol, {}).get("attempts", 0)
+            )
+            state.failures[symbol] = {
+                "attempts": previous_attempts + retries + 1,
+                "last_error": str(last_error),
+                "updated_at": timestamp,
+            }
+            failed += 1
+        state.updated_at = timestamp
+        write_collection_state(state, state_path)
+
+    completed_total = len(state.observations)
+    return CollectionBatchResult(
+        batch_number=batch.batch_number,
+        total_batches=batch.total_batches,
+        attempted=attempted,
+        succeeded=succeeded,
+        failed=failed,
+        skipped=skipped,
+        completed_total=completed_total,
+        remaining_total=batch.total_constituents - completed_total,
+    )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Coleta um lote retomável do universo amplo de pesquisa."
+    )
+    parser.add_argument("--batch-number", type=int)
+    parser.add_argument("--state")
+    parser.add_argument("--retries", type=int)
+    args = parser.parse_args()
+
+    settings = json.loads(
+        (ROOT / "config" / "settings.json").read_text(encoding="utf-8")
+    )
+    records = load_constituent_snapshot(
+        ROOT / settings["research_universe_path"]
+    )
+    batch_size = int(settings.get("research_universe_batch_size", 25))
+    configured_state = Path(
+        args.state
+        or settings.get(
+            "research_collection_state_path",
+            "data/research_universe_collection.json",
+        )
+    )
+    state_path = (
+        configured_state
+        if configured_state.is_absolute()
+        else ROOT / configured_state
+    )
+    retries = (
+        args.retries
+        if args.retries is not None
+        else int(settings.get("research_collection_retries", 2))
+    )
+    snapshot_date = _snapshot_date(records)
+    state = load_collection_state(
+        state_path,
+        snapshot_date=snapshot_date,
+        total_constituents=len(records),
+    )
+    if args.batch_number is None:
+        batch = select_next_incomplete_batch(
+            records,
+            batch_size=batch_size,
+            completed_symbols=state.observations,
+        )
+        if batch is None:
+            print("Coleta já está completa.")
+            return
+    else:
+        batch = select_constituent_batch(
+            records,
+            batch_size=batch_size,
+            batch_number=args.batch_number,
+        )
+
+    result = collect_constituent_batch(
+        batch,
+        snapshot_date=snapshot_date,
+        state_path=state_path,
+        period=settings.get("history_period", "2y"),
+        interval=settings.get("history_interval", "1d"),
+        retries=retries,
+    )
+    print(
+        f"Lote {result.batch_number}/{result.total_batches}: "
+        f"{result.succeeded} sucesso(s), {result.failed} falha(s), "
+        f"{result.skipped} já concluído(s). "
+        f"Total: {result.completed_total}/{batch.total_constituents}."
+    )
+
+
+if __name__ == "__main__":
+    main()

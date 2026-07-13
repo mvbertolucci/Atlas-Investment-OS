@@ -115,7 +115,7 @@
 - [x] PR-028 Integrate the Market Mapper and publish universe coverage
 - [x] PR-029 Add robust market/sector ranking with absolute safeguards
 - [x] PR-030A Add a dated, reproducible 503-security research snapshot
-- [ ] PR-030B Collect the expanded universe in checkpointed batches
+- [x] PR-030B Collect the expanded universe in checkpointed batches
 - [ ] PR-031 Build an advisory model portfolio under explicit constraints
 - [ ] PR-032 Define the point-in-time historical-data contract
 - [ ] PR-033 Implement deterministic walk-forward backtesting

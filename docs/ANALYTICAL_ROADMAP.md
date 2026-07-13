@@ -24,7 +24,7 @@ promise.
 4. **PR-030A — Reproducible universe expansion (complete).** Maintain a dated,
    attributed snapshot of the broad research population, distinct from the
    personal watchlist, with deterministic batch boundaries.
-5. **PR-030B — Incremental broad-universe collection.** Collect, retry and
+5. **PR-030B — Incremental broad-universe collection (complete).** Collect, retry and
    checkpoint bounded batches without losing completed market observations.
 6. **PR-031 — Advisory model-portfolio builder.** Select eligible candidates
    and assign transparent weights under position, sector, cash and turnover
@@ -71,6 +71,10 @@ composite score. See `docs/RANKING_METHOD.md`.
 PR-030A expands the source population to a dated 503-security snapshot while
 keeping the personal watchlist unchanged. It does not yet trigger hundreds of
 provider requests; see `docs/UNIVERSE_SOURCES.md`.
+
+PR-030B adds a manually invoked, one-batch-at-a-time collector with atomic
+checkpoints, retries and safe resume. It does not alter `run_all.py`, scores or
+the watchlist; see `docs/UNIVERSE_COLLECTION.md`.
 
 ## Validation principles
 

@@ -8,7 +8,7 @@ intelligence and reports.
 
 `v1.2.0`
 
-Development baseline: `PR-030A` on release `v1.2.0`.
+Development baseline: `PR-030B` on release `v1.2.0`.
 
 ## Main capabilities
 
@@ -29,6 +29,7 @@ Development baseline: `PR-030A` on release `v1.2.0`.
 - Explicit market-universe eligibility and data-coverage contract
 - Market/sector analytical ranking with governed candidate safeguards
 - Dated 503-security research-universe snapshot, separate from the watchlist
+- Retriable, checkpointed collection of that universe in bounded batches
 
 ## Current integration status
 
@@ -52,7 +53,7 @@ universe. The Market Mapper publishes `output/universe_report.json` and the
 Dashboard market view without filtering the existing scoring pipeline.
 Eligible companies are ranked using existing Atlas scores and absolute
 Deal-Breaker safeguards in `output/ranking_report.json`.
-The broad research snapshot is ready for checkpointed batch collection; normal
+The broad research snapshot has a resumable batch collector; normal
 `run_all.py` executions still use the smaller personal watchlist.
 
 ## Quick start
