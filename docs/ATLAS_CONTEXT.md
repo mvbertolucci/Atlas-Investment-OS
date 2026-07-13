@@ -1,9 +1,11 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-019.6`
-**Declared release:** `1.2.0`
-**Validation baseline:** 271 tests passing / 87.28% production coverage
+**Last synchronized baseline:** `PR-025` (v2.0 Platform, fourth increment — SDK)
+**Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
+bump has been cut yet — that is a deliberate release decision, not implied by
+this document)
+**Validation baseline:** 312 tests passing / 87.67% production coverage
 
 ## 1. Product mission
 
@@ -111,8 +113,25 @@ Latest functional milestone:
 - PR-019.4 hit rate and score calibration metrics is complete.
 - PR-019.5 factor, rule and Deal Breaker attribution is complete.
 - PR-019.6 JSON, Excel and Morning Brief outcome reports is complete.
-- Next: define the first bounded v2.0 Platform increment before changing
-  financial semantics.
+
+**v2.0 — Platform (in progress).** Score-integrity hardening landed first
+(dead `config/weights.json` removed, `model.yaml` is the single weight source,
+governed config pinned by `tests/test_governed_config.py`, cross-sectional
+scoring documented with a `watchlist_drift` safeguard — see
+`docs/SCORING_MODEL.md` and `docs/OUTCOME_ANALYTICS.md`). Then four bounded,
+read-only Platform increments, each its own merged PR:
+
+- Dashboard contract — `dashboard/` (`docs/DASHBOARD_CONTRACT.md`).
+- Expose views — `run_all.py` emits `output/dashboard.json` (guarded by
+  `dashboard_enabled`).
+- REST API — `api/`, stdlib only, read-only (`docs/API_CONTRACT.md`).
+- Python SDK — `sdk/`, HTTP or offline-file transport (`docs/SDK.md`).
+
+Every increment is additive/read-only: no score, decision or existing output
+changed. Next candidates (not started): Scheduling, Notifications (has real
+external effect — needs explicit config/channel decision) and the AI assistant
+(needs an LLM provider/key decision). See `docs/BACKLOG.md` for the current
+checklist.
 
 ## 7. Definition of done
 
