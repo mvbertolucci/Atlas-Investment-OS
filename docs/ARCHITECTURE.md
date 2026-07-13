@@ -164,6 +164,8 @@ volatility, drawdown, turnover, estimated costs and position concentration,
 but deliberately remains separate from data acquisition and historical
 portfolio construction. Incomplete returns or unresolved delistings suppress
 the aggregate summary rather than creating survivorship-biased performance.
+Its offline CLI consumes a versioned JSON input with mandatory provenance and
+can calculate sector concentration only from explicit, complete sector maps.
 
 ### Outcome layer
 

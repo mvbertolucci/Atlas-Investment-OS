@@ -10,8 +10,13 @@ import pytest
 from backtesting.portfolio_validation import (
     AssetPeriodReturn,
     PortfolioRebalance,
+    PortfolioValidationInput,
+    PortfolioValidationManifest,
     PortfolioValidationPolicy,
+    load_portfolio_validation_input,
     load_portfolio_validation_policy,
+    main,
+    run_portfolio_validation,
     validate_portfolio,
     write_portfolio_validation_report,
 )
@@ -28,6 +33,21 @@ def _policy(**overrides) -> PortfolioValidationPolicy:
     }
     values.update(overrides)
     return PortfolioValidationPolicy(**values)
+
+
+def _manifest(**overrides) -> PortfolioValidationManifest:
+    values = {
+        "dataset_name": "Synthetic monthly validation",
+        "dataset_version": "fixture-v1",
+        "portfolio_source": "synthetic-rebalances",
+        "return_source": "synthetic-total-returns",
+        "benchmark_source": "synthetic-spy-total-returns",
+        "period_convention": "close-to-close on explicit boundaries",
+        "terminal_event_source": "synthetic-terminal-events",
+        "atlas_code_revision": "test",
+    }
+    values.update(overrides)
+    return PortfolioValidationManifest(**values)
 
 
 def _return(
@@ -119,6 +139,7 @@ def test_complete_validation_computes_return_risk_cost_and_concentration() -> No
         rebalances,
         returns,
         _policy(),
+        _manifest(),
         generated_at=datetime(2025, 3, 2, tzinfo=timezone.utc),
     )
 
@@ -144,7 +165,44 @@ def test_complete_validation_computes_return_risk_cost_and_concentration() -> No
     assert report.summary.total_estimated_cost == 0.00105
     assert report.summary.average_position_hhi == 0.5
     assert report.summary.maximum_position_weight == 0.5
+    assert report.summary.average_sector_hhi is None
+    assert report.summary.maximum_sector_weight is None
     assert report.return_sources == ("synthetic-total-return-fixture",)
+    assert report.to_dict()["manifest"] == _manifest().to_dict()
+
+
+def test_sector_concentration_is_computed_only_from_explicit_mapping() -> None:
+    rebalance = PortfolioRebalance(
+        "2025-01-01",
+        {"AAA": 0.4, "BBB": 0.3, "CCC": 0.3},
+        sectors={"AAA": "Technology", "BBB": "Technology", "CCC": "Health"},
+    )
+    report = validate_portfolio(
+        (rebalance,),
+        (
+            _return("AAA", "2025-01-01", "2025-02-01", 0.0),
+            _return("BBB", "2025-01-01", "2025-02-01", 0.0),
+            _return("CCC", "2025-01-01", "2025-02-01", 0.0),
+            _return("SPY", "2025-01-01", "2025-02-01", 0.0),
+        ),
+        _policy(transaction_cost_bps=0),
+        _manifest(),
+    )
+
+    assert report.summary is not None
+    assert report.periods[0].sector_hhi == 0.58
+    assert report.periods[0].maximum_sector_weight == 0.7
+    assert report.summary.average_sector_hhi == 0.58
+    assert report.summary.maximum_sector_weight == 0.7
+
+
+def test_sector_mapping_rejects_unknown_portfolio_symbol() -> None:
+    with pytest.raises(ValueError, match="símbolos da carteira"):
+        PortfolioRebalance(
+            "2025-01-01",
+            {"AAA": 1.0},
+            sectors={"BBB": "Technology"},
+        )
 
 
 def test_missing_return_blocks_aggregate_metrics_and_stays_visible() -> None:
@@ -155,6 +213,7 @@ def test_missing_return_blocks_aggregate_metrics_and_stays_visible() -> None:
             _return("SPY", "2025-01-01", "2025-02-01", 0.02),
         ),
         _policy(),
+        _manifest(),
     )
 
     assert report.summary is None
@@ -177,6 +236,7 @@ def test_unresolved_delisting_blocks_metrics_without_silent_drop() -> None:
             _return("SPY", "2025-01-01", "2025-02-01", -0.05),
         ),
         _policy(),
+        _manifest(),
     )
 
     assert report.summary is None
@@ -199,6 +259,7 @@ def test_zero_delisting_preserves_minus_one_floor_after_costs() -> None:
             _return("SPY", "2025-01-01", "2025-02-01", -0.10),
         ),
         _policy(),
+        _manifest(),
     )
 
     assert report.summary is not None
@@ -216,6 +277,7 @@ def test_benchmark_total_loss_makes_relative_return_undefined() -> None:
             _return("SPY", "2025-01-01", "2025-02-01", -1.0),
         ),
         _policy(transaction_cost_bps=0),
+        _manifest(),
     )
 
     assert report.summary is not None
@@ -237,6 +299,7 @@ def test_return_assumption_mismatch_is_explicit(overrides, reason) -> None:
             _return("SPY", "2025-01-01", "2025-02-01", 0.02),
         ),
         _policy(),
+        _manifest(),
     )
 
     assert report.summary is None
@@ -255,6 +318,7 @@ def test_incomplete_period_prevents_later_turnover_reconstruction() -> None:
             _return("SPY", "2025-02-01", "2025-03-01", 0.01),
         ),
         _policy(),
+        _manifest(),
     )
 
     assert report.summary is None
@@ -267,10 +331,12 @@ def test_incomplete_period_prevents_later_turnover_reconstruction() -> None:
 def test_validation_rejects_ambiguous_period_structure() -> None:
     rebalance = PortfolioRebalance("2025-01-01", {"AAA": 1.0})
     with pytest.raises(ValueError, match="exatamente um período"):
-        validate_portfolio((rebalance,), (), _policy())
+        validate_portfolio((rebalance,), (), _policy(), _manifest())
     duplicate = _return("AAA", "2025-01-01", "2025-02-01", 0.0)
     with pytest.raises(ValueError, match="duplicado"):
-        validate_portfolio((rebalance,), (duplicate, duplicate), _policy())
+        validate_portfolio(
+            (rebalance,), (duplicate, duplicate), _policy(), _manifest()
+        )
 
 
 def test_report_serialization_is_deterministic_and_advisory(tmp_path: Path) -> None:
@@ -282,6 +348,7 @@ def test_report_serialization_is_deterministic_and_advisory(tmp_path: Path) -> N
             _return("SPY", "2025-01-01", "2025-02-01", 0.05),
         ),
         _policy(),
+        _manifest(),
         generated_at=generated_at,
     )
     path = write_portfolio_validation_report(report, tmp_path / "validation.json")
@@ -292,3 +359,101 @@ def test_report_serialization_is_deterministic_and_advisory(tmp_path: Path) -> N
     assert payload["advisory_only"] is True
     assert payload["status"] == "complete"
     assert "not a performance promise" in payload["performance_disclaimer"]
+
+
+def _input_contract() -> PortfolioValidationInput:
+    return PortfolioValidationInput(
+        manifest=_manifest(),
+        rebalances=(
+            PortfolioRebalance(
+                "2025-01-01",
+                {"AAA": 1.0},
+                sectors={"AAA": "Technology"},
+            ),
+        ),
+        returns=(
+            _return("AAA", "2025-01-01", "2025-02-01", 0.10),
+            _return("SPY", "2025-01-01", "2025-02-01", 0.05),
+        ),
+    )
+
+
+def test_manifest_and_versioned_input_are_required_and_roundtrip(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="dataset_name"):
+        _manifest(dataset_name="")
+    contract = _input_contract()
+    path = tmp_path / "input.json"
+    path.write_text(json.dumps(contract.to_dict()), encoding="utf-8")
+
+    loaded = load_portfolio_validation_input(path)
+
+    assert loaded == contract
+    invalid = contract.to_dict()
+    invalid["schema_version"] = 99
+    path.write_text(json.dumps(invalid), encoding="utf-8")
+    with pytest.raises(ValueError, match="schema_version"):
+        load_portfolio_validation_input(path)
+
+
+def test_versioned_example_input_is_valid_and_clearly_synthetic() -> None:
+    contract = load_portfolio_validation_input(
+        "config/portfolio_validation_input.example.json"
+    )
+
+    assert contract.schema_version == 1
+    assert "Synthetic" in contract.manifest.dataset_name
+    assert contract.rebalances[0].sectors == {
+        "AAA": "Technology",
+        "BBB": "Health",
+    }
+
+
+def test_file_runner_writes_reproducible_report(tmp_path: Path) -> None:
+    input_path = tmp_path / "input.json"
+    output_path = tmp_path / "report.json"
+    input_path.write_text(
+        json.dumps(_input_contract().to_dict()),
+        encoding="utf-8",
+    )
+    generated_at = datetime(2025, 2, 2, tzinfo=timezone.utc)
+
+    report = run_portfolio_validation(
+        input_path=input_path,
+        policy_path="config/portfolio_validation.yaml",
+        output_path=output_path,
+        generated_at=generated_at,
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload == report.to_dict()
+    assert payload["input_schema_version"] == 1
+    assert payload["manifest"]["dataset_version"] == "fixture-v1"
+    assert payload["summary"]["average_sector_hhi"] == 1.0
+
+
+def test_cli_runs_only_from_explicit_local_input(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    input_path = tmp_path / "input.json"
+    output_path = tmp_path / "report.json"
+    input_path.write_text(
+        json.dumps(_input_contract().to_dict()),
+        encoding="utf-8",
+    )
+
+    main(
+        [
+            "--input",
+            str(input_path),
+            "--policy",
+            "config/portfolio_validation.yaml",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    assert output_path.exists()
+    assert "complete" in capsys.readouterr().out

@@ -13,6 +13,27 @@ complete real return dataset remain separate work. Factor contribution also
 remains open until historical factor exposures and subsequent returns can be
 joined without look-ahead bias.
 
+## Run from a versioned local input
+
+The runner performs no provider call. It reads one explicit JSON input and the
+governed policy, then writes one report:
+
+```powershell
+.\.venv\Scripts\python.exe -m backtesting.portfolio_validation `
+  --input path\to\validation_input.json `
+  --output output\portfolio_validation_report.json
+```
+
+`--policy` may override `config/portfolio_validation.yaml`. The input schema is
+pinned as version 1; `config/portfolio_validation_input.example.json` is a
+loadable, fully synthetic shape example only. Its symbols and returns are not
+research evidence and must never be reported as Atlas performance.
+
+Every input requires a manifest naming the dataset/version, portfolio source,
+return source, benchmark source, period convention, terminal-event source and
+tested Atlas revision. Each return row still retains its own source so mixed
+or transformed inputs remain visible in the output.
+
 ## Governed assumptions
 
 `config/portfolio_validation.yaml` pins the initial research assumptions:
@@ -31,7 +52,9 @@ visible in the policy and report.
 ## Input contract
 
 - `PortfolioRebalance` provides one effective date and positive target weights.
-  Cash is implicit as `1 - sum(target_weights)`.
+  Cash is implicit as `1 - sum(target_weights)`. An optional explicit sector
+  mapping enables sector concentration; absent or partial sector coverage
+  produces `null` sector metrics instead of an invented classification.
 - `AssetPeriodReturn` provides one attributed total return for a half-open
   evaluation period, including source, currency, dividend treatment and any
   terminal-event treatment.
@@ -56,6 +79,8 @@ For each complete period, Atlas reports:
 - one-way turnover, including the initial move from cash;
 - estimated transaction cost;
 - position Herfindahl-Hirschman concentration and maximum position weight;
+- sector HHI and maximum sector weight when every position has an explicit
+  sector;
 - resolved terminal events used in the calculation.
 
 The complete-run summary compounds portfolio and benchmark returns and reports
@@ -64,8 +89,9 @@ drawdown, average turnover, total estimated cost and concentration summaries.
 Costs are removed proportionally at rebalance before the period return, which
 preserves the economic -100% return floor.
 
-Every JSON report is advisory-only, includes a performance disclaimer, lists
-all return sources and states whether validation is `complete` or `incomplete`.
+Every JSON report is advisory-only, includes the input schema version,
+manifest, performance disclaimer and row-level return sources, and states
+whether validation is `complete` or `incomplete`.
 
 ## Remaining PR-034 work
 

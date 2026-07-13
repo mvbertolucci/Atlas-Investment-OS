@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import statistics
@@ -14,6 +15,7 @@ from backtesting.point_in_time import DELISTING_TREATMENTS
 
 
 CASH_SYMBOL = "CASH"
+INPUT_SCHEMA_VERSION = 1
 PERFORMANCE_DISCLAIMER = (
     "Historical validation is research evidence, not a performance promise. "
     "Results depend on the stated return, benchmark, cost and terminal-event "
@@ -109,9 +111,44 @@ class PortfolioValidationPolicy:
 
 
 @dataclass(frozen=True)
+class PortfolioValidationManifest:
+    dataset_name: str
+    dataset_version: str
+    portfolio_source: str
+    return_source: str
+    benchmark_source: str
+    period_convention: str
+    terminal_event_source: str
+    atlas_code_revision: str
+
+    def __post_init__(self) -> None:
+        for field_name in self.__dataclass_fields__:
+            object.__setattr__(
+                self,
+                field_name,
+                _text(getattr(self, field_name), field_name),
+            )
+
+    @classmethod
+    def from_dict(
+        cls, data: Mapping[str, Any]
+    ) -> "PortfolioValidationManifest":
+        if not isinstance(data, Mapping):
+            raise TypeError("manifest deve ser um objeto.")
+        return cls(**dict(data))
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            field_name: getattr(self, field_name)
+            for field_name in self.__dataclass_fields__
+        }
+
+
+@dataclass(frozen=True)
 class PortfolioRebalance:
     effective_on: date | datetime | str
     target_weights: Mapping[str, float]
+    sectors: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         effective_on = _date(self.effective_on, "effective_on")
@@ -130,12 +167,34 @@ class PortfolioRebalance:
             raise ValueError("target_weights não pode ser vazio.")
         if sum(weights.values()) > 1 + 1e-12:
             raise ValueError("A soma de target_weights não pode exceder 1.")
+        sectors: dict[str, str] = {}
+        for raw_symbol, raw_sector in self.sectors.items():
+            symbol = _text(raw_symbol, "sector symbol").upper()
+            if symbol not in weights:
+                raise ValueError("sectors só pode conter símbolos da carteira.")
+            if symbol in sectors:
+                raise ValueError("Símbolo duplicado em sectors.")
+            sectors[symbol] = _text(raw_sector, f"sectors[{symbol}]")
         object.__setattr__(self, "effective_on", effective_on)
         object.__setattr__(self, "target_weights", dict(sorted(weights.items())))
+        object.__setattr__(self, "sectors", dict(sorted(sectors.items())))
 
     @property
     def cash_weight(self) -> float:
         return max(0.0, 1.0 - sum(self.target_weights.values()))
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "PortfolioRebalance":
+        if not isinstance(data, Mapping):
+            raise TypeError("rebalance deve ser um objeto.")
+        return cls(**dict(data))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "effective_on": self.effective_on.isoformat(),
+            "target_weights": dict(self.target_weights),
+            "sectors": dict(self.sectors),
+        }
 
 
 @dataclass(frozen=True)
@@ -190,6 +249,24 @@ class AssetPeriodReturn:
     def identity(self) -> tuple[str, date, date]:
         return (self.symbol, self.period_start, self.period_end)
 
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "AssetPeriodReturn":
+        if not isinstance(data, Mapping):
+            raise TypeError("return deve ser um objeto.")
+        return cls(**dict(data))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "symbol": self.symbol,
+            "period_start": self.period_start.isoformat(),
+            "period_end": self.period_end.isoformat(),
+            "total_return": self.total_return,
+            "source": self.source,
+            "currency": self.currency,
+            "dividends_included": self.dividends_included,
+            "terminal_treatment": self.terminal_treatment,
+        }
+
 
 @dataclass(frozen=True)
 class ValidationPeriod:
@@ -202,6 +279,8 @@ class ValidationPeriod:
     estimated_cost: float
     position_hhi: float
     maximum_position_weight: float
+    sector_hhi: float | None = None
+    maximum_sector_weight: float | None = None
     terminal_events: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
@@ -216,6 +295,8 @@ class ValidationPeriod:
             "estimated_cost": self.estimated_cost,
             "position_hhi": self.position_hhi,
             "maximum_position_weight": self.maximum_position_weight,
+            "sector_hhi": self.sector_hhi,
+            "maximum_sector_weight": self.maximum_sector_weight,
             "terminal_events": list(self.terminal_events),
         }
 
@@ -246,6 +327,8 @@ class ValidationSummary:
     total_estimated_cost: float
     average_position_hhi: float
     maximum_position_weight: float
+    average_sector_hhi: float | None
+    maximum_sector_weight: float | None
 
     def to_dict(self) -> dict[str, float | None]:
         return dict(self.__dict__)
@@ -253,6 +336,7 @@ class ValidationSummary:
 
 @dataclass(frozen=True)
 class PortfolioValidationReport:
+    manifest: PortfolioValidationManifest
     policy: PortfolioValidationPolicy
     periods: tuple[ValidationPeriod, ...]
     incomplete_periods: tuple[IncompleteValidationPeriod, ...]
@@ -262,12 +346,32 @@ class PortfolioValidationReport:
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.manifest, PortfolioValidationManifest):
+            raise TypeError("manifest exige PortfolioValidationManifest.")
+        if not isinstance(self.policy, PortfolioValidationPolicy):
+            raise TypeError("policy exige PortfolioValidationPolicy.")
+        if (
+            not isinstance(self.generated_at, datetime)
+            or self.generated_at.tzinfo is None
+            or self.generated_at.utcoffset() is None
+        ):
+            raise ValueError("generated_at exige timestamp com fuso horário.")
+        object.__setattr__(
+            self, "generated_at", self.generated_at.astimezone(timezone.utc)
+        )
+        object.__setattr__(
+            self, "return_sources", tuple(sorted(set(self.return_sources)))
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "generated_at": self.generated_at.isoformat(timespec="seconds"),
             "advisory_only": True,
             "performance_disclaimer": PERFORMANCE_DISCLAIMER,
             "status": "complete" if self.summary is not None else "incomplete",
+            "input_schema_version": INPUT_SCHEMA_VERSION,
+            "manifest": self.manifest.to_dict(),
             "policy": self.policy.to_dict(),
             "return_sources": list(self.return_sources),
             "summary": self.summary.to_dict() if self.summary else None,
@@ -278,11 +382,77 @@ class PortfolioValidationReport:
         }
 
 
+@dataclass(frozen=True)
+class PortfolioValidationInput:
+    manifest: PortfolioValidationManifest
+    rebalances: tuple[PortfolioRebalance, ...]
+    returns: tuple[AssetPeriodReturn, ...]
+    schema_version: int = INPUT_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.schema_version, int)
+            or isinstance(self.schema_version, bool)
+            or self.schema_version != INPUT_SCHEMA_VERSION
+        ):
+            raise ValueError(
+                f"schema_version deve ser {INPUT_SCHEMA_VERSION}."
+            )
+        if not isinstance(self.manifest, PortfolioValidationManifest):
+            raise TypeError("manifest exige PortfolioValidationManifest.")
+        if not self.rebalances:
+            raise ValueError("rebalances não pode ser vazio.")
+        if not all(isinstance(item, PortfolioRebalance) for item in self.rebalances):
+            raise TypeError("rebalances exige PortfolioRebalance.")
+        if not all(isinstance(item, AssetPeriodReturn) for item in self.returns):
+            raise TypeError("returns exige AssetPeriodReturn.")
+        object.__setattr__(self, "schema_version", INPUT_SCHEMA_VERSION)
+        object.__setattr__(self, "rebalances", tuple(self.rebalances))
+        object.__setattr__(self, "returns", tuple(self.returns))
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "PortfolioValidationInput":
+        if not isinstance(data, Mapping):
+            raise TypeError("O input de validação deve ser um objeto.")
+        schema_version = data.get("schema_version", 0)
+        raw_rebalances = data.get("rebalances")
+        raw_returns = data.get("returns")
+        if not isinstance(raw_rebalances, list):
+            raise TypeError("rebalances deve ser uma lista.")
+        if not isinstance(raw_returns, list):
+            raise TypeError("returns deve ser uma lista.")
+        return cls(
+            schema_version=schema_version,
+            manifest=PortfolioValidationManifest.from_dict(data.get("manifest")),
+            rebalances=tuple(
+                PortfolioRebalance.from_dict(item) for item in raw_rebalances
+            ),
+            returns=tuple(
+                AssetPeriodReturn.from_dict(item) for item in raw_returns
+            ),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "manifest": self.manifest.to_dict(),
+            "rebalances": [item.to_dict() for item in self.rebalances],
+            "returns": [item.to_dict() for item in self.returns],
+        }
+
+
 def load_portfolio_validation_policy(
     path: str | Path,
 ) -> PortfolioValidationPolicy:
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     return PortfolioValidationPolicy.from_dict(data)
+
+
+def load_portfolio_validation_input(
+    path: str | Path,
+) -> PortfolioValidationInput:
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    return PortfolioValidationInput.from_dict(data)
 
 
 def _turnover(
@@ -336,6 +506,15 @@ def _summary(
         if benchmark_total <= -1
         else (1.0 + total_return) / (1.0 + benchmark_total) - 1.0
     )
+    sector_hhi_values = [
+        item.sector_hhi for item in periods if item.sector_hhi is not None
+    ]
+    maximum_sector_values = [
+        item.maximum_sector_weight
+        for item in periods
+        if item.maximum_sector_weight is not None
+    ]
+    complete_sector_coverage = len(sector_hhi_values) == len(periods)
     return ValidationSummary(
         total_return=_rounded(total_return),
         benchmark_total_return=_rounded(benchmark_total),
@@ -351,6 +530,16 @@ def _summary(
         maximum_position_weight=_rounded(
             max(item.maximum_position_weight for item in periods)
         ),
+        average_sector_hhi=(
+            _rounded(statistics.mean(sector_hhi_values))
+            if complete_sector_coverage
+            else None
+        ),
+        maximum_sector_weight=(
+            _rounded(max(maximum_sector_values))
+            if complete_sector_coverage
+            else None
+        ),
     )
 
 
@@ -358,11 +547,14 @@ def validate_portfolio(
     rebalances: Iterable[PortfolioRebalance],
     returns: Iterable[AssetPeriodReturn],
     policy: PortfolioValidationPolicy,
+    manifest: PortfolioValidationManifest,
     *,
     generated_at: datetime | None = None,
 ) -> PortfolioValidationReport:
     if not isinstance(policy, PortfolioValidationPolicy):
         raise TypeError("validate_portfolio exige PortfolioValidationPolicy.")
+    if not isinstance(manifest, PortfolioValidationManifest):
+        raise TypeError("validate_portfolio exige PortfolioValidationManifest.")
     rebalance_rows = tuple(rebalances)
     if not rebalance_rows:
         raise ValueError("rebalances não pode ser vazio.")
@@ -459,6 +651,11 @@ def validate_portfolio(
         net_return = (1.0 - estimated_cost) * (1.0 + gross_return) - 1.0
         benchmark_return = float(benchmark.total_return)
         position_weights = tuple(rebalance.target_weights.values())
+        sector_weights: dict[str, float] = {}
+        if len(rebalance.sectors) == len(rebalance.target_weights):
+            for symbol, weight in rebalance.target_weights.items():
+                sector = rebalance.sectors[symbol]
+                sector_weights[sector] = sector_weights.get(sector, 0.0) + weight
         periods.append(
             ValidationPeriod(
                 period_start=period_start,
@@ -470,6 +667,16 @@ def validate_portfolio(
                 estimated_cost=_rounded(estimated_cost),
                 position_hhi=_rounded(sum(weight * weight for weight in position_weights)),
                 maximum_position_weight=_rounded(max(position_weights)),
+                sector_hhi=(
+                    _rounded(sum(weight * weight for weight in sector_weights.values()))
+                    if sector_weights
+                    else None
+                ),
+                maximum_sector_weight=(
+                    _rounded(max(sector_weights.values()))
+                    if sector_weights
+                    else None
+                ),
                 terminal_events=tuple(
                     f"{symbol}:{rows[symbol].terminal_treatment}"
                     for symbol in sorted(rebalance.target_weights)
@@ -497,6 +704,7 @@ def validate_portfolio(
         else None
     )
     return PortfolioValidationReport(
+        manifest=manifest,
         policy=policy,
         periods=period_tuple,
         incomplete_periods=incomplete_tuple,
@@ -519,3 +727,56 @@ def write_portfolio_validation_report(
         encoding="utf-8",
     )
     return output
+
+
+def run_portfolio_validation(
+    *,
+    input_path: str | Path,
+    policy_path: str | Path,
+    output_path: str | Path,
+    generated_at: datetime | None = None,
+) -> PortfolioValidationReport:
+    validation_input = load_portfolio_validation_input(input_path)
+    report = validate_portfolio(
+        validation_input.rebalances,
+        validation_input.returns,
+        load_portfolio_validation_policy(policy_path),
+        validation_input.manifest,
+        generated_at=generated_at,
+    )
+    write_portfolio_validation_report(report, output_path)
+    return report
+
+
+def main(argv: Iterable[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Valida uma sequência explícita de carteiras e retornos, sem "
+            "buscar dados de mercado."
+        )
+    )
+    parser.add_argument("--input", required=True)
+    parser.add_argument(
+        "--policy",
+        default=str(
+            Path(__file__).resolve().parents[1]
+            / "config"
+            / "portfolio_validation.yaml"
+        ),
+    )
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    report = run_portfolio_validation(
+        input_path=args.input,
+        policy_path=args.policy,
+        output_path=args.output,
+    )
+    print(
+        f"Validação de portfólio: {report.to_dict()['status']}; "
+        f"{len(report.periods)} período(s) completo(s); "
+        f"{len(report.incomplete_periods)} incompleto(s)."
+    )
+
+
+if __name__ == "__main__":
+    main()

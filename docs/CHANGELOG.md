@@ -13,6 +13,12 @@
 - Machine-readable incomplete periods. Missing returns, assumption mismatches
   or unresolved delistings suppress aggregate metrics instead of silently
   biasing the result.
+- A schema-versioned, offline JSON runner and CLI with mandatory dataset,
+  portfolio, return, benchmark, terminal-event and code-revision provenance.
+- Sector HHI and maximum sector weight when every position has an explicit
+  sector; incomplete sector coverage remains `null`, never imputed.
+- A loadable synthetic input example that documents the schema without
+  presenting fabricated returns as research evidence.
 
 ### Preserved
 
@@ -22,10 +28,10 @@
 
 ### Validation
 
-- 13 deterministic tests cover calculations, costs, drift-aware turnover,
+- 19 deterministic tests cover calculations, costs, drift-aware turnover,
   terminal events, missing evidence, assumptions and report serialization.
-- 542 automated tests passed.
-- 88.49% production coverage overall; the new module has 90% direct coverage.
+- 548 automated tests passed.
+- 88.48% production coverage overall; the module has 90% direct coverage.
 
 ## Collector advancement after permanent provider failures
 

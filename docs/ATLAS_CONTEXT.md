@@ -9,7 +9,7 @@ plus the deterministic PR-034 portfolio-validation core.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 542 tests passing / 88.49% production coverage
+**Validation baseline:** 548 tests passing / 88.48% production coverage
 
 ## 1. Product mission
 
@@ -199,8 +199,10 @@ performance result.** `backtesting/portfolio_validation.py` consumes explicit
 dated weights and attributed total returns and calculates net/benchmark return,
 volatility, drawdown, turnover, estimated costs and position concentration.
 Missing returns or unresolved delistings suppress the aggregate summary. The
-walk-forward-to-portfolio adapter, complete total-return evidence, factor
-contribution and broad real run remain open; see
+versioned offline runner requires explicit provenance and also reports sector
+concentration when every sector is supplied. The walk-forward-to-portfolio
+adapter, complete total-return evidence, factor contribution and broad real
+run remain open; see
 `docs/PORTFOLIO_VALIDATION.md`.
 
 **Real progress on (1), now end to end:** `backtesting/sec_edgar.py` +

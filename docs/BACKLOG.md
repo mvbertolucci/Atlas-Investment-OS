@@ -217,6 +217,8 @@
       - [x] Deterministic validation core for total/benchmark return,
         volatility, drawdown, turnover, explicit costs and position
         concentration; incomplete periods suppress aggregate metrics
+      - [x] Versioned local JSON runner with mandatory provenance, CLI and
+        explicit sector-concentration coverage
       - [ ] Build dated model portfolios from walk-forward decisions
       - [ ] Acquire complete total-return/benchmark/delisting evidence
       - [ ] Add sector and factor contribution without look-ahead
