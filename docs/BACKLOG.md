@@ -153,6 +153,22 @@ checkpoint and batch size throughout -- the S&P 500 screener is unchanged.
 - [ ] Run ranking / `portfolio.model_portfolio` over the broad-market
       collection once it completes (deliberately deferred)
 
+### Third screener: US-listed ADRs
+
+Same USD 300 million floor as the broad-market screener. No new data
+source or collection -- ADRs already trade on US exchanges, so they are
+already in the broad-market collection; what excluded them was the country
+policy, not missing data.
+
+- [x] `UniversePolicy` gains `excluded_countries` and an `allowed_countries`
+      `"*"` wildcard (additive, backward-compatible; pinned by a governance
+      test that the two existing screeners are unaffected)
+- [x] Governed policy `config/universe_adr.yaml`: same USD 300 million floor,
+      `allowed_countries: ["*"]`, `excluded_countries: [United States]`
+- [ ] Run ranking / `portfolio.model_portfolio` under this policy against
+      the broad-market collection once collected (deliberately deferred,
+      same as the broad-market screener's own ranking step)
+
 ### Deferred platform effects
 
 - [ ] Scheduling — resume after the analytical method is validated

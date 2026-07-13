@@ -19,6 +19,7 @@
   "research_universe_market_path": "config/research_universe_market.csv",
   "research_universe_market_batch_size": 25,
   "research_collection_market_state_path": "data/research_universe_collection_market.json",
+  "universe_adr_policy_path": "config/universe_adr.yaml",
   "ranking_enabled": true,
   "ranking_policy_path": "config/ranking.yaml",
   "outcome_analytics_enabled": true,

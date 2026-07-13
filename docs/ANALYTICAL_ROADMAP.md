@@ -71,6 +71,17 @@ S&P 500 screener and its snapshot/checkpoint are untouched. See
 governed-config rationale. Collection has not been run yet; ranking over this
 broader universe is a deliberate follow-up.
 
+## Third screener: US-listed ADRs
+
+`config/universe_adr.yaml` covers foreign-domiciled companies listed on a US
+exchange in USD (same USD 300 million floor as the broad-market screener).
+ADRs already appear in the broad-market collection above -- what excluded
+them was the `allowed_countries: [United States]` policy, not a missing data
+source. `UniversePolicy` gained an `excluded_countries` field and a `"*"`
+wildcard for `allowed_countries`, additive and backward-compatible (pinned by
+a governance test). This screener is evaluated against the same broad-market
+collection, no separate collection process. See `docs/UNIVERSE_SOURCES.md`.
+
 ## PR-027 boundary
 
 PR-027 added only a domain contract and pure evaluation over an existing

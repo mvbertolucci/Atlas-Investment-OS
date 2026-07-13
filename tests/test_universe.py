@@ -41,6 +41,7 @@ def test_load_canonical_universe_policy() -> None:
         "allowed_quote_types": ["EQUITY"],
         "allowed_currencies": ["USD"],
         "allowed_countries": ["United States"],
+        "excluded_countries": [],
         "min_market_cap": 1_000_000_000.0,
         "min_price": 5.0,
         "min_volume": 100_000.0,
@@ -70,6 +71,23 @@ def test_load_canonical_universe_market_policy() -> None:
     assert policy.min_market_cap == 300_000_000.0
     assert policy.min_price == 5.0
     assert policy.min_volume == 100_000.0
+    assert policy.allowed_quote_types == ("EQUITY",)
+
+
+def test_load_canonical_universe_adr_policy() -> None:
+    """
+    Terceiro screener (ADRs, sobre a mesma coleta de mercado amplo já
+    colectada -- ver docs/UNIVERSE_SOURCES.md): mesmo piso de USD 300
+    milhões do screener de mercado amplo, mas domicílio dos EUA excluído
+    em vez de exigido -- é justamente o que define um ADR.
+    """
+    policy = load_universe_policy(Path("config/universe_adr.yaml"))
+
+    assert policy.name == "Atlas US-Listed ADRs"
+    assert policy.allowed_countries == ("*",)
+    assert policy.excluded_countries == ("United States",)
+    assert policy.min_market_cap == 300_000_000.0
+    assert policy.allowed_currencies == ("USD",)
     assert policy.allowed_quote_types == ("EQUITY",)
 
 
@@ -121,6 +139,65 @@ def test_filters_are_additive_and_auditable() -> None:
         "PRICE_BELOW_MINIMUM",
         "VOLUME_BELOW_MINIMUM",
     }
+
+
+def _adr_policy() -> UniversePolicy:
+    """
+    Perfil de elegibilidade equivalente ao de um screener de ADR: qualquer
+    país é aceito na inclusão (wildcard "*"), mas o domicílio dos EUA é
+    explicitamente excluído -- só sobra empresa estrangeira negociada nos
+    EUA em USD.
+    """
+    return UniversePolicy(
+        name="ADR Test Universe",
+        benchmark="US-Listed ADRs",
+        rebalance_frequency="monthly",
+        allowed_countries=("*",),
+        excluded_countries=("United States",),
+    )
+
+
+def test_wildcard_country_allows_any_non_excluded_country() -> None:
+    foreign_row = _eligible_row("FGN")
+    foreign_row["country"] = "Argentina"
+
+    member = evaluate_universe(
+        pd.DataFrame([foreign_row]),
+        _adr_policy(),
+    ).members[0]
+
+    assert member.eligible is True
+    assert "UNSUPPORTED_COUNTRY" not in member.exclusion_reasons
+    assert "EXCLUDED_COUNTRY" not in member.exclusion_reasons
+
+
+def test_wildcard_country_still_excludes_named_country() -> None:
+    us_row = _eligible_row("USX")  # country stays "United States"
+
+    member = evaluate_universe(
+        pd.DataFrame([us_row]),
+        _adr_policy(),
+    ).members[0]
+
+    assert member.eligible is False
+    assert member.exclusion_reasons == ("EXCLUDED_COUNTRY",)
+
+
+def test_default_allow_list_behavior_is_unchanged_by_the_new_field() -> None:
+    """
+    Sem wildcard e sem excluded_countries, o comportamento das duas
+    politicas existentes (S&P 500 e mercado amplo) continua identico.
+    """
+    foreign_row = _eligible_row("FGN")
+    foreign_row["country"] = "Argentina"
+
+    member = evaluate_universe(
+        pd.DataFrame([foreign_row]),
+        _policy(),
+    ).members[0]
+
+    assert member.eligible is False
+    assert member.exclusion_reasons == ("UNSUPPORTED_COUNTRY",)
 
 
 def test_missing_fields_reduce_coverage_and_report_reason() -> None:

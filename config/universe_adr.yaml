@@ -1,0 +1,23 @@
+name: Atlas US-Listed ADRs
+benchmark: US-Listed ADRs (ex-US domiciled, USD-denominated)
+rebalance_frequency: monthly
+allowed_quote_types:
+  - EQUITY
+allowed_currencies:
+  - USD
+allowed_countries:
+  - "*"
+excluded_countries:
+  - United States
+min_market_cap: 300000000
+min_price: 5
+min_volume: 100000
+required_fields:
+  - symbol
+  - quote_type
+  - currency
+  - country
+  - sector
+  - price
+  - market_cap
+  - volume

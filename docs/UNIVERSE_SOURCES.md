@@ -112,3 +112,45 @@ This screener's collection has not been run yet as of this writing --
 no snapshot or checkpoint file exists. Running the ranking/model-portfolio step
 over this broader universe is a deliberate follow-up, not part of this
 increment.
+
+## Third screener: US-listed ADRs
+
+`config/universe_adr.yaml` is a third, independent eligibility policy for
+American Depositary Receipts -- foreign-domiciled companies whose shares
+trade on a US exchange in USD. Same minimum entry parameter as the broad
+market screener (USD 300 million market cap, same price/volume floors).
+
+### Why this needed a small model change, not a new data source
+
+ADRs already trade on NASDAQ/NYSE/NYSE American/Arca/Cboe, so they are
+already present in the broad-market collection above -- there is no separate
+constituent source to fetch. What excluded them until now was the eligibility
+*policy*: both the S&P 500 and broad-market screeners require
+`allowed_countries: [United States]`, and a real ADR's Yahoo-reported `country`
+is the foreign domicile (e.g. `Argentina`, `Germany`), not `United States` --
+so they were always structurally excluded by that check, regardless of
+market cap.
+
+`allowed_countries` was (and remains) a strict allow-list -- there was no way
+to express "any country except X". `UniversePolicy` gained an
+`excluded_countries` field, and `allowed_countries` accepts an explicit `"*"`
+wildcard entry (any country passes the inclusion check) which is then
+filtered by `excluded_countries`. This is additive and backward-compatible:
+neither the S&P 500 nor the broad-market policy uses `"*"` or
+`excluded_countries`, so their behavior is unchanged (a governance test pins
+this: `test_default_allow_list_behavior_is_unchanged_by_the_new_field`).
+
+`config/universe_adr.yaml` sets `allowed_countries: ["*"]` and
+`excluded_countries: [United States]` -- any foreign domicile is eligible,
+US domicile explicitly is not.
+
+### No separate collection
+
+This screener is evaluated against the **same** broad-market collection
+(`config/research_universe_market.csv` / its checkpoint) once that has been
+collected -- just a different eligibility lens (`evaluate_universe`/
+`rank_companies` applied with `config/universe_adr.yaml` instead of
+`config/universe_market.yaml`). There is nothing to collect separately, and no
+`--adr` flag on the collector. Wiring an actual ranking/model-portfolio run
+under this policy is a deliberate follow-up, matching the broad-market
+screener's own deferred ranking step.

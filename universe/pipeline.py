@@ -56,6 +56,8 @@ def evaluate_universe(
     allowed_quote_types = _normalized_set(policy.allowed_quote_types)
     allowed_currencies = _normalized_set(policy.allowed_currencies)
     allowed_countries = _normalized_set(policy.allowed_countries)
+    excluded_countries = _normalized_set(policy.excluded_countries)
+    any_country_allowed = "*" in allowed_countries
     symbols = frame.get("symbol", pd.Series(dtype=object)).map(_text).str.upper()
     duplicated_symbols = set(symbols[symbols.duplicated(keep=False)]) - {""}
     members: list[UniverseMember] = []
@@ -93,8 +95,12 @@ def evaluate_universe(
             reasons.append("UNSUPPORTED_QUOTE_TYPE")
         if currency and currency.casefold() not in allowed_currencies:
             reasons.append("UNSUPPORTED_CURRENCY")
-        if country and country.casefold() not in allowed_countries:
-            reasons.append("UNSUPPORTED_COUNTRY")
+        if country:
+            country_cf = country.casefold()
+            if not any_country_allowed and country_cf not in allowed_countries:
+                reasons.append("UNSUPPORTED_COUNTRY")
+            elif country_cf in excluded_countries:
+                reasons.append("EXCLUDED_COUNTRY")
         if market_cap is not None and market_cap < policy.min_market_cap:
             reasons.append("MARKET_CAP_BELOW_MINIMUM")
         if price is not None and price < policy.min_price:
