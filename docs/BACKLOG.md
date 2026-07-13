@@ -214,6 +214,34 @@
 - [ ] Run the walk-forward engine against the resulting real dataset once
       it is usable end to end
 - [ ] PR-034 Add portfolio performance and risk validation
+      - [x] Deterministic validation core for total/benchmark return,
+        volatility, drawdown, turnover, explicit costs and position
+        concentration; incomplete periods suppress aggregate metrics
+      - [x] Versioned local JSON runner with mandatory provenance, CLI and
+        explicit sector-concentration coverage
+      - [x] Build point-in-time model-portfolio targets from the same governed
+        scoring/universe/ranking path; retain coverage gaps and config hashes
+      - [x] Govern next-session-open execution and convert targets to dated
+        rebalances only when every attributed opening price is present
+      - [x] Add a versioned observed-session/open-price artifact and pure
+        Yahoo-bar adapter with DST and split-unit handling
+      - [x] Add a versioned, source-attributed dividend-inclusive
+        total-return adapter (`backtesting/total_return_evidence.py`):
+        compounds `(Close+Dividend)/previous_close` day over day from
+        already-acquired Yahoo bars into the `AssetPeriodReturn` rows the
+        validation runner already consumes; works for both holdings and the
+        benchmark; a `DelistingRecord` overrides only the one period
+        containing `last_trade_on` (`zero` forces -100%, `cash` combines the
+        compounded multiplier with `cash_proceeds`, `successor`/`unresolved`
+        are both reported `unresolved` -- never a fabricated successor
+        value); missing evidence is omitted, never invented
+      - [ ] Run bounded real acquisition for reference/selected-symbol bars
+      - [ ] Acquire real `DelistingRecord` terminal-event evidence and run
+        the new total-return adapter against a broad real dataset (the
+        adapter and its versioned artifact are implemented; no broad real
+        artifact is committed or collected yet)
+      - [ ] Add sector and factor contribution without look-ahead
+      - [ ] Run broad real validation and report coverage
 - [ ] PR-035 Track a prospective shadow portfolio
 - [ ] PR-036 Calibrate only from versioned out-of-sample evidence
 
@@ -231,6 +259,10 @@ checkpoint and batch size throughout -- the S&P 500 screener is unchanged.
       billion, which is really a mid-cap-and-up floor)
 - [x] `universe.collector` gains `--market` (own snapshot/state/batch-size,
       via `config/settings.json`) and `--snapshot` overrides
+- [x] Default batch advancement honors the configured retry budget: a
+      permanently failing ticker remains visible in the checkpoint but cannot
+      pin automatic collection to the same batch forever; explicit
+      `--batch-number` remains available for reprocessing
 - [x] `portfolio.model_portfolio` (`build_from_collection`/`main`) accepts
       `--universe-policy`/`--ranking-policy`/`--model-portfolio-policy` and
       `--label`, so ranking/model-portfolio can run over this screener with

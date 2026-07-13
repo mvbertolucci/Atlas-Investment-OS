@@ -144,7 +144,16 @@ the user's real `config/portfolio.csv`.
 ### Historical-validation contract layer
 
 - `backtesting/point_in_time.py`
+- `backtesting/historical_portfolio.py`
+- `backtesting/historical_execution.py`
+- `backtesting/execution_evidence.py`
+- `backtesting/portfolio_validation.py`
+- `config/portfolio_validation.yaml`
 - `docs/POINT_IN_TIME_DATA.md`
+- `docs/HISTORICAL_MODEL_PORTFOLIO.md`
+- `docs/HISTORICAL_EXECUTION.md`
+- `docs/EXECUTION_EVIDENCE.md`
+- `docs/PORTFOLIO_VALIDATION.md`
 
 The point-in-time layer defines the immutable evidence boundary for future
 walk-forward validation. It filters observations by source availability,
@@ -155,7 +164,24 @@ split events and requires terminal treatment for delisted securities. The
 walk-forward mechanism derives single-period ratios, two-period Piotroski
 F-Score, partial valuation and the `timing` factor family (from a continuous,
 split-adjusted price series per cutoff) before replaying governed decisions.
-It does not calculate portfolio returns; those remain a PR-034 responsibility.
+The first PR-034 increment consumes explicit dated portfolio weights and
+source-attributed total returns. It calculates benchmark-relative return,
+volatility, drawdown, turnover, estimated costs and position concentration,
+but deliberately remains separate from data acquisition and historical
+portfolio construction. Incomplete returns or unresolved delistings suppress
+the aggregate summary rather than creating survivorship-biased performance.
+Its offline CLI consumes a versioned JSON input with mandatory provenance and
+can calculate sector concentration only from explicit, complete sector maps.
+Historical target construction reuses the walk-forward scoring frame plus the
+governed universe, ranking and model-portfolio builders. Targets retain
+coverage gaps and configuration hashes and require a separate explicit
+execution date before becoming validation rebalances.
+The execution layer selects the first attributed session opening strictly
+after each decision and requires an exact USD opening price for every position;
+missing evidence blocks the entire rebalance. It contains no provider call.
+The execution-evidence adapter turns existing Yahoo-shaped bars into a
+schema-versioned observed-session/open-price artifact, with DST-aware regular
+opens and split-restored as-traded prices. It is also offline.
 
 ### Outcome layer
 

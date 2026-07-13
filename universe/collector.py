@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
 from analytics.fundamentals import compute_fundamentals
 from analytics.indicators import enrich_technicals
@@ -185,11 +185,24 @@ def select_next_incomplete_batch(
     *,
     batch_size: int,
     completed_symbols: Iterable[str],
+    failed_attempts: Mapping[str, int] | None = None,
+    failure_attempt_budget: int | None = None,
 ) -> ConstituentBatch | None:
     rows = list(records)
     completed = set(completed_symbols)
     if batch_size <= 0:
         raise ValueError("batch_size deve ser positivo.")
+    if failure_attempt_budget is not None and failure_attempt_budget <= 0:
+        raise ValueError("failure_attempt_budget deve ser positivo.")
+    exhausted_failures = {
+        symbol
+        for symbol, attempts in (failed_attempts or {}).items()
+        if (
+            failure_attempt_budget is not None
+            and int(attempts) >= failure_attempt_budget
+        )
+    }
+    resolved = completed | exhausted_failures
     total_batches = math.ceil(len(rows) / batch_size)
     for batch_number in range(1, total_batches + 1):
         batch = select_constituent_batch(
@@ -197,7 +210,7 @@ def select_next_incomplete_batch(
             batch_size=batch_size,
             batch_number=batch_number,
         )
-        if any(row["symbol"] not in completed for row in batch.frame_rows):
+        if any(row["symbol"] not in resolved for row in batch.frame_rows):
             return batch
     return None
 
@@ -347,13 +360,32 @@ def main() -> None:
         total_constituents=len(records),
     )
     if args.batch_number is None:
+        failed_attempts = {
+            symbol: int(details.get("attempts", 0))
+            for symbol, details in state.failures.items()
+        }
+        failure_attempt_budget = retries + 1
         batch = select_next_incomplete_batch(
             records,
             batch_size=batch_size,
             completed_symbols=state.observations,
+            failed_attempts=failed_attempts,
+            failure_attempt_budget=failure_attempt_budget,
         )
         if batch is None:
-            print("Coleta já está completa.")
+            exhausted_count = sum(
+                attempts >= failure_attempt_budget
+                for attempts in failed_attempts.values()
+            )
+            if exhausted_count:
+                print(
+                    "Todos os lotes foram resolvidos para avanço; "
+                    f"{exhausted_count} falha(s) esgotaram o orçamento de "
+                    "tentativas e permanecem visíveis no checkpoint. Use "
+                    "--batch-number para reprocessá-las explicitamente."
+                )
+            else:
+                print("Coleta já está completa.")
             return
     else:
         batch = select_constituent_batch(

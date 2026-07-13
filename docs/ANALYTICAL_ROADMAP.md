@@ -40,8 +40,18 @@ promise.
    exists to run it against yet -- that acquisition, and comparison against
    explicit benchmarks, remains future work. See
    `docs/WALK_FORWARD_BACKTEST.md`.
-9. **PR-034 — Portfolio validation.** Report return, volatility, drawdown,
-   turnover, estimated costs, concentration and factor contribution.
+9. **PR-034 — Portfolio validation (core partial).** The deterministic,
+   source-attributed calculation core now reports return, benchmark comparison,
+   volatility, drawdown, turnover, estimated costs and position concentration,
+   and withholds aggregate metrics for incomplete periods. Historical portfolio
+   target construction now reuses the same governed point-in-time scoring,
+   universe and ranking route, followed by an explicit next-session-open
+   execution boundary. Real calendar/opening-price acquisition, a complete
+   total-return dataset, factor contribution and a broad run remain open. A
+   versioned observed-session/open-price artifact and offline Yahoo-bar adapter
+   are ready for that acquisition. See
+   `docs/HISTORICAL_MODEL_PORTFOLIO.md`, `docs/HISTORICAL_EXECUTION.md` and
+   `docs/EXECUTION_EVIDENCE.md` and `docs/PORTFOLIO_VALIDATION.md`.
 10. **PR-035 — Prospective shadow portfolio.** Freeze real-time model-portfolio
    recommendations and evaluate them forward without capital or broker access.
 11. **PR-036 — Controlled calibration.** Consider weight or threshold changes

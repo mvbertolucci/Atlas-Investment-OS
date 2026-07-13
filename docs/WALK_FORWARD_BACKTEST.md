@@ -8,17 +8,18 @@ recreates each Atlas decision using only evidence visible at that cutoff,
 through the existing, unchanged, governed `scoring.investment.score_dataframe`.
 
 **This is not, yet, a backtest of Atlas's real historical performance.**
-PR-032 deliberately excluded historical-data acquisition (provider
-credentials, a populated point-in-time dataset). No such dataset exists in
-this repository. `backtesting/walk_forward.py` is proven with small, fully
+PR-032 deliberately excluded historical-data acquisition. The repository now
+contains bounded real SEC/price acquisition and two-company evidence, but no
+complete broad point-in-time dataset. `backtesting/walk_forward.py` is proven with small, fully
 synthetic, offline fixtures (`tests/test_walk_forward.py`) -- they establish
 that the mechanism is correct (temporal exclusion, incomplete-decision
 reporting, determinism), not that Atlas would have performed any particular
 way historically. Acquiring a real, versioned, point-in-time-correct
 historical dataset is a separate, later, and materially harder problem
 (most free providers do not expose "value as known on date X" with revision
-history) -- PR-034 (return/risk validation) still needs that dataset to mean
-anything, and does not exist here either.
+history). PR-034 now has a deterministic calculation core, but historical
+portfolio construction and complete real total-return evidence still do not
+exist; see `docs/PORTFOLIO_VALIDATION.md`.
 
 ## Executable contract
 
@@ -53,6 +54,10 @@ anything, and does not exist here either.
   Before scoring, the replay derives single-period ratios, a two-10-K
   `f_score_annual`, and price-dependent valuation fields. A low derived
   F-Score flows through the unchanged governed Piotroski Deal Breaker.
+- `score_snapshot_batch(snapshot, ...)` — the single public reconstruction,
+  derivation and governed-scoring route used by both decision replay and
+  historical model-portfolio targets. Portfolio construction cannot drift to
+  a duplicate scoring implementation.
 - `run_walk_forward(dataset, decision_dates, manifest, ...)` — the engine:
   for each explicit decision date, gets the as-of snapshot and replays it.
   Dates are deduplicated and sorted; the same dataset + dates + governed

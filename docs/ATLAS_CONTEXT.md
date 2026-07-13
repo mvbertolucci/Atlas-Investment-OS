@@ -4,10 +4,13 @@
 **Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition + paired
 historical price series + point-in-time `timing` factor derivation + extended
 point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
+plus deterministic PR-034 target, execution-evidence, total-return-evidence,
+next-open execution and validation cores.
+
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 525 tests passing / 87.83% production coverage
+**Validation baseline:** 585 tests passing / 88.57% production coverage
 
 ## 1. Product mission
 
@@ -185,13 +188,36 @@ backtest.** `backtesting/walk_forward.py` deterministically replays Atlas
 decisions at explicit historical cutoffs through the unchanged, governed
 `score_dataframe`, using only `PointInTimeDataset.as_of(decision_at)`
 evidence visible at that time -- proven with synthetic, offline fixtures
-(no network, no live provider). **No real historical point-in-time dataset
-exists in this repository** (PR-032 deliberately excluded historical-data
-acquisition, and none has been added since); running this engine against
-real market history, and PR-034's return/risk validation, both still need
-that dataset to be acquired first -- a separate, materially harder problem
-most free providers do not solve (they do not expose "value as known on
-date X" with revision history). See `docs/WALK_FORWARD_BACKTEST.md`.
+(no network, no live provider). **No complete, broad point-in-time dataset
+exists in this repository.** The bounded real SEC/price evidence described
+below proves individual paths, but running the engine and PR-034 validation at
+scale still needs historical membership, terminal events and complete return
+coverage -- a separate, materially harder problem most free providers do not
+solve. See `docs/WALK_FORWARD_BACKTEST.md`.
+
+**PR-034 now has a bounded deterministic calculation core, not a real
+performance result.** `backtesting/portfolio_validation.py` consumes explicit
+dated weights and attributed total returns and calculates net/benchmark return,
+volatility, drawdown, turnover, estimated costs and position concentration.
+Missing returns or unresolved delistings suppress the aggregate summary. The
+versioned offline runner requires explicit provenance and also reports sector
+concentration when every sector is supplied. Point-in-time portfolio targets
+now reuse the exact walk-forward scoring route plus governed universe/ranking/
+portfolio policies, retain coverage gaps and config hashes, and require an
+explicit execution date. A governed next-session-open layer now requires an
+attributed session and every USD opening price before creating a rebalance.
+An offline adapter now versions observed SPY-session/open-price evidence from
+existing Yahoo bars with DST and split-unit correction. A second offline
+adapter (`backtesting/total_return_evidence.py`) now versions
+dividend-inclusive total-return evidence for holdings and the benchmark alike
+from the same kind of Yahoo bars, compounding `(Close+Dividend)/previous_close`
+day over day and applying PR-032 `DelistingRecord` terminal treatment
+(`zero`/`cash` resolved explicitly; `successor` deliberately left `unresolved`
+-- this single-symbol adapter has no evidence of a successor security's own
+value). The broad real artifacts (execution bars, total-return bars,
+delisting records), factor contribution and a broad run remain open; see
+`docs/HISTORICAL_MODEL_PORTFOLIO.md`, `docs/HISTORICAL_EXECUTION.md`,
+`docs/EXECUTION_EVIDENCE.md` and `docs/PORTFOLIO_VALIDATION.md`.
 
 **Real progress on (1), now end to end:** `backtesting/sec_edgar.py` +
 `backtesting/sec_edgar_collector.py` acquire 17 native fundamental fields
@@ -246,8 +272,11 @@ estimates), `ev_ebitda` (needs a live formula to mirror first) and
 `target_upside` remain unbuilt -- each needs a new data source or design
 decision, not just a tag addition; (2) run the broad-market/ADR collections
 when resumed; (3)
-PR-034 portfolio validation, once a real dataset is usable end to end at
-scale (today's real verification covers 2 companies, one date).
+complete PR-034 by running the now-implemented execution/total-return
+adapters against a broad real dataset (reference/selected-symbol bars plus
+real `DelistingRecord` evidence, neither acquired yet), adding factor
+contribution and running validation at scale (today's real walk-forward
+verification covers 2 companies, one date).
 
 See `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md` for the full backlog.
 

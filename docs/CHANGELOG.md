@@ -1,5 +1,118 @@
 # Changelog
 
+## PR-034 — Versioned dividend-inclusive total-return evidence
+
+### Added
+
+- `backtesting/total_return_evidence.py`: a pure, offline adapter converting
+  already-acquired Yahoo-shaped daily bars (`Close`, `Dividends`) into the
+  `AssetPeriodReturn` rows `backtesting/portfolio_validation.py` already
+  consumes, for an explicit, caller-supplied sequence of period boundaries.
+  Works identically for a portfolio holding or the benchmark symbol.
+- Dividend-inclusive total return by compounding `(Close[t] + Dividend[t]) /
+  Close[t-1]` day over day across each period -- no explicit split-ratio
+  handling needed, since Yahoo's own retroactive split-continuity convention
+  applies consistently to both raw columns and cancels out in the ratio.
+- `DelistingRecord` (PR-032 vocabulary) terminal-event handling, scoped to
+  only the one period containing `last_trade_on`: `zero` forces exactly
+  -100%; `cash` combines the compounded multiplier up to the last traded
+  close with `cash_proceeds`; `successor` and `unresolved` are both reported
+  `unresolved` (`total_return=None`).
+- `TotalReturnEvidence`: a versioned, retrieval-timestamped artifact
+  (schema_version 1) wrapping a batch of these rows, mirroring
+  `backtesting/execution_evidence.py`'s `HistoricalExecutionEvidence`
+  pattern, so total returns can be computed once and reused across
+  validation runs.
+
+### Preserved
+
+- A period whose start date has no observed close is omitted, never
+  invented -- `validate_portfolio` already reports
+  `MISSING_RETURN`/`MISSING_BENCHMARK_RETURN` for anything absent.
+- A `successor` delisting is never assigned a fabricated return: this
+  single-symbol adapter has no evidence of a successor security's own value.
+- No provider call; the adapter is pure and offline, exactly like
+  `execution_evidence.py`.
+
+### Validation
+
+- 585 automated tests passed.
+- 88.57% production coverage overall.
+
+## PR-034 — Deterministic portfolio-validation core
+
+### Added
+
+- Source-attributed contracts for dated target weights and total-return
+  observations, including currency, dividend and terminal-event treatment.
+- A governed monthly validation policy with SPY total return, USD, dividends
+  included and an explicit 10 bps one-way transaction-cost estimate.
+- Portfolio/benchmark return, annualized volatility, maximum drawdown,
+  drift-aware turnover, estimated costs and position-concentration metrics.
+- Machine-readable incomplete periods. Missing returns, assumption mismatches
+  or unresolved delistings suppress aggregate metrics instead of silently
+  biasing the result.
+- A schema-versioned, offline JSON runner and CLI with mandatory dataset,
+  portfolio, return, benchmark, terminal-event and code-revision provenance.
+- Sector HHI and maximum sector weight when every position has an explicit
+  sector; incomplete sector coverage remains `null`, never imputed.
+- A loadable synthetic input example that documents the schema without
+  presenting fabricated returns as research evidence.
+- Point-in-time historical portfolio targets built through the exact PR-033
+  scoring route and the governed universe, ranking and model-portfolio paths.
+- Visible incomplete-decision coverage, governed-config hashes and explicit
+  construction errors instead of smaller accidental portfolios.
+- An explicit target-to-rebalance boundary requiring the caller to provide an
+  execution date that cannot precede the decision cutoff.
+- A governed next-session-open execution policy with explicit exchange-session
+  and opening-price evidence, a seven-calendar-day maximum wait and no partial
+  execution when any position price is missing.
+- Audit output retaining the policy, selected session, accepted prices and
+  machine-readable failure reasons; no provider or order simulation added.
+- A schema-versioned execution-evidence artifact plus pure adapter from
+  Yahoo-shaped bars to observed SPY-proxy sessions and opening prices.
+- `America/New_York` DST-aware 09:30 timestamps, reference-session filtering
+  and split-restored as-traded `Open` units, with manifest/temporal validation.
+
+### Preserved
+
+- No provider call, broad collection, score, Deal Breaker, governed model
+  weight, historical portfolio construction or real performance claim.
+- Factor contribution and a broad real validation remain open PR-034 work.
+
+### Validation
+
+- 41 deterministic PR-034 tests cover historical targets, anti-look-ahead,
+  execution evidence, next-session execution, calculations, costs, drift-aware
+  turnover, terminal events, missing evidence, assumptions and report
+  serialization.
+- 570 automated tests passed.
+- 88.50% production coverage overall; historical-target, execution-evidence,
+  execution and validation modules have 87%, 87%, 90% and 90% direct coverage,
+  respectively.
+
+## Collector advancement after permanent provider failures
+
+### Fixed
+
+- Default `universe.collector` batch selection now treats a provider failure
+  as resolved for advancement after its cumulative attempts consume the
+  configured initial-attempt-plus-retries budget. A delisted or otherwise
+  permanently unavailable ticker can no longer pin every later invocation to
+  the same batch.
+- Exhausted failures remain recorded in the checkpoint, are reported when all
+  batches have been resolved, and can still be retried with an explicit
+  `--batch-number`. The same behavior applies to the S&P 500 and broad-market
+  screeners.
+
+### Validation
+
+- Deterministic regression coverage exercises the default no-`--batch-number`
+  path, retryable-versus-exhausted boundaries, retained failure evidence and
+  final reporting.
+- 529 automated tests passed.
+- 88.40% production coverage overall.
+
 ## Extended point-in-time valuation coverage
 
 ### Added

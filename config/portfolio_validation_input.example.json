@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "manifest": {
+    "dataset_name": "Synthetic portfolio-validation example",
+    "dataset_version": "example-v1",
+    "portfolio_source": "documented synthetic example",
+    "return_source": "documented synthetic total returns",
+    "benchmark_source": "documented synthetic SPY total return",
+    "period_convention": "close-to-close on explicit boundaries",
+    "terminal_event_source": "documented synthetic terminal events",
+    "atlas_code_revision": "replace-with-tested-commit"
+  },
+  "rebalances": [
+    {
+      "effective_on": "2025-01-01",
+      "target_weights": {
+        "AAA": 0.5,
+        "BBB": 0.5
+      },
+      "sectors": {
+        "AAA": "Technology",
+        "BBB": "Health"
+      }
+    }
+  ],
+  "returns": [
+    {
+      "symbol": "AAA",
+      "period_start": "2025-01-01",
+      "period_end": "2025-02-01",
+      "total_return": 0.03,
+      "source": "synthetic-example",
+      "currency": "USD",
+      "dividends_included": true,
+      "terminal_treatment": null
+    },
+    {
+      "symbol": "BBB",
+      "period_start": "2025-01-01",
+      "period_end": "2025-02-01",
+      "total_return": -0.01,
+      "source": "synthetic-example",
+      "currency": "USD",
+      "dividends_included": true,
+      "terminal_treatment": null
+    },
+    {
+      "symbol": "SPY",
+      "period_start": "2025-01-01",
+      "period_end": "2025-02-01",
+      "total_return": 0.02,
+      "source": "synthetic-example",
+      "currency": "USD",
+      "dividends_included": true,
+      "terminal_treatment": null
+    }
+  ]
+}
