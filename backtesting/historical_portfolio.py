@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping
+
+import pandas as pd
 
 from backtesting.point_in_time import AsOfSnapshot, PointInTimeDataset
 from backtesting.portfolio_validation import PortfolioRebalance
@@ -23,6 +26,49 @@ from universe import evaluate_universe, load_universe_policy
 
 class HistoricalPortfolioConstructionError(ValueError):
     """Raised when an incomplete historical target cannot become a trade."""
+
+
+FACTOR_EXPOSURE_COLUMNS = {
+    "business": "Business Factor",
+    "valuation": "Valuation Factor",
+    "financial": "Financial Factor",
+    "timing": "Timing Factor",
+}
+
+
+def _factor_exposures_by_symbol(scored: pd.DataFrame) -> dict[str, dict[str, float]]:
+    """
+    Lê os fatores (0-100, cross-sectional) que `score_all_factors` já
+    calculou naquele corte exato -- não é dado novo, só evita descartar o
+    que `score_snapshot_batch` já produziu. Um fator ausente da configuração
+    governada simplesmente não aparece; um valor não numérico é ignorado por
+    símbolo em vez de quebrar a extração inteira.
+    """
+    present = {
+        name: column
+        for name, column in FACTOR_EXPOSURE_COLUMNS.items()
+        if column in scored.columns
+    }
+    if not present:
+        return {}
+    exposures: dict[str, dict[str, float]] = {}
+    for _, row in scored.iterrows():
+        symbol = str(row.get("symbol", "")).strip().upper()
+        if not symbol:
+            continue
+        values: dict[str, float] = {}
+        for name, column in present.items():
+            value = row.get(column)
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                continue
+            if math.isnan(number):
+                continue
+            values[name] = number
+        if values:
+            exposures[symbol] = values
+    return exposures
 
 
 def _date(value: date | datetime | str, field_name: str) -> date:
@@ -47,6 +93,7 @@ class HistoricalTargetPortfolio:
     candidate_count: int
     governed_config_hashes: Mapping[str, str]
     construction_error: str | None = None
+    factor_exposures: Mapping[str, Mapping[str, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.decision_at.tzinfo is None or self.decision_at.utcoffset() is None:
@@ -62,9 +109,19 @@ class HistoricalTargetPortfolio:
         hashes = dict(sorted(self.governed_config_hashes.items()))
         if not hashes or any(not value for value in hashes.values()):
             raise ValueError("governed_config_hashes não pode ser vazio.")
+        factor_exposures = {
+            symbol: dict(sorted(values.items()))
+            for symbol, values in sorted(self.factor_exposures.items())
+        }
+        if factor_exposures and set(factor_exposures) != set(weights):
+            raise ValueError(
+                "factor_exposures, quando fornecido, exige cobertura de todos "
+                "os símbolos do target."
+            )
         object.__setattr__(self, "target_weights", weights)
         object.__setattr__(self, "sectors", sectors)
         object.__setattr__(self, "governed_config_hashes", hashes)
+        object.__setattr__(self, "factor_exposures", factor_exposures)
         object.__setattr__(
             self, "incomplete_decisions", tuple(self.incomplete_decisions)
         )
@@ -93,6 +150,7 @@ class HistoricalTargetPortfolio:
             effective_on=effective_date,
             target_weights=self.target_weights,
             sectors=self.sectors,
+            factor_exposures=self.factor_exposures,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -109,6 +167,10 @@ class HistoricalTargetPortfolio:
             },
             "target_weights": dict(self.target_weights),
             "sectors": dict(self.sectors),
+            "factor_exposures": {
+                symbol: dict(values)
+                for symbol, values in self.factor_exposures.items()
+            },
             "incomplete_decisions": [
                 item.to_dict() for item in self.incomplete_decisions
             ],
@@ -192,6 +254,16 @@ def build_historical_target_portfolio(
             construction_error=str(exc),
         )
 
+    factor_exposures_by_symbol = _factor_exposures_by_symbol(scored)
+    position_symbols = {position.symbol for position in model_report.positions}
+    factor_exposures = (
+        {
+            symbol: factor_exposures_by_symbol[symbol]
+            for symbol in position_symbols
+        }
+        if position_symbols <= set(factor_exposures_by_symbol)
+        else {}
+    )
     return HistoricalTargetPortfolio(
         decision_at=snapshot.decision_at,
         target_weights={
@@ -202,6 +274,7 @@ def build_historical_target_portfolio(
             position.symbol: position.sector
             for position in model_report.positions
         },
+        factor_exposures=factor_exposures,
         incomplete_decisions=incomplete,
         universe_member_count=len(snapshot.members),
         universe_eligible_count=universe_report.eligible_count,

@@ -249,6 +249,87 @@ def test_sector_mapping_rejects_unknown_portfolio_symbol() -> None:
         )
 
 
+def test_factor_exposures_rejects_unknown_symbol_and_inconsistent_factor_set() -> None:
+    with pytest.raises(ValueError, match="símbolos da carteira"):
+        PortfolioRebalance(
+            "2025-01-01",
+            {"AAA": 1.0},
+            factor_exposures={"BBB": {"business": 60.0}},
+        )
+    with pytest.raises(ValueError, match="mesmo conjunto de fatores"):
+        PortfolioRebalance(
+            "2025-01-01",
+            {"AAA": 0.5, "BBB": 0.5},
+            factor_exposures={
+                "AAA": {"business": 60.0, "valuation": 40.0},
+                "BBB": {"business": 55.0},
+            },
+        )
+    with pytest.raises(ValueError, match="objeto não vazio"):
+        PortfolioRebalance(
+            "2025-01-01",
+            {"AAA": 1.0},
+            factor_exposures={"AAA": {}},
+        )
+
+
+def test_weighted_average_factor_exposure_matches_hand_computed_value() -> None:
+    rebalance = PortfolioRebalance(
+        "2025-01-01",
+        {"AAA": 0.4, "BBB": 0.6},
+        factor_exposures={
+            "AAA": {"business": 80.0, "valuation": 20.0},
+            "BBB": {"business": 50.0, "valuation": 60.0},
+        },
+    )
+    report = validate_portfolio(
+        (rebalance,),
+        (
+            _return("AAA", "2025-01-01", "2025-02-01", 0.0),
+            _return("BBB", "2025-01-01", "2025-02-01", 0.0),
+            _return("SPY", "2025-01-01", "2025-02-01", 0.0),
+        ),
+        _policy(transaction_cost_bps=0),
+        _manifest(),
+    )
+
+    period = report.periods[0]
+    assert period.factor_exposures == {
+        "business": pytest.approx(0.4 * 80.0 + 0.6 * 50.0),
+        "valuation": pytest.approx(0.4 * 20.0 + 0.6 * 60.0),
+    }
+
+
+def test_factor_exposures_is_none_without_complete_coverage() -> None:
+    rebalance = PortfolioRebalance(
+        "2025-01-01",
+        {"AAA": 0.5, "BBB": 0.5},
+        factor_exposures={"AAA": {"business": 80.0}},
+    )
+    report = validate_portfolio(
+        (rebalance,),
+        (
+            _return("AAA", "2025-01-01", "2025-02-01", 0.0),
+            _return("BBB", "2025-01-01", "2025-02-01", 0.0),
+            _return("SPY", "2025-01-01", "2025-02-01", 0.0),
+        ),
+        _policy(transaction_cost_bps=0),
+        _manifest(),
+    )
+
+    assert report.periods[0].factor_exposures is None
+
+
+def test_rebalance_round_trips_factor_exposures_through_dict() -> None:
+    rebalance = PortfolioRebalance(
+        "2025-01-01",
+        {"AAA": 1.0},
+        factor_exposures={"AAA": {"business": 80.0, "valuation": 20.0}},
+    )
+    restored = PortfolioRebalance.from_dict(rebalance.to_dict())
+    assert restored == rebalance
+
+
 def test_missing_return_blocks_aggregate_metrics_and_stays_visible() -> None:
     report = validate_portfolio(
         (PortfolioRebalance("2025-01-01", {"AAA": 0.5, "BBB": 0.5}),),

@@ -1,5 +1,38 @@
 # Changelog
 
+## PR-034 — Weighted-average factor exposure
+
+### Added
+
+- `PortfolioRebalance.factor_exposures` in `backtesting/portfolio_validation.py`:
+  an optional per-symbol map of `{business, valuation, financial, timing}`
+  scores (0-100), validated to use the same factor set across every symbol
+  that has one.
+- `ValidationPeriod.factor_exposures`: the portfolio's target-weighted
+  average exposure per factor for each complete period, `null` unless every
+  held symbol has a value for the exact same factor set.
+- `backtesting/historical_portfolio.py` now reads these factor scores
+  straight from the governed scoring pass (`factors/engine.py`'s
+  `Business Factor`/`Valuation Factor`/`Financial Factor`/`Timing Factor`
+  columns) at each historical cutoff -- not recomputed, not a new data
+  source, just no longer discarded after `score_snapshot_batch`.
+  `HistoricalTargetPortfolio.to_rebalance()` carries them straight into the
+  resulting `PortfolioRebalance`.
+
+### Preserved
+
+- This is a composition/tilt summary, not a return decomposition -- it does
+  not attribute period *return* to each factor the way
+  `sector_contributions` attributes return to sectors. A regression-based
+  factor-return decomposition remains explicitly out of scope: it needs a
+  statistical methodology to validate and document, not just a data join.
+- `null` under partial or absent coverage, never an invented value.
+
+### Validation
+
+- 593 automated tests passed.
+- 88.63% production coverage overall.
+
 ## PR-034 — Per-sector return contribution
 
 ### Added

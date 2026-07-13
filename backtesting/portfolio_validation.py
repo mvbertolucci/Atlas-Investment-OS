@@ -149,6 +149,7 @@ class PortfolioRebalance:
     effective_on: date | datetime | str
     target_weights: Mapping[str, float]
     sectors: Mapping[str, str] = field(default_factory=dict)
+    factor_exposures: Mapping[str, Mapping[str, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         effective_on = _date(self.effective_on, "effective_on")
@@ -175,9 +176,37 @@ class PortfolioRebalance:
             if symbol in sectors:
                 raise ValueError("Símbolo duplicado em sectors.")
             sectors[symbol] = _text(raw_sector, f"sectors[{symbol}]")
+        factor_exposures: dict[str, dict[str, float]] = {}
+        factor_names: set[str] | None = None
+        for raw_symbol, raw_exposures in self.factor_exposures.items():
+            symbol = _text(raw_symbol, "factor exposure symbol").upper()
+            if symbol not in weights:
+                raise ValueError("factor_exposures só pode conter símbolos da carteira.")
+            if symbol in factor_exposures:
+                raise ValueError("Símbolo duplicado em factor_exposures.")
+            if not isinstance(raw_exposures, Mapping) or not raw_exposures:
+                raise ValueError(f"factor_exposures[{symbol}] deve ser um objeto não vazio.")
+            exposures = {
+                _text(raw_factor, "factor name"): _finite(
+                    raw_value, f"factor_exposures[{symbol}][{raw_factor}]"
+                )
+                for raw_factor, raw_value in raw_exposures.items()
+            }
+            names = frozenset(exposures)
+            if factor_names is None:
+                factor_names = names
+            elif names != factor_names:
+                raise ValueError(
+                    "factor_exposures deve usar o mesmo conjunto de fatores para "
+                    "todos os símbolos."
+                )
+            factor_exposures[symbol] = dict(sorted(exposures.items()))
         object.__setattr__(self, "effective_on", effective_on)
         object.__setattr__(self, "target_weights", dict(sorted(weights.items())))
         object.__setattr__(self, "sectors", dict(sorted(sectors.items())))
+        object.__setattr__(
+            self, "factor_exposures", dict(sorted(factor_exposures.items()))
+        )
 
     @property
     def cash_weight(self) -> float:
@@ -194,6 +223,10 @@ class PortfolioRebalance:
             "effective_on": self.effective_on.isoformat(),
             "target_weights": dict(self.target_weights),
             "sectors": dict(self.sectors),
+            "factor_exposures": {
+                symbol: dict(values)
+                for symbol, values in self.factor_exposures.items()
+            },
         }
 
 
@@ -282,6 +315,7 @@ class ValidationPeriod:
     sector_hhi: float | None = None
     maximum_sector_weight: float | None = None
     sector_contributions: Mapping[str, float] | None = None
+    factor_exposures: Mapping[str, float] | None = None
     terminal_events: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
@@ -301,6 +335,11 @@ class ValidationPeriod:
             "sector_contributions": (
                 dict(self.sector_contributions)
                 if self.sector_contributions is not None
+                else None
+            ),
+            "factor_exposures": (
+                dict(self.factor_exposures)
+                if self.factor_exposures is not None
                 else None
             ),
             "terminal_events": list(self.terminal_events),
@@ -666,6 +705,13 @@ def validate_portfolio(
                 sector_contributions[sector] = sector_contributions.get(
                     sector, 0.0
                 ) + weight * asset_returns[symbol]
+        factor_exposures: dict[str, float] = {}
+        if len(rebalance.factor_exposures) == len(rebalance.target_weights):
+            for symbol, weight in rebalance.target_weights.items():
+                for factor, exposure in rebalance.factor_exposures[symbol].items():
+                    factor_exposures[factor] = (
+                        factor_exposures.get(factor, 0.0) + weight * exposure
+                    )
         periods.append(
             ValidationPeriod(
                 period_start=period_start,
@@ -693,6 +739,14 @@ def validate_portfolio(
                         for sector, value in sorted(sector_contributions.items())
                     }
                     if sector_contributions
+                    else None
+                ),
+                factor_exposures=(
+                    {
+                        factor: _rounded(value)
+                        for factor, value in sorted(factor_exposures.items())
+                    }
+                    if factor_exposures
                     else None
                 ),
                 terminal_events=tuple(

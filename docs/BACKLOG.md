@@ -245,10 +245,17 @@
         period, reusing the existing `PortfolioRebalance.sectors` mapping --
         `null` under the same absent/partial-coverage rule as `sector_hhi`;
         values always sum to exactly `gross_return`
-      - [ ] Add factor contribution based on scoring-factor exposures known
-        at each cutoff (needs those exposures joined into the input
-        contract without look-ahead -- a separate, larger increment than
-        sector contribution)
+      - [x] Add weighted-average factor exposure (`business`/`valuation`/
+        `financial`/`timing`, 0-100) to `PortfolioRebalance` and each
+        complete validation period. `backtesting/historical_portfolio.py`
+        reads it straight from the governed scoring pass at each cutoff --
+        not recomputed, not a new input. Composition/tilt only, not a
+        return decomposition; `null` unless every held symbol has the same
+        factor set
+      - [ ] A regression-based factor-*return* decomposition (the
+        finance-standard sense of "factor contribution") remains open --
+        needs a statistical methodology to validate and document, a
+        separate, larger increment than the exposure summary above
       - [ ] Run broad real validation and report coverage
 - [ ] PR-035 Track a prospective shadow portfolio
 - [ ] PR-036 Calibrate only from versioned out-of-sample evidence

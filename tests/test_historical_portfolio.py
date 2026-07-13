@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from backtesting.historical_portfolio import (
     HistoricalPortfolioConstructionError,
+    _factor_exposures_by_symbol,
     build_historical_target_portfolio,
     build_historical_target_portfolios,
 )
@@ -178,6 +180,13 @@ def test_historical_target_uses_governed_pipeline_and_keeps_gaps_visible(
         "model_portfolio_policy",
     }
     assert all(len(value) == 64 for value in target.governed_config_hashes.values())
+    assert set(target.factor_exposures) == set(target.target_weights)
+    assert set(next(iter(target.factor_exposures.values()))) == {
+        "business",
+        "valuation",
+        "financial",
+        "timing",
+    }
 
 
 def test_execution_date_is_explicit_and_cannot_precede_decision(
@@ -194,6 +203,7 @@ def test_execution_date_is_explicit_and_cannot_precede_decision(
     assert rebalance.effective_on.isoformat() == "2025-02-03"
     assert rebalance.target_weights == target.target_weights
     assert rebalance.sectors == target.sectors
+    assert rebalance.factor_exposures == target.factor_exposures
 
 
 def test_future_fundamental_cannot_change_earlier_target(
@@ -248,6 +258,26 @@ def test_insufficient_candidates_returns_no_partial_portfolio(
     assert "Candidatos insuficientes" in str(target.construction_error)
     with pytest.raises(HistoricalPortfolioConstructionError):
         target.to_rebalance("2025-02-03")
+
+
+def test_factor_exposures_by_symbol_skips_missing_columns_and_non_numeric_values() -> None:
+    scored = pd.DataFrame(
+        [
+            {
+                "symbol": "aaa",
+                "Business Factor": 60.0,
+                "Valuation Factor": float("nan"),
+                "Financial Factor": "not-a-number",
+            },
+            {"symbol": "BBB", "Business Factor": 40.0},
+        ]
+    )
+    exposures = _factor_exposures_by_symbol(scored)
+    assert exposures == {"AAA": {"business": 60.0}, "BBB": {"business": 40.0}}
+
+
+def test_factor_exposures_by_symbol_returns_empty_without_any_factor_columns() -> None:
+    assert _factor_exposures_by_symbol(pd.DataFrame([{"symbol": "AAA"}])) == {}
 
 
 def test_no_scorable_members_is_an_explicit_construction_failure(

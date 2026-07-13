@@ -40,12 +40,23 @@ using the exact same explicit `PortfolioRebalance.sectors` mapping already
 required for `sector_hhi` -- no new input needed. It is `null` under the
 same condition as `sector_hhi`/`maximum_sector_weight` (absent or partial
 sector coverage), and its values always sum to exactly `gross_return`, a
-useful invariant for spotting a broken sector mapping. Factor contribution
-(attributing return to Atlas's scoring factor exposures -- business/
-valuation/financial/timing -- known at each cutoff) remains a separate,
-larger increment: unlike sector contribution, it needs those exposures
-joined into the input contract without look-ahead bias, which
-`PortfolioRebalance`/`AssetPeriodReturn` do not carry today.
+useful invariant for spotting a broken sector mapping.
+
+`PortfolioRebalance` also carries an optional `factor_exposures` map
+(symbol -> `{business, valuation, financial, timing}`, the same 0-100
+cross-sectional scores `factors/engine.py` already produces).
+`backtesting/historical_portfolio.py` populates it directly from the
+governed scoring pass at each cutoff -- not recomputed, not a new input,
+just no longer discarded. Each complete validation period reports the
+portfolio's **target-weighted average exposure per factor**
+(`ValidationPeriod.factor_exposures`), `null` unless every held symbol has
+a value for the exact same set of factors. This is a **composition/tilt
+summary, not a return decomposition**: it does not attribute *return* to
+each factor the way `sector_contributions` attributes return to sectors.
+A regression-based factor-return decomposition (the finance-standard sense
+of "factor contribution") is deliberately not implemented here -- it needs
+a statistical methodology to validate and document, not just a data join,
+and remains a separate, larger increment if ever pursued.
 
 ## Run from a versioned local input
 
@@ -88,7 +99,10 @@ visible in the policy and report.
 - `PortfolioRebalance` provides one effective date and positive target weights.
   Cash is implicit as `1 - sum(target_weights)`. An optional explicit sector
   mapping enables sector concentration; absent or partial sector coverage
-  produces `null` sector metrics instead of an invented classification.
+  produces `null` sector metrics instead of an invented classification. An
+  optional per-symbol factor-exposure mapping (same factor set across every
+  symbol that has one) enables the weighted-average factor exposure summary;
+  absent or partial coverage produces `null` there too.
 - `AssetPeriodReturn` provides one attributed total return for a half-open
   evaluation period, including source, currency, dividend treatment and any
   terminal-event treatment.
@@ -115,6 +129,8 @@ For each complete period, Atlas reports:
 - position Herfindahl-Hirschman concentration and maximum position weight;
 - sector HHI, maximum sector weight and per-sector return contribution when
   every position has an explicit sector;
+- target-weighted average factor exposure (composition, not return
+  attribution) when every position has one, for the same factor set;
 - resolved terminal events used in the calculation.
 
 The complete-run summary compounds portfolio and benchmark returns and reports
@@ -136,7 +152,8 @@ whether validation is `complete` or `incomplete`.
   `DelistingRecord` evidence for terminal events -- the adapter and its
   versioned artifact are implemented, but no broad real total-return
   artifact is committed or collected by this change;
-- add factor contribution based on scoring-factor exposures known at each
-  cutoff (sector contribution is now implemented; see above);
+- sector contribution and weighted-average factor exposure are now
+  implemented (see above); a regression-based factor-*return* decomposition
+  remains open and would be a separate, larger increment;
 - run the report on a broad real dataset and publish coverage before drawing
   any performance conclusion.

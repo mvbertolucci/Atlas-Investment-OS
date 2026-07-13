@@ -5,12 +5,13 @@
 historical price series + point-in-time `timing` factor derivation + extended
 point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
 plus deterministic PR-034 target, execution-evidence, total-return-evidence,
-next-open execution, validation and per-sector return-contribution cores.
+next-open execution, validation, per-sector return-contribution and
+weighted-average factor-exposure cores.
 
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 587 tests passing / 88.58% production coverage
+**Validation baseline:** 593 tests passing / 88.63% production coverage
 
 ## 1. Product mission
 
@@ -217,12 +218,17 @@ day over day and applying PR-032 `DelistingRecord` terminal treatment
 value). Each complete validation period now also reports per-sector return
 contribution (`target_weight × asset_return`, summed per sector, always
 adding up to exactly `gross_return`), reusing the existing
-`PortfolioRebalance.sectors` mapping -- no new input needed. The broad real
-artifacts (execution bars, total-return bars, delisting records), factor
-contribution (a separate, larger increment needing scoring-factor exposures
-joined into the input contract) and a broad run remain open; see
-`docs/HISTORICAL_MODEL_PORTFOLIO.md`, `docs/HISTORICAL_EXECUTION.md`,
-`docs/EXECUTION_EVIDENCE.md` and `docs/PORTFOLIO_VALIDATION.md`.
+`PortfolioRebalance.sectors` mapping, and the portfolio's target-weighted
+average exposure per scoring factor (`business`/`valuation`/`financial`/
+`timing`), read directly from the governed scoring pass at each cutoff by
+`backtesting/historical_portfolio.py` -- neither needed a new data source.
+The factor summary is composition/tilt, not return decomposition: a
+regression-based factor-*return* attribution remains a separate, larger
+increment, needing a statistical methodology to validate and document. The
+broad real artifacts (execution bars, total-return bars, delisting records)
+and a broad run remain open; see `docs/HISTORICAL_MODEL_PORTFOLIO.md`,
+`docs/HISTORICAL_EXECUTION.md`, `docs/EXECUTION_EVIDENCE.md` and
+`docs/PORTFOLIO_VALIDATION.md`.
 
 **Real progress on (1), now end to end:** `backtesting/sec_edgar.py` +
 `backtesting/sec_edgar_collector.py` acquire 17 native fundamental fields
@@ -279,9 +285,9 @@ decision, not just a tag addition; (2) run the broad-market/ADR collections
 when resumed; (3)
 complete PR-034 by running the now-implemented execution/total-return
 adapters against a broad real dataset (reference/selected-symbol bars plus
-real `DelistingRecord` evidence, neither acquired yet), adding factor
-contribution and running validation at scale (today's real walk-forward
-verification covers 2 companies, one date).
+real `DelistingRecord` evidence, neither acquired yet) and running
+validation at scale (today's real walk-forward verification covers 2
+companies, one date).
 
 See `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md` for the full backlog.
 

@@ -23,12 +23,26 @@ Each `HistoricalTargetPortfolio` contains:
 
 - the timezone-aware decision cutoff;
 - target weights and explicit sectors when construction succeeds;
+- per-position factor exposures (`business`/`valuation`/`financial`/`timing`,
+  0-100 cross-sectional scores) read directly from that same governed
+  scoring pass -- not recomputed, not a new input, just no longer discarded;
+  present only when every constructed position has a value (never a partial
+  or invented set);
 - active-member, eligible and candidate coverage counts;
 - every incomplete decision and its machine-readable reasons;
 - SHA-256 hashes of the model, Deal Breakers, universe, ranking and
   model-portfolio configurations used;
 - an explicit construction error and no positions when constraints cannot be
   satisfied.
+
+`target.to_rebalance(effective_on)` carries these factor exposures straight
+into the resulting `PortfolioRebalance.factor_exposures`, which
+`backtesting.portfolio_validation.validate_portfolio` turns into each
+complete period's `factor_exposures`: the portfolio's target-weighted
+average exposure per factor (mirrors how `sectors` feeds `sector_hhi`).
+This is portfolio composition, not return attribution -- see
+`docs/PORTFOLIO_VALIDATION.md` for the explicit boundary against a
+regression-based factor-return decomposition, which remains unbuilt.
 
 Insufficient candidates never produce a smaller accidental portfolio.
 `build_historical_target_portfolios` sorts and deduplicates explicit cutoffs
@@ -54,4 +68,6 @@ described as historical performance.
 - acquire complete, dividend-inclusive returns for every held symbol and the
   benchmark, including terminal-event treatment;
 - map explicit effective dates to validation periods;
-- add factor contribution and run broad real validation.
+- run broad real validation (weighted-average factor exposure is
+  implemented; a regression-based factor-*return* decomposition, if ever
+  pursued, remains a separate, larger increment).

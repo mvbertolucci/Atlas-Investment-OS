@@ -52,9 +52,13 @@ the next bounded backlog task.
 ## Current historical-validation handoff
 
 Repository state prepared on 2026-07-13 (updated the same day after the
-per-sector return-contribution increment):
+weighted-average factor-exposure increment). Codex is not in use for this
+line of work right now -- everything below happens directly in Claude Code,
+and pushes are being held back deliberately until explicitly requested:
 
-- branch: `master`, pushed to `origin/master`;
+- branch: `master`, **1 commit ahead of `origin/master`, not pushed** --
+  confirm the current remote relation with `git status --short --branch`
+  before assuming otherwise;
 - latest commits:
   - `9298866 merge: integrate PR-034 deterministic validation core and
     offline evidence adapters` -- merges the seven-commit
@@ -64,10 +68,16 @@ per-sector return-contribution increment):
     plus the `universe.collector` auto-batch-selection fix);
   - `cd17d8e docs: fix post-merge handoff to reflect master, not the codex
     worktree`;
-  - a new, not-yet-committed increment: per-sector return contribution in
-    `backtesting/portfolio_validation.py` (`ValidationPeriod.sector_contributions`);
+  - `e94ab07 feat(backtesting): add per-sector return contribution to
+    portfolio validation`;
+  - a new, not-yet-committed increment: weighted-average factor exposure in
+    `backtesting/portfolio_validation.py`
+    (`PortfolioRebalance.factor_exposures`,
+    `ValidationPeriod.factor_exposures`) and
+    `backtesting/historical_portfolio.py` (reads it from the governed
+    scoring pass already computed at each cutoff);
 - released version remains `v1.2.0`;
-- validation baseline is 587 passing tests and 88.58% production coverage.
+- validation baseline is 593 passing tests and 88.63% production coverage.
 
 A broad-market universe collection (`universe.collector --market` against
 `config/universe_market.yaml`, ~7,093 NASDAQ Trader symbols) may still be
@@ -121,12 +131,16 @@ reported `unresolved`, since a single-symbol adapter has no evidence of a
 successor security's own value). Each complete validation period now also
 reports per-sector return contribution (`target_weight × asset_return`,
 summed per sector, always adding up to exactly `gross_return`), reusing the
-existing `PortfolioRebalance.sectors` mapping -- `null` under the same
-absent/partial-coverage rule as `sector_hhi`. Neither evidence adapter makes
-provider calls, and no broad real execution or total-return artifact has
-been acquired yet. Real `DelistingRecord` evidence and a broad real dataset
-are still required before the metric core can produce honest performance
-evidence.
+existing `PortfolioRebalance.sectors` mapping, and the portfolio's
+target-weighted average exposure per scoring factor (`business`/
+`valuation`/`financial`/`timing`), read directly from the governed scoring
+pass `backtesting/historical_portfolio.py` already runs at each cutoff --
+`null` under the same absent/partial-coverage rule as `sector_hhi` in both
+cases. The factor summary is composition/tilt, not a return decomposition;
+see the boundary note below. Neither evidence adapter makes provider calls,
+and no broad real execution or total-return artifact has been acquired yet.
+Real `DelistingRecord` evidence and a broad real dataset are still required
+before the metric core can produce honest performance evidence.
 Governed score weights, Deal Breakers, ranking, decisions, the personal
 watchlist and `run_all.py` remain unchanged.
 
@@ -139,35 +153,32 @@ directly -- inventing a from-scratch EBITDA definition with no live reference
 to validate against would be a new, undocumented approximation), and
 `target_upside` needs a genuine point-in-time analyst-target source.
 
-Both offline adapters (`execution_evidence.py`, `total_return_evidence.py`)
-and per-sector return contribution are now implemented, tested and (adapters)
-merged into `master`. What remains in PR-034 splits into three independent
-threads:
+Both offline adapters (`execution_evidence.py`, `total_return_evidence.py`),
+per-sector return contribution and weighted-average factor exposure are all
+now implemented and tested; only the adapters and sector contribution are
+merged into `master` so far (factor exposure is the latest, not yet
+committed at the top of this section). What remains in PR-034 is no longer
+a bounded, purely offline coding increment -- both open threads need
+something this session does not have on its own:
 
-1. **Factor contribution without look-ahead** (offline coding task,
-   materially larger than sector contribution was): attribute each complete
-   period's return to Atlas's scoring-factor exposures (business/valuation/
-   financial/timing) known at that cutoff, without projecting a later
-   exposure backward. Unlike sector contribution, this needs those exposures
-   joined into the input contract -- `PortfolioRebalance`/`AssetPeriodReturn`
-   do not carry them today, so the first sub-step is designing that join
-   (likely from the walk-forward replay's own `score_dataframe` output at
-   each historical cutoff) before any attribution math. First read
-   `docs/PORTFOLIO_VALIDATION.md`, `backtesting/portfolio_validation.py`
-   (`ValidationPeriod.sector_contributions` is the closest existing
-   precedent) and `backtesting/walk_forward.py`.
-2. **Real bounded acquisition** (data acquisition, not code, needs an
+1. **Real bounded acquisition** (data acquisition, not code, needs an
    explicit go-ahead before provider calls): fetch real reference/
    selected-symbol Yahoo bars for `execution_evidence.py` and
    `total_return_evidence.py`, and source real `DelistingRecord` terminal
    events for whatever symbols actually delisted in the sample.
-3. **Rank over the broad-market/ADR screeners** once the background
-   collection above completes: `portfolio.model_portfolio
-   --universe-policy config/universe_market.yaml --label market`, then the
-   same with `config/universe_adr.yaml --label adr` -- both commands are
-   ready, no new code needed.
+2. **Rank over the broad-market/ADR screeners** once the background
+   collection completes: `portfolio.model_portfolio --universe-policy
+   config/universe_market.yaml --label market`, then the same with
+   `config/universe_adr.yaml --label adr` -- both commands are ready, no
+   new code needed.
 
-Preserve the existing incomplete-period rule for (1)/(2): missing returns or
+A regression-based factor-*return* decomposition (as opposed to the
+exposure/composition summary just added) remains explicitly out of scope:
+it needs a statistical methodology to validate and document, not just a
+data join -- treat it as a separate, later design decision, not a bounded
+increment to pick up casually.
+
+Preserve the existing incomplete-period rule for (1): missing returns or
 unresolved delistings must suppress aggregate metrics, never be silently
 imputed.
 
@@ -180,32 +191,24 @@ same change.
 
 ```text
 Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/PORTFOLIO_VALIDATION.md and
-docs/BACKLOG.md fully before changing anything. Verify git status is clean
-(other than any live broad-market collection log/checkpoint files) and that
-master includes the PR-034 merge plus per-sector return contribution
-(ValidationPeriod.sector_contributions). Run the full test/coverage gate;
-expect 587 tests and 88.58% production coverage. Report any mismatch before
-editing.
+docs/BACKLOG.md fully before changing anything. Verify git status and that
+master includes the PR-034 merge, per-sector return contribution and
+weighted-average factor exposure (PortfolioRebalance.factor_exposures,
+ValidationPeriod.factor_exposures). Run the full test/coverage gate; expect
+593 tests and 88.63% production coverage. Report any mismatch before
+editing. Do not push without explicit approval, even after committing.
 
 Check whether a broad-market universe.collector --market process or
 data/market_collection_run.log shows it is still running. Do not invoke or
 interfere with that collector and do not read or write
 data/research_universe_collection_market.json while it owns that checkpoint.
 
-Then design and implement the next PR-034 increment: factor contribution.
-Unlike sector contribution (which reused an existing input field), this
-needs Atlas's scoring-factor exposures (business/valuation/financial/timing)
-at each historical cutoff joined into the validation input contract without
-look-ahead -- read backtesting/walk_forward.py first to see what
-score_dataframe already produces per cutoff, and propose the smallest
-addition to PortfolioRebalance/AssetPeriodReturn (or a new, versioned
-sibling input) that carries those exposures honestly, leaving them missing
-rather than invented when a cutoff's factor exposures cannot be reconstructed.
-Add deterministic tests, run the focused and full coverage suites, update
-living documentation and leave one atomic commit with a clean tree. Show the
-diff and validation summary. Do not push without explicit approval. Do not
-make provider calls or change governed weights, thresholds, Deal Breakers,
-run_all.py, scheduling or live trading.
+PR-034's remaining offline-coding thread (factor exposure) is done. What's
+left needs either an explicit go-ahead for live provider calls (real
+execution/total-return bar acquisition and delisting-record sourcing) or the
+broad-market collection to finish first (ranking runs). Do not start either
+without asking first -- summarize the current state and ask which of the two
+threads to pursue, or whether to wait.
 ```
 
 ## Parallel work with Codex
