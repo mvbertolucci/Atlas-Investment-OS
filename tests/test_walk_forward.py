@@ -336,6 +336,62 @@ def test_replay_does_not_flag_resolved_delisting_as_incomplete() -> None:
     assert len(replayed) == 1
 
 
+def test_replay_feeds_derived_two_year_f_score_to_governed_deal_breaker() -> None:
+    prior = {
+        "net_income": 100.0,
+        "total_assets": 1000.0,
+        "operating_cash_flow": 120.0,
+        "current_assets": 400.0,
+        "current_liabilities": 200.0,
+        "shares_outstanding": 100.0,
+        "gross_profit": 400.0,
+        "total_revenue": 1000.0,
+        "long_term_debt": 100.0,
+    }
+    current = {
+        "net_income": -50.0,
+        "total_assets": 1200.0,
+        "operating_cash_flow": -20.0,
+        "current_assets": 200.0,
+        "current_liabilities": 300.0,
+        "shares_outstanding": 200.0,
+        "gross_profit": 200.0,
+        "total_revenue": 900.0,
+        "long_term_debt": 500.0,
+    }
+    observations: list[HistoricalObservation] = []
+    for period_end, available_at, accession, values in (
+        ("2024-12-31", "2025-02-02T00:00:00Z", "annual-2024", prior),
+        ("2025-12-31", "2026-02-02T00:00:00Z", "annual-2025", current),
+    ):
+        observations.extend(
+            HistoricalObservation(
+                symbol="AAA",
+                field_name=field_name,
+                value=value,
+                observed_on=period_end,
+                available_at=available_at,
+                source="SEC EDGAR (10-K, us-gaap:Test)",
+                revision_id=accession,
+            )
+            for field_name, value in values.items()
+        )
+    observations.extend(_rich_observations("AAA"))
+    dataset = PointInTimeDataset(
+        observations=tuple(observations),
+        memberships=(_membership("AAA"),),
+    )
+
+    replayed, incomplete = replay_decision_batch(
+        dataset.as_of("2026-03-01T00:00:00Z"),
+        model_path=MODEL_PATH,
+        deal_breakers_path=DEAL_BREAKERS_PATH,
+    )
+
+    assert incomplete == ()
+    assert "Piotroski baixo" in replayed[0].deal_breakers
+
+
 # ---------------------------------------------------------------------------
 # run_walk_forward
 # ---------------------------------------------------------------------------

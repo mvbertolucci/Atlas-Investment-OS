@@ -1,5 +1,28 @@
 # Changelog
 
+## Two-fiscal-year point-in-time F-Score
+
+### Added
+
+- Complete available observation history retained in each as-of snapshot.
+- Deterministic 10-K grouping by accession, fiscal period and amendment.
+- Piotroski F-Score derived only from two complete, consecutive annual periods.
+- Split-normalized share comparison for the no-dilution signal.
+- Direct integration with the existing governed `Piotroski baixo` Deal Breaker.
+
+### Preserved
+
+- Quarterly filings, incomplete years and non-consecutive periods never produce
+  a partial score.
+- Future filings and amendments do not leak into earlier decision cutoffs.
+- Existing F-Score values, governed thresholds and scoring weights are not
+  overwritten or changed.
+
+### Validation
+
+- 506 automated tests passed.
+- 87.67% production coverage overall.
+
 ## Point-in-time stock-split normalization
 
 ### Added

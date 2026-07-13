@@ -100,7 +100,12 @@ containing only information visible and effective at the cutoff:
 
 - active constituent symbols;
 - one latest eligible observation per symbol and field;
+- the complete versioned observation history already available at the cutoff;
 - known, effective delisting events.
+
+The retained history permits genuinely multi-period features such as
+`f_score_annual` without weakening the latest-value interface used by existing
+consumers.
 
 The snapshot is the input boundary planned for the walk-forward engine. It does
 not rank companies, construct positions or calculate returns by itself.

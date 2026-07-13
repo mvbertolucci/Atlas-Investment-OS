@@ -6,7 +6,7 @@ historical price series
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 497 tests passing / 87.51% production coverage
+**Validation baseline:** 506 tests passing / 87.67% production coverage
 
 ## 1. Product mission
 
@@ -207,9 +207,10 @@ walk-forward decision over real SEC + price data for Apple and Microsoft
 produced derived gross margins of 48.6% / 68.2%, market caps of ~$4.1T /
 ~$3.1T, Altman Z of 10.9 / 8.2 (both safe zone), and two genuinely
 different Investment Scores (48.4 AVOID / 58.9 HOLD) with Model Confidence
-risen to 40.0% now that `valuation` factors are partially populated. Still
-not complete: `f_score_annual` (needs two fiscal years), the rest of
-`valuation` (`forward_pe`, `ev_ebitda`, `ev_ebit`, `peg`,
+risen to 40.0% now that `valuation` factors are partially populated. Two
+complete, consecutive 10-Ks now derive `f_score_annual` at each cutoff and
+feed the governed Piotroski rule. Still not complete: the rest of `valuation`
+(`forward_pe`, `ev_ebitda`, `ev_ebit`, `peg`,
 `shareholder_yield`, `fcf_yield`), the `timing` factor family (needs the
 whole price series per cutoff, not one value), historical index membership
 and delistings all remain unbuilt. See `docs/SEC_EDGAR_DATA.md`
@@ -221,9 +222,9 @@ point-in-time split events to the observed share count. `market_cap`, `pe`,
 `pb` and `altman_z` therefore remain dimensionally consistent before and after
 forward or reverse splits without leaking the event into an earlier cutoff.
 
-**Open threads, in priority order:** (1) two-fiscal-year replay for
-`f_score_annual`; (2) extend valuation/timing coverage using the paired
-price series; (3) run the broad-market/ADR collections when resumed; (4)
+**Open threads, in priority order:** (1) extend valuation/timing coverage using
+the paired price series; (2) run the broad-market/ADR collections when resumed;
+(3)
 PR-034 portfolio validation, once a real dataset is usable end to end at
 scale (today's real verification covers 2 companies, one date).
 

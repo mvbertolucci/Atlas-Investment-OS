@@ -36,6 +36,7 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   delistings
 - Deterministic walk-forward replay with SEC fundamentals, paired historical
   prices and split-consistent market capitalization
+- Two-fiscal-year point-in-time Piotroski F-Score with governed Deal Breaker
 
 ## Current integration status
 

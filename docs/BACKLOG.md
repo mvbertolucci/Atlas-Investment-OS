@@ -161,8 +161,8 @@
       68.2% (Microsoft), matching each company's real historical range;
       the full walk-forward engine produced two genuinely different
       Investment Scores (52.9 / 58.9) instead of both collapsing to a
-      neutral 50. `f_score_annual` (needs two fiscal years) and `altman_z`
-      (needs `market_cap`, i.e. price) remain explicitly not derived.
+      neutral 50. Multi-period `f_score_annual` and price-dependent
+      `altman_z` were completed in subsequent bounded increments.
 - [x] Pair a historical price series
       (`backtesting/price_history.py`, Yahoo daily close, same
       no-look-ahead convention as SEC filings) and derive `market_cap`,
@@ -177,6 +177,9 @@
       `shares_outstanding` is not -- implemented through restored as-traded
       closes, explicit `StockSplitRecord` events and observed-date-aware
       cumulative share adjustment; see docs/PRICE_HISTORY_DATA.md)
+- [x] Derive `f_score_annual` from two complete, consecutive 10-K filings
+      visible at the decision cutoff; preserve amendments, reject partial or
+      non-consecutive comparisons and normalize shares for intervening splits
 - [ ] Extend valuation coverage: `forward_pe`, `ev_ebitda` (needs a D&A
       tag), `ev_ebit`, `peg`, `shareholder_yield`/`fcf_yield` (need
       dividend/FCF tags)

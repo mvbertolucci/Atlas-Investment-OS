@@ -58,7 +58,7 @@ Repository state prepared on 2026-07-13:
   any fetch, push or integration action;
 - released version remains `v1.2.0`;
 - development baseline is PR-033 plus point-in-time data acquisition;
-- validation baseline is 497 passing tests and 87.51% production coverage.
+- validation baseline is 506 passing tests and 87.67% production coverage.
 
 The executable point-in-time boundary and deterministic walk-forward mechanism
 are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
@@ -76,7 +76,7 @@ No portfolio-performance result or calibration exists yet. Governed score
 weights, Deal Breakers, ranking, decisions, the personal watchlist and
 `run_all.py` remain unchanged.
 
-The next bounded task is two-fiscal-year replay for `f_score_annual`.
+The next bounded task is extending historical valuation or timing coverage.
 Before implementation, read:
 
 - `docs/POINT_IN_TIME_DATA.md`;
@@ -85,19 +85,19 @@ Before implementation, read:
 - `docs/SEC_EDGAR_DATA.md`;
 - `docs/PRICE_HISTORY_DATA.md`;
 - `backtesting/point_in_time.py`;
-- `backtesting/point_in_time_fundamentals.py`.
+- `backtesting/point_in_time_fundamentals.py`;
+- `backtesting/price_history.py`.
 
-Preserve the current as-of contract and derive F-Score inputs only when two
-comparable fiscal years are actually available. Do not substitute current data,
-silently impute a missing prior year, change governed configuration or include
-PR-034 performance/risk analytics in the same change.
+Preserve the current as-of and multi-period contracts. Do not substitute current
+data, change governed configuration or include PR-034 performance/risk analytics
+in the same change.
 
 Suggested acceptance boundary:
 
-1. same-period fiscal facts are paired deterministically;
-2. prior-year data must be visible at the decision cutoff;
-3. incomplete comparisons remain missing and observable;
-4. no existing ratio or governed output is overwritten;
+1. source requirements and approximations are explicit;
+2. every value must be visible at the decision cutoff;
+3. incomplete inputs remain missing and observable;
+4. no existing field or governed output is overwritten;
 5. focused tests plus the full 80% coverage gate;
 6. synchronized architecture, backlog, changelog and canonical handoff.
 

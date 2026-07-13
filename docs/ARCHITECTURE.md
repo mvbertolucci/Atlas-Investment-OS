@@ -148,11 +148,13 @@ the user's real `config/portfolio.csv`.
 
 The point-in-time layer defines the immutable evidence boundary for future
 walk-forward validation. It filters observations by source availability,
-preserves source revisions, reconstructs constituent membership from
+preserves both the latest value and complete available revision history,
+reconstructs constituent membership from
 non-overlapping historical intervals, aligns price/share units through explicit
 split events and requires terminal treatment for delisted securities. The
-walk-forward mechanism replays governed decisions but does not calculate
-portfolio returns; those remain a PR-034 responsibility.
+walk-forward mechanism derives single-period ratios, two-period Piotroski
+F-Score and partial valuation before replaying governed decisions. It does not
+calculate portfolio returns; those remain a PR-034 responsibility.
 
 ### Outcome layer
 

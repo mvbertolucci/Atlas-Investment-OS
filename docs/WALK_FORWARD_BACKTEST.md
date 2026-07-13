@@ -36,7 +36,8 @@ anything, and does not exist here either.
   config files actually used, so the manifest's provenance claim is
   independently verifiable, not just asserted.
 - `reconstruct_snapshot_frame(snapshot)` — one row per active constituent,
-  one column per field name actually observed in the snapshot. A member
+  one column per field name actually observed in the snapshot, plus each
+  field's observation date and split-alignment metadata. A member
   with zero observations still gets a row (so it can be reported, not
   silently dropped); no value is invented or borrowed from another date or
   symbol.
@@ -49,6 +50,9 @@ anything, and does not exist here either.
   Otherwise, Atlas's existing tolerant scoring (neutral factor default, lower
   `Model Confidence` for partially missing fields) already applies -- this
   engine does not duplicate or add a new confidence threshold.
+  Before scoring, the replay derives single-period ratios, a two-10-K
+  `f_score_annual`, and price-dependent valuation fields. A low derived
+  F-Score flows through the unchanged governed Piotroski Deal Breaker.
 - `run_walk_forward(dataset, decision_dates, manifest, ...)` — the engine:
   for each explicit decision date, gets the as-of snapshot and replays it.
   Dates are deduplicated and sorted; the same dataset + dates + governed
@@ -68,7 +72,7 @@ anything, and does not exist here either.
 
 Explicitly out of scope for this increment, per the roadmap:
 
-- historical-data acquisition or a populated point-in-time dataset;
+- a complete, broad populated point-in-time dataset;
 - portfolio performance, return, drawdown or risk metrics (PR-034);
 - a prospective shadow portfolio (PR-035);
 - any change to governed scoring weights, thresholds or Deal Breakers;
@@ -80,9 +84,10 @@ Explicitly out of scope for this increment, per the roadmap:
 
 `tests/test_walk_forward.py`: manifest validation (every required field,
 rejecting an empty one), governed-config hashing (real files, deterministic),
-frame reconstruction (no invented values, members with no data still
+frame reconstruction (no invented values, observation dates and split
+alignment, members with no data still
 represented), decision replay (complete case, no-data case, unresolved
-delisting, resolved delisting is not incomplete), engine-level determinism,
+delisting, resolved delisting, derived F-Score Deal Breaker), determinism,
 the anti-look-ahead property end to end, date deduplication/sorting, the
 monthly calendar helper, and report serialization. All offline, no network,
 no live provider.

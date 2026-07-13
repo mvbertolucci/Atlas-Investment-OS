@@ -2,7 +2,7 @@
 
 **Release:** v1.2.0
 **Baseline:** PR-033 + point-in-time historical-data acquisition
-**Test baseline:** 497 passing / 87.51% production coverage
+**Test baseline:** 506 passing / 87.67% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
@@ -24,7 +24,7 @@
 | Analytical market/sector ranking | Yes | Yes | No | No | Diagnostic JSON; no new score or decision |
 | Advisory model portfolio | Yes | No | No | No | 20 equal-weight positions under explicit caps; local JSON |
 | Point-in-time data contract | Yes | No | No | No | Executable observations, constituents, splits and delistings |
-| Walk-forward replay | Yes | No | No | No | PR-033 mechanism; real historical coverage remains incomplete |
+| Walk-forward replay | Yes | No | No | No | Ratios, two-year F-Score and partial valuation; coverage incomplete |
 | Dashboard/API/SDK | Yes | Yes | N/A | N/A | Read-only platform contracts operational |
 
 ## Conditional outputs

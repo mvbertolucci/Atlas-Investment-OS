@@ -13,7 +13,15 @@ import math
 import pandas as pd
 import pytest
 
-from backtesting.point_in_time_fundamentals import derive_point_in_time_ratios
+from backtesting.point_in_time import (
+    HistoricalObservation,
+    PointInTimeDataset,
+    StockSplitRecord,
+)
+from backtesting.point_in_time_fundamentals import (
+    derive_point_in_time_f_scores,
+    derive_point_in_time_ratios,
+)
 
 
 def _row(**overrides) -> dict:
@@ -149,3 +157,234 @@ def test_does_not_mutate_or_drop_raw_input_columns() -> None:
     assert result.iloc[0]["total_revenue"] == 1000.0
     assert result.iloc[0]["gross_profit"] == 400.0
     assert "symbol" in result.columns
+
+
+def _filing_observations(
+    *,
+    period_end: str,
+    filed_at: str,
+    accession: str,
+    values: dict[str, float],
+    form: str = "10-K",
+    shares_observed_on: str | None = None,
+) -> tuple[HistoricalObservation, ...]:
+    return tuple(
+        HistoricalObservation(
+            symbol="AAA",
+            field_name=field_name,
+            value=value,
+            observed_on=(
+                shares_observed_on
+                if field_name == "shares_outstanding" and shares_observed_on
+                else period_end
+            ),
+            available_at=filed_at,
+            source=f"SEC EDGAR ({form}, us-gaap:Test)",
+            revision_id=accession,
+        )
+        for field_name, value in values.items()
+    )
+
+
+def _prior_year(**overrides) -> dict[str, float]:
+    values = {
+        "net_income": 50.0,
+        "total_assets": 1000.0,
+        "operating_cash_flow": 60.0,
+        "current_assets": 300.0,
+        "current_liabilities": 200.0,
+        "shares_outstanding": 100.0,
+        "gross_profit": 300.0,
+        "total_revenue": 1000.0,
+        "long_term_debt": 300.0,
+    }
+    values.update(overrides)
+    return values
+
+
+def _current_year(**overrides) -> dict[str, float]:
+    values = {
+        "net_income": 100.0,
+        "total_assets": 1100.0,
+        "operating_cash_flow": 120.0,
+        "current_assets": 400.0,
+        "current_liabilities": 200.0,
+        "shares_outstanding": 100.0,
+        "gross_profit": 484.0,
+        "total_revenue": 1210.0,
+        "long_term_debt": 200.0,
+    }
+    values.update(overrides)
+    return values
+
+
+def _two_year_history(
+    *,
+    prior_values: dict[str, float] | None = None,
+    current_values: dict[str, float] | None = None,
+) -> tuple[HistoricalObservation, ...]:
+    return (
+        *_filing_observations(
+            period_end="2024-12-31",
+            filed_at="2025-02-02T00:00:00Z",
+            accession="annual-2024",
+            values=prior_values or _prior_year(),
+        ),
+        *_filing_observations(
+            period_end="2025-12-31",
+            filed_at="2026-02-02T00:00:00Z",
+            accession="annual-2025",
+            values=current_values or _current_year(),
+        ),
+    )
+
+
+def test_point_in_time_f_score_matches_all_nine_piotroski_signals() -> None:
+    result = derive_point_in_time_f_scores(
+        pd.DataFrame([{"symbol": "AAA"}]),
+        _two_year_history(),
+    )
+
+    assert result.iloc[0]["f_score_annual"] == 9.0
+
+
+def test_f_score_requires_two_complete_consecutive_annual_filings() -> None:
+    one_year = _filing_observations(
+        period_end="2025-12-31",
+        filed_at="2026-02-02T00:00:00Z",
+        accession="annual-2025",
+        values=_current_year(),
+    )
+    missing_prior_field = _two_year_history(
+        prior_values={
+            key: value
+            for key, value in _prior_year().items()
+            if key != "gross_profit"
+        }
+    )
+    non_consecutive = (
+        *_filing_observations(
+            period_end="2023-12-31",
+            filed_at="2024-02-02T00:00:00Z",
+            accession="annual-2023",
+            values=_prior_year(),
+        ),
+        *_filing_observations(
+            period_end="2025-12-31",
+            filed_at="2026-02-02T00:00:00Z",
+            accession="annual-2025",
+            values=_current_year(),
+        ),
+    )
+
+    for history in (one_year, missing_prior_field, non_consecutive):
+        result = derive_point_in_time_f_scores(
+            pd.DataFrame([{"symbol": "AAA"}]), history
+        )
+        assert pd.isna(result.iloc[0]["f_score_annual"])
+
+
+def test_f_score_ignores_quarterly_filings() -> None:
+    quarterly = _filing_observations(
+        period_end="2025-09-30",
+        filed_at="2025-11-02T00:00:00Z",
+        accession="quarter-2025",
+        values=_current_year(),
+        form="10-Q",
+    )
+    result = derive_point_in_time_f_scores(
+        pd.DataFrame([{"symbol": "AAA"}]),
+        (*_two_year_history()[:9], *quarterly),
+    )
+
+    assert pd.isna(result.iloc[0]["f_score_annual"])
+
+
+def test_f_score_does_not_leak_second_year_before_filing_availability() -> None:
+    dataset = PointInTimeDataset(observations=_two_year_history())
+
+    before = derive_point_in_time_f_scores(
+        pd.DataFrame([{"symbol": "AAA"}]),
+        dataset.as_of("2026-02-01T23:59:59Z").history,
+    )
+    after = derive_point_in_time_f_scores(
+        pd.DataFrame([{"symbol": "AAA"}]),
+        dataset.as_of("2026-02-02T00:00:00Z").history,
+    )
+
+    assert pd.isna(before.iloc[0]["f_score_annual"])
+    assert after.iloc[0]["f_score_annual"] == 9.0
+
+
+def test_f_score_uses_latest_available_amendment_for_same_period() -> None:
+    amendment = _filing_observations(
+        period_end="2025-12-31",
+        filed_at="2026-03-01T00:00:00Z",
+        accession="annual-2025-amended",
+        values=_current_year(net_income=-100.0, operating_cash_flow=50.0),
+        form="10-K/A",
+    )
+    dataset = PointInTimeDataset(
+        observations=(*_two_year_history(), *amendment)
+    )
+
+    before = derive_point_in_time_f_scores(
+        pd.DataFrame([{"symbol": "AAA"}]),
+        dataset.as_of("2026-02-15T00:00:00Z").history,
+    )
+    after = derive_point_in_time_f_scores(
+        pd.DataFrame([{"symbol": "AAA"}]),
+        dataset.as_of("2026-03-02T00:00:00Z").history,
+    )
+
+    assert before.iloc[0]["f_score_annual"] == 9.0
+    assert after.iloc[0]["f_score_annual"] < 9.0
+
+
+def test_partial_amendment_updates_only_its_field_without_erasing_year() -> None:
+    amendment = _filing_observations(
+        period_end="2025-12-31",
+        filed_at="2026-03-01T00:00:00Z",
+        accession="annual-2025-partial-amendment",
+        values={"net_income": -100.0},
+        form="10-K/A",
+    )
+    dataset = PointInTimeDataset(
+        observations=(*_two_year_history(), *amendment)
+    )
+
+    result = derive_point_in_time_f_scores(
+        pd.DataFrame([{"symbol": "AAA"}]),
+        dataset.as_of("2026-03-02T00:00:00Z").history,
+    )
+
+    assert not pd.isna(result.iloc[0]["f_score_annual"])
+    assert result.iloc[0]["f_score_annual"] < 9.0
+
+
+def test_f_score_normalizes_prior_shares_for_split_before_dilution_test() -> None:
+    history = _two_year_history(
+        current_values=_current_year(shares_outstanding=400.0)
+    )
+    split = StockSplitRecord(
+        "AAA", "2025-06-01", 4,
+        "2025-06-02T00:00:00Z", "exchange",
+    )
+
+    without_split = derive_point_in_time_f_scores(
+        pd.DataFrame([{"symbol": "AAA"}]), history
+    )
+    with_split = derive_point_in_time_f_scores(
+        pd.DataFrame([{"symbol": "AAA"}]), history, (split,)
+    )
+
+    assert without_split.iloc[0]["f_score_annual"] == 8.0
+    assert with_split.iloc[0]["f_score_annual"] == 9.0
+
+
+def test_preexisting_f_score_is_never_overwritten() -> None:
+    frame = pd.DataFrame([{"symbol": "AAA", "f_score_annual": 3.0}])
+
+    result = derive_point_in_time_f_scores(frame, _two_year_history())
+
+    assert result.iloc[0]["f_score_annual"] == 3.0

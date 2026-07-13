@@ -18,6 +18,9 @@ from backtesting.price_history import (
     extract_split_records,
     fetch_price_history,
 )
+from backtesting.point_in_time_fundamentals import (
+    derive_point_in_time_f_scores,
+)
 from backtesting.walk_forward import (
     HistoricalInputManifest,
     IncompleteDecision,
@@ -52,4 +55,5 @@ __all__ = [
     "extract_price_observations",
     "extract_split_records",
     "fetch_price_history",
+    "derive_point_in_time_f_scores",
 ]

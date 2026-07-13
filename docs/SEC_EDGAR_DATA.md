@@ -20,8 +20,8 @@ Microsoft produced two genuinely different Investment Scores (not both
 collapsed to a neutral 50), with derived gross margins (48.6% / 68.2%)
 matching each company's real, publicly known historical range. A paired
 historical price series (`docs/PRICE_HISTORY_DATA.md`) now also unlocks
-`market_cap`, `pe`, `pb` and `altman_z`. It does not yet cover:
-`f_score_annual` (needs two fiscal years), the rest of the `valuation`
+`market_cap`, `pe`, `pb` and `altman_z`. Two complete, consecutive 10-Ks now
+also derive `f_score_annual`. It does not yet cover the rest of the `valuation`
 factor family, historical index membership, or delisting records. See "What
 is covered" and "What is not" below.
 
@@ -168,9 +168,13 @@ right before `score_dataframe`.
   `tax_provision` are missing or imply an implausible rate -- the identical
   fallback `analytics/fundamentals.py::_compute_roic` already uses for live
   data.
-- **Not computed here:** `f_score_annual` (needs two fiscal years -- two
-  separate point-in-time reconstructions, not one row) and `altman_z`
-  (needs `market_cap`, i.e. price × shares, which SEC EDGAR does not have).
+- **Multi-period F-Score:** `derive_point_in_time_f_scores` uses the complete
+  as-of history to select two consecutive 10-K periods. It requires all nine
+  Piotroski inputs, uses the latest available amendment for a fiscal end,
+  ignores 10-Q data, rejects non-consecutive periods and normalizes prior
+  shares for intervening splits. Missing evidence leaves the score missing.
+- **Not computed in the ratio layer:** `altman_z` needs `market_cap`, i.e.
+  price × shares; it is derived in the paired price layer.
 
 **Verified end to end against real, live SEC data** for Apple and
 Microsoft: derived `gross_margin` came out to 48.6% (Apple) and 68.2%
@@ -179,8 +183,7 @@ historical range (~44-46% and ~68-70% respectively) -- and the full
 `run_walk_forward` engine produced two genuinely different Investment
 Scores (52.9 / 58.9, not both collapsed to a neutral 50), each with
 partial `Model Confidence` (~32.5%, honestly reflecting that `pe`,
-`rsi_14`/momentum (timing needs price history), `f_score_annual` and
-`altman_z` are still absent).
+`rsi_14`/momentum and several valuation fields are still absent).
 
 ## What is covered
 
@@ -208,9 +211,6 @@ partial `Model Confidence` (~32.5%, honestly reflecting that `pe`,
   mapping. Remaining native concepts not yet mapped (e.g. per-share EPS
   tags, specific margin/ratio line items only some filers break out) are a
   straightforward table extension.
-- **`f_score_annual`.** Not yet derived: needs two fiscal years compared
-  (two point-in-time reconstructions, not a single row). `altman_z` IS now
-  derived -- see `docs/PRICE_HISTORY_DATA.md`.
 - **Valuation multiples.** A historical price series is now paired in
   (`docs/PRICE_HISTORY_DATA.md`), unlocking `market_cap`, `pe`, `pb` and
   `altman_z`. Still not derived: `forward_pe`, `ev_ebitda`, `ev_ebit`,

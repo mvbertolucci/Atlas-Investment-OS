@@ -210,6 +210,7 @@ class AsOfSnapshot:
     observations: tuple[HistoricalObservation, ...]
     delistings: tuple[DelistingRecord, ...]
     splits: tuple[StockSplitRecord, ...] = ()
+    history: tuple[HistoricalObservation, ...] = ()
 
     def observation(
         self, symbol: str, field_name: str
@@ -287,10 +288,24 @@ class PointInTimeDataset:
                 }
             )
         )
+        history = tuple(
+            sorted(
+                (
+                    observation
+                    for observation in self.observations
+                    if observation.is_available(cutoff)
+                ),
+                key=lambda item: (
+                    item.symbol,
+                    item.field_name,
+                    item.observed_on,
+                    item.available_at,
+                    item.revision_id,
+                ),
+            )
+        )
         latest: dict[tuple[str, str], HistoricalObservation] = {}
-        for observation in self.observations:
-            if not observation.is_available(cutoff):
-                continue
+        for observation in history:
             key = (observation.symbol, observation.field_name)
             candidate_key = (
                 observation.observed_on,
@@ -325,7 +340,14 @@ class PointInTimeDataset:
                 key=lambda item: (item.effective_on, item.symbol),
             )
         )
-        return AsOfSnapshot(cutoff, members, available, delistings, splits)
+        return AsOfSnapshot(
+            cutoff,
+            members,
+            available,
+            delistings,
+            splits,
+            history,
+        )
 
     @classmethod
     def from_iterables(
