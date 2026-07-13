@@ -50,6 +50,13 @@ FIELD_TAG_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
     ),
     "total_liabilities": (("us-gaap", "Liabilities"),),
     "interest_expense": (("us-gaap", "InterestExpense"),),
+    "operating_cash_flow": (
+        ("us-gaap", "NetCashProvidedByUsedInOperatingActivities"),
+    ),
+    "cash_and_equivalents": (
+        ("us-gaap", "CashAndCashEquivalentsAtCarryingValue"),
+        ("us-gaap", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
+    ),
     "tax_provision": (("us-gaap", "IncomeTaxExpenseBenefit"),),
     "pretax_income": (
         (

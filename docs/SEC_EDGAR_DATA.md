@@ -13,10 +13,15 @@ synthetic fixtures.
 dataset.** It covers 15 native fundamental concepts, now collected in
 checkpointed, resumable batches across many tickers at once
 (`backtesting/sec_edgar_collector.py`, mirroring `universe/collector.py`'s
-design). It does not yet cover: derived concepts requiring several raw
-components, valuation multiples, historical index membership, historical
-prices, or delisting records. See "What is covered" and "What
-is not" below.
+design), and now converted into the *ratios* `config/features.yaml`
+actually scores on (`backtesting/point_in_time_fundamentals.py`) -- proven
+end to end: a real walk-forward replay over real SEC data for Apple and
+Microsoft produced two genuinely different Investment Scores (not both
+collapsed to a neutral 50), with derived gross margins (48.6% / 68.2%)
+matching each company's real, publicly known historical range. It does not
+yet cover: `f_score_annual` (needs two fiscal years), `altman_z` (needs
+market cap, i.e. price), historical index membership, historical prices, or
+delisting records. See "What is covered" and "What is not" below.
 
 ## Why SEC EDGAR
 
@@ -133,6 +138,48 @@ $env:SEC_EDGAR_USER_AGENT = "Your Name (contact: you@example.com)"
 - `SecEdgarCollectionState.observations()` returns real `HistoricalObservation`
   tuples straight from the checkpoint, ready to build a `PointInTimeDataset`.
 
+## Deriving the ratios Atlas actually scores on
+
+`config/features.yaml` reads ratios (`gross_margin`, `net_margin`,
+`current_ratio`, `roic`, ...), not the raw dollar totals SEC EDGAR provides.
+Feeding raw totals straight into `score_dataframe` would leave almost every
+factor at its neutral-50 fallback, silently masking that real data had
+arrived without producing a meaningful score.
+
+`backtesting/point_in_time_fundamentals.derive_point_in_time_ratios(frame)`
+computes, from the 15 raw fields above, exactly the same ratios
+`analytics/fundamentals.py`/`analytics/mapper.py` compute for live Yahoo
+data: `gross_margin`, `operating_margin`, `net_margin`, `current_ratio`,
+`working_capital`, `total_equity`, `debt_to_equity`, `interest_coverage`,
+`roe`, `roic`. It is wired into `backtesting.walk_forward.replay_decision_batch`,
+right before `score_dataframe`.
+
+- **Only fills gaps, never overwrites.** If a row already supplies a ratio
+  directly (e.g. from a different, ratio-native source), that value is
+  preserved untouched -- this function recomputes a ratio only when it is
+  genuinely absent.
+- **Documented approximations, not hidden ones:** `debt_to_equity`/`roic`
+  use only `long_term_debt` (no separate tag yet for the current portion of
+  debt); `interest_coverage`/`roic` use `operating_income` as the EBIT
+  proxy (the same explicit decision as `sec_edgar.py`); the ROIC tax rate
+  falls back to the 21% US statutory rate when `pretax_income`/
+  `tax_provision` are missing or imply an implausible rate -- the identical
+  fallback `analytics/fundamentals.py::_compute_roic` already uses for live
+  data.
+- **Not computed here:** `f_score_annual` (needs two fiscal years -- two
+  separate point-in-time reconstructions, not one row) and `altman_z`
+  (needs `market_cap`, i.e. price × shares, which SEC EDGAR does not have).
+
+**Verified end to end against real, live SEC data** for Apple and
+Microsoft: derived `gross_margin` came out to 48.6% (Apple) and 68.2%
+(Microsoft) -- matching each company's real, independently known
+historical range (~44-46% and ~68-70% respectively) -- and the full
+`run_walk_forward` engine produced two genuinely different Investment
+Scores (52.9 / 58.9, not both collapsed to a neutral 50), each with
+partial `Model Confidence` (~32.5%, honestly reflecting that `pe`,
+`rsi_14`/momentum (timing needs price history), `f_score_annual` and
+`altman_z` are still absent).
+
 ## What is covered
 
 - `extract_observations(symbol, company_facts)`: pure conversion, tested
@@ -159,12 +206,12 @@ $env:SEC_EDGAR_USER_AGENT = "Your Name (contact: you@example.com)"
   mapping. Remaining native concepts not yet mapped (e.g. per-share EPS
   tags, specific margin/ratio line items only some filers break out) are a
   straightforward table extension.
-- **Derived concepts.** `EBIT` and `Working Capital` are not native SEC
-  tags. `operating_income` (`OperatingIncomeLoss`) is mapped as a commonly
-  used EBIT *proxy*, kept under its own name rather than silently renamed
-  to `ebit`, so that decision stays visible to whoever consumes it; Working
-  Capital is `current_assets - current_liabilities`, both already mapped,
-  but the subtraction itself is not yet computed anywhere.
+- **`f_score_annual` and `altman_z`.** Not yet derived: F-Score needs two
+  fiscal years compared (two point-in-time reconstructions, not a single
+  row); Altman Z needs `market_cap`, which needs a paired price series (see
+  below). Every other ratio `config/features.yaml`'s business/financial
+  factors read is now derived -- see "Deriving the ratios Atlas actually
+  scores on" above.
 - **Valuation multiples** (PE, PB, EV/EBITDA, PEG, dividend/buyback
   yields). SEC EDGAR has no price data at all; these need a historical
   price series (Yahoo's daily history is not restated the way fundamentals
