@@ -219,7 +219,10 @@
         concentration; incomplete periods suppress aggregate metrics
       - [x] Versioned local JSON runner with mandatory provenance, CLI and
         explicit sector-concentration coverage
-      - [ ] Build dated model portfolios from walk-forward decisions
+      - [x] Build point-in-time model-portfolio targets from the same governed
+        scoring/universe/ranking path; retain coverage gaps and config hashes
+      - [ ] Govern execution timing and convert targets to effective-date
+        validation rebalances
       - [ ] Acquire complete total-return/benchmark/delisting evidence
       - [ ] Add sector and factor contribution without look-ahead
       - [ ] Run broad real validation and report coverage

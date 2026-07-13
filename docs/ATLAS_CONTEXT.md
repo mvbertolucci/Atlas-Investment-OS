@@ -4,12 +4,12 @@
 **Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition + paired
 historical price series + point-in-time `timing` factor derivation + extended
 point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
-plus the deterministic PR-034 portfolio-validation core.
+plus deterministic PR-034 historical targets and portfolio-validation core.
 
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 548 tests passing / 88.48% production coverage
+**Validation baseline:** 554 tests passing / 88.49% production coverage
 
 ## 1. Product mission
 
@@ -200,10 +200,12 @@ dated weights and attributed total returns and calculates net/benchmark return,
 volatility, drawdown, turnover, estimated costs and position concentration.
 Missing returns or unresolved delistings suppress the aggregate summary. The
 versioned offline runner requires explicit provenance and also reports sector
-concentration when every sector is supplied. The walk-forward-to-portfolio
-adapter, complete total-return evidence, factor contribution and broad real
-run remain open; see
-`docs/PORTFOLIO_VALIDATION.md`.
+concentration when every sector is supplied. Point-in-time portfolio targets
+now reuse the exact walk-forward scoring route plus governed universe/ranking/
+portfolio policies, retain coverage gaps and config hashes, and require an
+explicit execution date. The execution calendar, complete total-return
+evidence, factor contribution and broad real run remain open; see
+`docs/HISTORICAL_MODEL_PORTFOLIO.md` and `docs/PORTFOLIO_VALIDATION.md`.
 
 **Real progress on (1), now end to end:** `backtesting/sec_edgar.py` +
 `backtesting/sec_edgar_collector.py` acquire 17 native fundamental fields
@@ -258,9 +260,9 @@ estimates), `ev_ebitda` (needs a live formula to mirror first) and
 `target_upside` remain unbuilt -- each needs a new data source or design
 decision, not just a tag addition; (2) run the broad-market/ADR collections
 when resumed; (3)
-complete PR-034 by constructing dated portfolios, acquiring total-return and
-benchmark evidence, adding factor contribution and running the validation at
-scale (today's real walk-forward verification covers 2 companies, one date).
+complete PR-034 by governing execution timing, acquiring total-return and
+benchmark evidence, adding factor contribution and running validation at scale
+(today's real walk-forward verification covers 2 companies, one date).
 
 See `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md` for the full backlog.
 

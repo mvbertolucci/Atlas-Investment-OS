@@ -144,9 +144,11 @@ the user's real `config/portfolio.csv`.
 ### Historical-validation contract layer
 
 - `backtesting/point_in_time.py`
+- `backtesting/historical_portfolio.py`
 - `backtesting/portfolio_validation.py`
 - `config/portfolio_validation.yaml`
 - `docs/POINT_IN_TIME_DATA.md`
+- `docs/HISTORICAL_MODEL_PORTFOLIO.md`
 - `docs/PORTFOLIO_VALIDATION.md`
 
 The point-in-time layer defines the immutable evidence boundary for future
@@ -166,6 +168,10 @@ portfolio construction. Incomplete returns or unresolved delistings suppress
 the aggregate summary rather than creating survivorship-biased performance.
 Its offline CLI consumes a versioned JSON input with mandatory provenance and
 can calculate sector concentration only from explicit, complete sector maps.
+Historical target construction reuses the walk-forward scoring frame plus the
+governed universe, ranking and model-portfolio builders. Targets retain
+coverage gaps and configuration hashes and require a separate explicit
+execution date before becoming validation rebalances.
 
 ### Outcome layer
 

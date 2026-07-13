@@ -54,6 +54,10 @@ exist; see `docs/PORTFOLIO_VALIDATION.md`.
   Before scoring, the replay derives single-period ratios, a two-10-K
   `f_score_annual`, and price-dependent valuation fields. A low derived
   F-Score flows through the unchanged governed Piotroski Deal Breaker.
+- `score_snapshot_batch(snapshot, ...)` — the single public reconstruction,
+  derivation and governed-scoring route used by both decision replay and
+  historical model-portfolio targets. Portfolio construction cannot drift to
+  a duplicate scoring implementation.
 - `run_walk_forward(dataset, decision_dates, manifest, ...)` — the engine:
   for each explicit decision date, gets the as-of snapshot and replays it.
   Dates are deduplicated and sorted; the same dataset + dates + governed

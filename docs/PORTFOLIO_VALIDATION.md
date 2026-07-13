@@ -8,10 +8,11 @@ dated target portfolios against explicit total-return observations. It does
 not construct a historical portfolio, fetch data, change Atlas scores or claim
 that the current model has achieved any real historical performance.
 
-The adapter from walk-forward decisions to dated model-portfolio weights and a
-complete real return dataset remain separate work. Factor contribution also
-remains open until historical factor exposures and subsequent returns can be
-joined without look-ahead bias.
+Point-in-time model-portfolio targets can now be built for explicit cutoffs;
+see `docs/HISTORICAL_MODEL_PORTFOLIO.md`. Converting those targets into return
+periods still requires an explicit execution calendar and complete real total
+returns. Factor contribution also remains open until historical factor
+exposures and subsequent returns can be joined without look-ahead bias.
 
 ## Run from a versioned local input
 
@@ -95,8 +96,8 @@ whether validation is `complete` or `incomplete`.
 
 ## Remaining PR-034 work
 
-- build point-in-time portfolios from each walk-forward cutoff using the
-  historical universe/ranking contracts;
+- govern the execution-date/price convention and convert historical targets
+  into dated validation rebalances;
 - acquire complete total-return and benchmark series with dividends and
   delisting treatment;
 - add sector and factor contribution based on exposures known at each cutoff;

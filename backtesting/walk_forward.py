@@ -263,15 +263,16 @@ def reconstruct_snapshot_frame(snapshot: AsOfSnapshot) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
-def replay_decision_batch(
+def score_snapshot_batch(
     snapshot: AsOfSnapshot,
     *,
     model_path: str | Path,
     deal_breakers_path: str | Path,
-) -> tuple[tuple[ReplayedDecision, ...], tuple[IncompleteDecision, ...]]:
+) -> tuple[pd.DataFrame, tuple[IncompleteDecision, ...]]:
     """
-    Reconstrói o snapshot e roda o motor de decisão governado (score_dataframe,
-    inalterado) exatamente sobre os dados visíveis naquele corte.
+    Reconstrói e pontua um snapshot pela rota governada única do walk-forward.
+    Consumidores posteriores (decisões e carteiras históricas) recebem o mesmo
+    DataFrame, sem duplicar derivação ou scoring.
 
     Um símbolo é incompleto quando:
     - tem delistagem conhecida e efetiva com return_treatment "unresolved"
@@ -321,7 +322,7 @@ def replay_decision_batch(
             complete_symbols.append(symbol)
 
     if not complete_symbols:
-        return (), tuple(incomplete)
+        return pd.DataFrame(), tuple(incomplete)
 
     eligible = frame[frame["symbol"].isin(complete_symbols)].reset_index(
         drop=True
@@ -345,6 +346,24 @@ def replay_decision_batch(
     # e snapshot.splits diretamente, no mesmo padrão de derive_point_in_time_f_scores.
     eligible = derive_point_in_time_timing(eligible, snapshot.history, snapshot.splits)
     scored = score_dataframe(eligible, Path(model_path), Path(deal_breakers_path))
+    return scored, tuple(incomplete)
+
+
+def replay_decision_batch(
+    snapshot: AsOfSnapshot,
+    *,
+    model_path: str | Path,
+    deal_breakers_path: str | Path,
+) -> tuple[tuple[ReplayedDecision, ...], tuple[IncompleteDecision, ...]]:
+    """
+    Reconstrói o snapshot e roda o motor de decisão governado (score_dataframe,
+    inalterado) exatamente sobre os dados visíveis naquele corte.
+    """
+    scored, incomplete = score_snapshot_batch(
+        snapshot,
+        model_path=model_path,
+        deal_breakers_path=deal_breakers_path,
+    )
 
     replayed: list[ReplayedDecision] = []
     for _, row in scored.iterrows():
@@ -367,7 +386,7 @@ def replay_decision_batch(
             )
         )
 
-    return tuple(replayed), tuple(incomplete)
+    return tuple(replayed), incomplete
 
 
 def run_walk_forward(

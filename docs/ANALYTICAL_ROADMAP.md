@@ -44,8 +44,10 @@ promise.
    source-attributed calculation core now reports return, benchmark comparison,
    volatility, drawdown, turnover, estimated costs and position concentration,
    and withholds aggregate metrics for incomplete periods. Historical portfolio
-   construction, a complete real return dataset, sector/factor contribution and
-   a real broad run remain open. See `docs/PORTFOLIO_VALIDATION.md`.
+   target construction now reuses the same governed point-in-time scoring,
+   universe and ranking route. Execution timing, a complete real return
+   dataset, factor contribution and a real broad run remain open. See
+   `docs/HISTORICAL_MODEL_PORTFOLIO.md` and `docs/PORTFOLIO_VALIDATION.md`.
 10. **PR-035 — Prospective shadow portfolio.** Freeze real-time model-portfolio
    recommendations and evaluate them forward without capital or broker access.
 11. **PR-036 — Controlled calibration.** Consider weight or threshold changes

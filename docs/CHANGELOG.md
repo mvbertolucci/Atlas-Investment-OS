@@ -19,6 +19,12 @@
   sector; incomplete sector coverage remains `null`, never imputed.
 - A loadable synthetic input example that documents the schema without
   presenting fabricated returns as research evidence.
+- Point-in-time historical portfolio targets built through the exact PR-033
+  scoring route and the governed universe, ranking and model-portfolio paths.
+- Visible incomplete-decision coverage, governed-config hashes and explicit
+  construction errors instead of smaller accidental portfolios.
+- An explicit target-to-rebalance boundary requiring the caller to provide an
+  execution date that cannot precede the decision cutoff.
 
 ### Preserved
 
@@ -28,10 +34,12 @@
 
 ### Validation
 
-- 19 deterministic tests cover calculations, costs, drift-aware turnover,
-  terminal events, missing evidence, assumptions and report serialization.
-- 548 automated tests passed.
-- 88.48% production coverage overall; the module has 90% direct coverage.
+- 25 deterministic PR-034 tests cover historical targets, anti-look-ahead,
+  calculations, costs, drift-aware turnover, terminal events, missing evidence,
+  assumptions and report serialization.
+- 554 automated tests passed.
+- 88.49% production coverage overall; historical-target and validation modules
+  have 86% and 90% direct coverage, respectively.
 
 ## Collector advancement after permanent provider failures
 

@@ -1,8 +1,8 @@
 # Feature Status
 
 **Release:** v1.2.0
-**Baseline:** PR-033 + point-in-time historical-data acquisition + point-in-time `timing`/valuation derivation + deterministic PR-034 validation core
-**Test baseline:** 548 passing / 88.48% production coverage
+**Baseline:** PR-033 + point-in-time acquisition/derivation + deterministic PR-034 historical targets and validation core
+**Test baseline:** 554 passing / 88.49% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
@@ -25,7 +25,7 @@
 | Advisory model portfolio | Yes | No | No | No | 20 equal-weight positions under explicit caps; local JSON |
 | Point-in-time data contract | Yes | No | No | No | Executable observations, constituents, splits and delistings |
 | Walk-forward replay | Yes | No | No | No | Ratios, two-year F-Score and partial valuation; coverage incomplete |
-| Portfolio return/risk validation | Partial | No | No | No | Versioned offline runner and metric core; no broad real performance result yet |
+| Portfolio return/risk validation | Partial | No | No | No | Point-in-time targets plus versioned metric runner; execution/returns still open |
 | Dashboard/API/SDK | Yes | Yes | N/A | N/A | Read-only platform contracts operational |
 
 ## Conditional outputs
