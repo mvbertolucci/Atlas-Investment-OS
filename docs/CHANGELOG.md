@@ -1,5 +1,27 @@
 # Changelog
 
+## Collector advancement after permanent provider failures
+
+### Fixed
+
+- Default `universe.collector` batch selection now treats a provider failure
+  as resolved for advancement after its cumulative attempts consume the
+  configured initial-attempt-plus-retries budget. A delisted or otherwise
+  permanently unavailable ticker can no longer pin every later invocation to
+  the same batch.
+- Exhausted failures remain recorded in the checkpoint, are reported when all
+  batches have been resolved, and can still be retried with an explicit
+  `--batch-number`. The same behavior applies to the S&P 500 and broad-market
+  screeners.
+
+### Validation
+
+- Deterministic regression coverage exercises the default no-`--batch-number`
+  path, retryable-versus-exhausted boundaries, retained failure evidence and
+  final reporting.
+- 529 automated tests passed.
+- 88.40% production coverage overall.
+
 ## Extended point-in-time valuation coverage
 
 ### Added

@@ -7,7 +7,7 @@ point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 525 tests passing / 87.83% production coverage
+**Validation baseline:** 529 tests passing / 88.40% production coverage
 
 ## 1. Product mission
 

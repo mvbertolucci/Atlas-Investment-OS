@@ -11,8 +11,16 @@ command and every completed symbol is written to an atomic local checkpoint.
 ```
 
 Without arguments, the collector selects the first batch that still contains
-an incomplete symbol. Repeating the command therefore resumes the collection.
-To inspect or rerun a particular boundary:
+an unresolved symbol. A successful observation resolves a symbol normally. A
+provider failure remains retryable until its cumulative attempts reach the
+configured budget: the first attempt plus `research_collection_retries`.
+After that budget is exhausted, the failure is considered resolved only for
+automatic batch advancement, so one permanently unavailable ticker cannot
+block every later batch. The failure entry and its attempt count remain in the
+checkpoint and are reported when automatic collection has no batches left.
+This behavior is shared by the default S&P 500 and `--market` collectors.
+Repeating the command therefore resumes the collection. To inspect or rerun a
+particular boundary, including exhausted failures:
 
 ```powershell
 .\.venv\Scripts\python.exe -m universe.collector --batch-number 3
@@ -34,7 +42,11 @@ constituent count, timestamps, successful observations and provider failures.
 It is replaced atomically after each attempted symbol. On resume:
 
 - successful symbols are not requested again;
-- failed symbols are retried and retain cumulative attempt counts;
+- failed symbols below the attempt budget are retried and retain cumulative
+  attempt counts;
+- failures at or above the attempt budget no longer block automatic batch
+  advancement, but remain visible in `failures` and can be retried explicitly
+  with `--batch-number`;
 - a success removes the prior failure entry;
 - a checkpoint from another snapshot or constituent count is rejected.
 

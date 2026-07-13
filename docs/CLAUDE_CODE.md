@@ -69,7 +69,7 @@ timing-factor and extended-valuation increments):
 - released version remains `v1.2.0`;
 - development baseline is PR-033 plus point-in-time data acquisition plus the
   `timing` factor family plus extended `valuation` coverage;
-- validation baseline is 525 passing tests and 87.83% production coverage.
+- validation baseline is 529 passing tests and 88.40% production coverage.
 
 The executable point-in-time boundary and deterministic walk-forward mechanism
 are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
@@ -146,7 +146,7 @@ change.
 Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/UNIVERSE_SOURCES.md and
 docs/UNIVERSE_COLLECTION.md. Verify that git status is clean and that the
 extended point-in-time valuation commit is present. Run the full
-test/coverage gate; expect 525 tests and 87.83% production coverage. Then run
+test/coverage gate; expect 529 tests and 88.40% production coverage. Then run
 the broad-market universe collection (universe.collector --market, mirroring
 the S&P 500 screener's already-proven checkpointed/resumable design) against
 config/universe_market.yaml, and report real coverage numbers (symbols

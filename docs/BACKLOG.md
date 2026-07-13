@@ -231,6 +231,10 @@ checkpoint and batch size throughout -- the S&P 500 screener is unchanged.
       billion, which is really a mid-cap-and-up floor)
 - [x] `universe.collector` gains `--market` (own snapshot/state/batch-size,
       via `config/settings.json`) and `--snapshot` overrides
+- [x] Default batch advancement honors the configured retry budget: a
+      permanently failing ticker remains visible in the checkpoint but cannot
+      pin automatic collection to the same batch forever; explicit
+      `--batch-number` remains available for reprocessing
 - [x] `portfolio.model_portfolio` (`build_from_collection`/`main`) accepts
       `--universe-policy`/`--ranking-policy`/`--model-portfolio-policy` and
       `--label`, so ranking/model-portfolio can run over this screener with

@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
+import universe.collector as collector
 
 from universe.collector import (
+    CollectionBatchResult,
     CollectionState,
     collect_constituent_batch,
     load_collection_state,
     select_next_incomplete_batch,
     write_collection_state,
 )
-from universe.sources import select_constituent_batch
+from universe.sources import (
+    select_constituent_batch,
+    write_constituent_snapshot,
+)
 
 
 def _records() -> list[dict[str, str]]:
@@ -136,6 +142,167 @@ def test_next_batch_uses_first_incomplete_boundary() -> None:
         batch_size=2,
         completed_symbols={"AAA", "BBB", "CCC"},
     ) is None
+
+
+def test_next_batch_advances_past_failure_with_exhausted_retry_budget() -> None:
+    records = _records()
+
+    batch = select_next_incomplete_batch(
+        records,
+        batch_size=2,
+        completed_symbols={"AAA"},
+        failed_attempts={"BBB": 3},
+        failure_attempt_budget=3,
+    )
+
+    assert batch is not None
+    assert batch.batch_number == 2
+    assert [row["symbol"] for row in batch.frame_rows] == ["CCC"]
+
+    retryable = select_next_incomplete_batch(
+        records,
+        batch_size=2,
+        completed_symbols={"AAA"},
+        failed_attempts={"BBB": 2},
+        failure_attempt_budget=3,
+    )
+    assert retryable is not None
+    assert retryable.batch_number == 1
+
+
+@pytest.mark.parametrize("market_mode", [False, True])
+def test_main_without_batch_number_advances_past_permanent_failure(
+    tmp_path: Path,
+    monkeypatch,
+    market_mode: bool,
+) -> None:
+    config = tmp_path / "config"
+    data = tmp_path / "data"
+    config.mkdir()
+    data.mkdir()
+    snapshot_path = config / "research_universe.csv"
+    state_path = data / "collection.json"
+    write_constituent_snapshot(_records(), snapshot_path)
+    (config / "settings.json").write_text(
+        json.dumps(
+            {
+                "research_universe_path": str(snapshot_path),
+                "research_universe_batch_size": 2,
+                "research_collection_state_path": str(state_path),
+                "research_universe_market_path": str(snapshot_path),
+                "research_universe_market_batch_size": 2,
+                "research_collection_market_state_path": str(state_path),
+                "research_collection_retries": 2,
+            }
+        ),
+        encoding="utf-8",
+    )
+    state = CollectionState(
+        snapshot_date="2026-07-13",
+        total_constituents=3,
+        created_at="2026-07-13T12:00:00+00:00",
+        updated_at="2026-07-13T12:01:00+00:00",
+        observations={"AAA": _observation("AAA")},
+        failures={
+            "BBB": {
+                "attempts": 3,
+                "last_error": "404 permanently delisted",
+                "updated_at": "2026-07-13T12:01:00+00:00",
+            }
+        },
+    )
+    write_collection_state(state, state_path)
+    selected_batches = []
+
+    def fake_collect(batch, **_kwargs):
+        selected_batches.append(batch)
+        return CollectionBatchResult(
+            batch_number=batch.batch_number,
+            total_batches=batch.total_batches,
+            attempted=1,
+            succeeded=1,
+            failed=0,
+            skipped=0,
+            completed_total=2,
+            remaining_total=1,
+        )
+
+    monkeypatch.setattr(collector, "ROOT", tmp_path)
+    monkeypatch.setattr(collector, "collect_constituent_batch", fake_collect)
+    argv = ["universe.collector"]
+    if market_mode:
+        argv.append("--market")
+    monkeypatch.setattr(sys, "argv", argv)
+
+    collector.main()
+
+    assert len(selected_batches) == 1
+    assert selected_batches[0].batch_number == 2
+    assert [
+        row["symbol"] for row in selected_batches[0].frame_rows
+    ] == ["CCC"]
+    persisted = load_collection_state(
+        state_path,
+        snapshot_date="2026-07-13",
+        total_constituents=3,
+    )
+    assert persisted.failures["BBB"]["last_error"] == (
+        "404 permanently delisted"
+    )
+
+
+def test_main_reports_exhausted_failures_when_no_batch_remains(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = tmp_path / "config"
+    data = tmp_path / "data"
+    config.mkdir()
+    data.mkdir()
+    snapshot_path = config / "research_universe.csv"
+    state_path = data / "collection.json"
+    write_constituent_snapshot(_records(), snapshot_path)
+    (config / "settings.json").write_text(
+        json.dumps(
+            {
+                "research_universe_path": str(snapshot_path),
+                "research_universe_batch_size": 2,
+                "research_collection_state_path": str(state_path),
+                "research_collection_retries": 2,
+            }
+        ),
+        encoding="utf-8",
+    )
+    write_collection_state(
+        CollectionState(
+            snapshot_date="2026-07-13",
+            total_constituents=3,
+            created_at="2026-07-13T12:00:00+00:00",
+            updated_at="2026-07-13T12:01:00+00:00",
+            observations={
+                "AAA": _observation("AAA"),
+                "CCC": _observation("CCC"),
+            },
+            failures={
+                "BBB": {
+                    "attempts": 3,
+                    "last_error": "404 permanently delisted",
+                    "updated_at": "2026-07-13T12:01:00+00:00",
+                }
+            },
+        ),
+        state_path,
+    )
+    monkeypatch.setattr(collector, "ROOT", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["universe.collector"])
+
+    collector.main()
+
+    output = capsys.readouterr().out
+    assert "1 falha(s)" in output
+    assert "permanecem visíveis no checkpoint" in output
+    assert "--batch-number" in output
 
 
 def test_checkpoint_rejects_different_snapshot(tmp_path: Path) -> None:
