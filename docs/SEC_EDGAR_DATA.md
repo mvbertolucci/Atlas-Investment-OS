@@ -10,10 +10,12 @@ already consume -- proven against **real, live SEC data**, not just
 synthetic fixtures.
 
 **This delivers a small, real vertical slice, not a complete historical
-dataset.** It covers 15 native fundamental concepts for one company at a
-time, fetched on demand. It does not yet cover: derived concepts requiring
-several raw components, valuation multiples, historical index membership,
-historical prices, or delisting records. See "What is covered" and "What
+dataset.** It covers 15 native fundamental concepts, now collected in
+checkpointed, resumable batches across many tickers at once
+(`backtesting/sec_edgar_collector.py`, mirroring `universe/collector.py`'s
+design). It does not yet cover: derived concepts requiring several raw
+components, valuation multiples, historical index membership, historical
+prices, or delisting records. See "What is covered" and "What
 is not" below.
 
 ## Why SEC EDGAR
@@ -95,6 +97,42 @@ original and the restated value are kept as separate observations --
 cutoff (this is exactly the mechanism PR-032 built; `sec_edgar.py` just
 feeds it real data).
 
+## Checkpointed multi-ticker collection
+
+`backtesting/sec_edgar_collector.py` mirrors `universe/collector.py`'s
+resumable, checkpointed batch design, applied to SEC EDGAR instead of
+Yahoo:
+
+```powershell
+$env:SEC_EDGAR_USER_AGENT = "Your Name (contact: you@example.com)"
+.\.venv\Scripts\python.exe -m backtesting.sec_edgar_collector --batch-size 10
+```
+
+- Defaults to `config/watchlist.csv` (Atlas's real, current watchlist) as
+  the ticker list, and `data/sec_edgar_collection.json` as the checkpoint
+  (both overridable via `--tickers-file` / `--state`).
+- **`--user-agent` has no hardcoded default in source** -- it is required,
+  read from the `SEC_EDGAR_USER_AGENT` environment variable by default (or
+  `--user-agent` explicitly). Personal contact information never lives in
+  committed code.
+- One checkpoint write per ticker (not just at batch end), atomic
+  temp-file-then-replace with retry, exactly like `universe/collector.py`.
+  Safe to interrupt and resume; already-collected symbols are skipped, and
+  every failure is recorded with its real error message, never silently
+  dropped.
+- **A ticker with no CIK is an explicit failure, not a skip.** Verified
+  against Atlas's real watchlist: `BEEF3.SA` (Minerva, a B3-only listing
+  with no SEC registration) correctly fails with `"CIK não encontrado"` --
+  SEC EDGAR only covers SEC-registered filers (US-listed companies and
+  foreign private issuers that file with the SEC), not every ticker in
+  Atlas's watchlist. This is an expected, honest limitation, not a bug: a
+  foreign-domiciled ADR (SEC-registered) will succeed; a foreign-exchange
+  local listing (not SEC-registered) will not, and is reported as such.
+  Real batch verified: `ASML`, `AVAV`, `BNTX` collected successfully in the
+  same run.
+- `SecEdgarCollectionState.observations()` returns real `HistoricalObservation`
+  tuples straight from the checkpoint, ready to build a `PointInTimeDataset`.
+
 ## What is covered
 
 - `extract_observations(symbol, company_facts)`: pure conversion, tested
@@ -137,11 +175,12 @@ feeds it real data).
   at all.
 - **Delisting records with return treatment.** Not sourced from SEC EDGAR
   in this increment.
-- **Bulk/checkpointed collection across many tickers.** Today's functions
-  fetch one company at a time, on demand -- there is no batch collector
-  analogous to `universe/collector.py`'s resumable, checkpointed design
-  yet. Building one is the natural next step now that tag coverage is
-  wider.
+- **Non-SEC-registered tickers can never be collected this way.** Confirmed
+  with a real batch: any ticker without a US SEC filing (e.g. a foreign
+  company listed only on a local exchange, like a B3-only Brazilian stock)
+  has no CIK and fails explicitly, by design -- it is not a bug to fix, it
+  is a hard boundary of what SEC EDGAR can cover. Such symbols would need a
+  different, non-SEC source if ever required.
 - **Further tag-drift coverage.** Multi-candidate merging is applied to
   the fields most likely to need it; other concepts still use a single
   candidate tag and may need alternates added as real coverage gaps are

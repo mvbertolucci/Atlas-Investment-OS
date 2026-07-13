@@ -153,9 +153,14 @@
       further native-tag additions.
 - [ ] Pair a historical price series (valuation multiples need price, which
       SEC EDGAR does not have)
-- [ ] Build a checkpointed multi-ticker collector (mirroring
-      `universe/collector.py`'s resumable design) -- today's functions
-      fetch one company at a time, on demand
+- [x] Checkpointed multi-ticker collector
+      (`backtesting/sec_edgar_collector.py`, mirroring
+      `universe/collector.py`'s resumable design). Verified against a real
+      batch of Atlas's actual watchlist: `ASML`/`AVAV`/`BNTX` collected
+      successfully; `BEEF3.SA` (B3-only, no US SEC registration) correctly
+      failed explicitly with "CIK não encontrado" -- confirms the hard
+      boundary that non-SEC-registered tickers can never be covered by
+      this source.
 - [ ] Historical index membership (still unresolved -- no free source, see
       `docs/UNIVERSE_SOURCES.md`) and delisting records with return
       treatment

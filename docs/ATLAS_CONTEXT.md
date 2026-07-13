@@ -5,7 +5,7 @@
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 445 tests passing / 87.29% production coverage
+**Validation baseline:** 457 tests passing / 87.24% production coverage
 
 ## 1. Product mission
 
@@ -191,21 +191,24 @@ that dataset to be acquired first -- a separate, materially harder problem
 most free providers do not solve (they do not expose "value as known on
 date X" with revision history). See `docs/WALK_FORWARD_BACKTEST.md`.
 
-**First real step on (1) is merged:** `backtesting/sec_edgar.py` converts SEC
-EDGAR's free, public XBRL filing data into real `HistoricalObservation`
-records -- verified against **live SEC data** for Apple Inc. (647
-observations across 5 native fundamental tags, correct point-in-time
-reconstruction). This is a small, real vertical slice, not a complete
-dataset: only 5 of Atlas's ~25 fundamental fields are mapped, no derived
-concepts (EBIT, Working Capital), no valuation multiples (need a paired
-price series), no historical index membership, no delistings, and no
-bulk/checkpointed collector across many tickers yet. See
-`docs/SEC_EDGAR_DATA.md` for the full "what is covered / what is not"
-accounting.
+**Real progress on (1):** `backtesting/sec_edgar.py` converts SEC EDGAR's
+free, public XBRL filing data into real `HistoricalObservation` records --
+verified against **live SEC data** for Apple Inc. (2,350 observations
+across 15 native fundamental tags, cross-era tag-switch merging, correct
+point-in-time reconstruction). `backtesting/sec_edgar_collector.py` adds a
+checkpointed, resumable multi-ticker collector mirroring
+`universe/collector.py`'s design -- verified against a real batch of
+Atlas's own watchlist (`ASML`/`AVAV`/`BNTX` collected; `BEEF3.SA`, a
+B3-only listing with no US SEC registration, correctly failed explicitly
+rather than being silently dropped -- confirming SEC EDGAR's hard coverage
+boundary). Still a small slice, not a complete dataset: roughly 10 of
+Atlas's ~25 fundamental fields remain unmapped, no `EBIT`/`Working Capital`
+derivation, no valuation multiples (need a paired price series), no
+historical index membership, no delistings. See `docs/SEC_EDGAR_DATA.md`
+for the full "what is covered / what is not" accounting.
 
-**Open threads, in priority order:** (1) widen SEC EDGAR tag coverage and
-build a checkpointed multi-ticker collector (mirroring
-`universe/collector.py`'s design) -- the concrete next action; (2) pair a
+**Open threads, in priority order:** (1) finish widening SEC EDGAR tag
+coverage and decide the `EBIT`/`Working Capital` derivation; (2) pair a
 historical price series for valuation multiples; (3) run the
 broad-market/ADR collections when resumed; (4) PR-034 portfolio validation,
 once a real dataset is usable end to end.
