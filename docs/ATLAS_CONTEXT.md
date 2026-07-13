@@ -1,11 +1,11 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-033` (walk-forward replay mechanism)
+**Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition (first slice)
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 435 tests passing / 87.32% production coverage
+**Validation baseline:** 445 tests passing / 87.29% production coverage
 
 ## 1. Product mission
 
@@ -191,10 +191,24 @@ that dataset to be acquired first -- a separate, materially harder problem
 most free providers do not solve (they do not expose "value as known on
 date X" with revision history). See `docs/WALK_FORWARD_BACKTEST.md`.
 
-**Open threads, in priority order:** (1) acquire a real, versioned,
-point-in-time-correct historical dataset -- the actual blocker for any real
-backtest; (2) run the broad-market/ADR collections when resumed; (3) PR-034
-portfolio validation, once (1) exists.
+**First real step on (1) is merged:** `backtesting/sec_edgar.py` converts SEC
+EDGAR's free, public XBRL filing data into real `HistoricalObservation`
+records -- verified against **live SEC data** for Apple Inc. (647
+observations across 5 native fundamental tags, correct point-in-time
+reconstruction). This is a small, real vertical slice, not a complete
+dataset: only 5 of Atlas's ~25 fundamental fields are mapped, no derived
+concepts (EBIT, Working Capital), no valuation multiples (need a paired
+price series), no historical index membership, no delistings, and no
+bulk/checkpointed collector across many tickers yet. See
+`docs/SEC_EDGAR_DATA.md` for the full "what is covered / what is not"
+accounting.
+
+**Open threads, in priority order:** (1) widen SEC EDGAR tag coverage and
+build a checkpointed multi-ticker collector (mirroring
+`universe/collector.py`'s design) -- the concrete next action; (2) pair a
+historical price series for valuation multiples; (3) run the
+broad-market/ADR collections when resumed; (4) PR-034 portfolio validation,
+once a real dataset is usable end to end.
 
 See `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md` for the full backlog.
 
