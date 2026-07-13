@@ -10,6 +10,8 @@
   "portfolio_currency": "BRL",
   "universe_enabled": true,
   "universe_policy_path": "config/universe.yaml",
+  "research_universe_path": "config/research_universe.csv",
+  "research_universe_batch_size": 25,
   "ranking_enabled": true,
   "ranking_policy_path": "config/ranking.yaml",
   "outcome_analytics_enabled": true,

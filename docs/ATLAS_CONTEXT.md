@@ -1,11 +1,11 @@
 # Atlas Investment OS — Project Context and Handoff
 
 **Purpose:** canonical entry point for a new developer or coding agent.  
-**Last synchronized baseline:** `PR-029` (robust analytical ranking)
+**Last synchronized baseline:** `PR-030A` (reproducible universe expansion)
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 334 tests passing / 88.09% production coverage
+**Validation baseline:** 340 tests passing / 88.05% production coverage
 
 ## 1. Product mission
 
@@ -78,6 +78,8 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 - `config/deal_breakers.json`: risk penalty rules and sector exemptions.
 - `config/settings.json`: runtime paths and provider settings.
 - `config/watchlist.csv`: analyzed universe.
+- `config/research_universe.csv`: dated broad research population, separate
+  from the personal watchlist and not yet collected automatically.
 - `config/universe.yaml`: research eligibility, benchmark and rebalance policy.
 - `config/portfolio.csv`: optional real portfolio input; start from `portfolio.example.csv`.
 
@@ -133,8 +135,10 @@ changed. The analytical-method track now has priority: PR-027 defines the
 market-universe contract; PR-028 integrates provider metadata, publishes
 `output/universe_report.json` and exposes it in Dashboard `market`. PR-029 is
 complete: it publishes `output/ranking_report.json`, with market/sector ranks
-and governed candidate safeguards. PR-030 is next: advisory model-portfolio
-construction under explicit position and concentration constraints. Point-in-time validation and a prospective shadow
+and governed candidate safeguards. PR-030A adds the required broad source:
+503 dated S&P 500 share classes in a separate research snapshot. PR-030B will
+collect that population in checkpointed batches before PR-031 constructs the
+advisory model portfolio. Point-in-time validation and a prospective shadow
 portfolio follow in bounded increments. Scheduling is deferred; Notifications
 and the AI assistant still require explicit external decisions. See
 `docs/ANALYTICAL_ROADMAP.md` and `docs/BACKLOG.md`.

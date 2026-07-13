@@ -1,5 +1,27 @@
 # Changelog
 
+## PR-030A — Reproducible research-universe expansion
+
+### Added
+
+- Dated 503-security S&P 500 research snapshot, separate from the watchlist.
+- Standard-library constituent-table parser and explicit refresh command.
+- Yahoo symbol normalization with original symbols retained.
+- Deterministic batch partitioning for later checkpointed collection.
+- Source attribution, refresh governance and survivorship-bias boundary.
+
+### Preserved
+
+- Normal `run_all.py` executions still process only the personal watchlist.
+- No provider burst, scoring, ranking, decision or portfolio behavior change.
+
+### Validation
+
+- 340 automated tests passed.
+- 88.05% production coverage overall.
+- Canonical snapshot pinned at 503 unique Yahoo-compatible symbols across 11
+  sectors as of 2026-07-13.
+
 ## PR-029 — Robust analytical ranking
 
 ### Added

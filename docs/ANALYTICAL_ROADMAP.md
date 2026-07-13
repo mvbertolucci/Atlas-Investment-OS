@@ -21,19 +21,24 @@ promise.
 3. **PR-029 — Robust analytical ranking (complete).** Separate relative market/sector
    rank from absolute economic safeguards; do not change governed weights
    without evidence.
-4. **PR-030 — Advisory model-portfolio builder.** Select eligible candidates
+4. **PR-030A — Reproducible universe expansion (complete).** Maintain a dated,
+   attributed snapshot of the broad research population, distinct from the
+   personal watchlist, with deterministic batch boundaries.
+5. **PR-030B — Incremental broad-universe collection.** Collect, retry and
+   checkpoint bounded batches without losing completed market observations.
+6. **PR-031 — Advisory model-portfolio builder.** Select eligible candidates
    and assign transparent weights under position, sector, cash and turnover
    constraints.
-5. **PR-031 — Point-in-time data contract.** Define observation, availability,
+7. **PR-032 — Point-in-time data contract.** Define observation, availability,
    constituent and delisting rules required to avoid future-data and
    survivorship bias.
-6. **PR-032 — Walk-forward backtest.** Recreate each decision using only data
+8. **PR-033 — Walk-forward backtest.** Recreate each decision using only data
    available at that date and compare against explicit benchmarks.
-7. **PR-033 — Portfolio validation.** Report return, volatility, drawdown,
+9. **PR-034 — Portfolio validation.** Report return, volatility, drawdown,
    turnover, estimated costs, concentration and factor contribution.
-8. **PR-034 — Prospective shadow portfolio.** Freeze real-time model-portfolio
+10. **PR-035 — Prospective shadow portfolio.** Freeze real-time model-portfolio
    recommendations and evaluate them forward without capital or broker access.
-9. **PR-035 — Controlled calibration.** Consider weight or threshold changes
+11. **PR-036 — Controlled calibration.** Consider weight or threshold changes
    only from versioned, out-of-sample evidence.
 
 ## Initial universe policy
@@ -62,6 +67,10 @@ candidate discovery remain separate from the configured watchlist.
 PR-029 orders eligible companies by existing Atlas scores and applies the
 existing governed Deal Breakers plus a data-confidence floor. It creates no new
 composite score. See `docs/RANKING_METHOD.md`.
+
+PR-030A expands the source population to a dated 503-security snapshot while
+keeping the personal watchlist unchanged. It does not yet trigger hundreds of
+provider requests; see `docs/UNIVERSE_SOURCES.md`.
 
 ## Validation principles
 

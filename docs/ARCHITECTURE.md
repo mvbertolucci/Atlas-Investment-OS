@@ -105,12 +105,17 @@ conditional Excel sheets and the Morning Brief.
 - `config/universe.yaml`
 - `universe/models.py`
 - `universe/pipeline.py`
+- `universe/sources.py`
 
 The universe layer is an eligibility boundary over collected provider data.
 Yahoo supplies `quote_type` and liquidity metadata; `run_all.py` evaluates the
 configured policy, writes `output/universe_report.json` and forwards the same
 report to Dashboard `market`. It reports coverage and standardized exclusions
 without filtering scoring or changing a decision.
+The source module parses a dated public constituent table into a committed
+research snapshot and provides deterministic batch boundaries. Network refresh
+is explicit; `run_all.py` still processes the personal watchlist until
+checkpointed broad-universe collection is implemented.
 
 ### Analytical-ranking layer
 

@@ -114,12 +114,14 @@
 - [x] PR-027 Define the market-universe and analytical-method contract
 - [x] PR-028 Integrate the Market Mapper and publish universe coverage
 - [x] PR-029 Add robust market/sector ranking with absolute safeguards
-- [ ] PR-030 Build an advisory model portfolio under explicit constraints
-- [ ] PR-031 Define the point-in-time historical-data contract
-- [ ] PR-032 Implement deterministic walk-forward backtesting
-- [ ] PR-033 Add portfolio performance and risk validation
-- [ ] PR-034 Track a prospective shadow portfolio
-- [ ] PR-035 Calibrate only from versioned out-of-sample evidence
+- [x] PR-030A Add a dated, reproducible 503-security research snapshot
+- [ ] PR-030B Collect the expanded universe in checkpointed batches
+- [ ] PR-031 Build an advisory model portfolio under explicit constraints
+- [ ] PR-032 Define the point-in-time historical-data contract
+- [ ] PR-033 Implement deterministic walk-forward backtesting
+- [ ] PR-034 Add portfolio performance and risk validation
+- [ ] PR-035 Track a prospective shadow portfolio
+- [ ] PR-036 Calibrate only from versioned out-of-sample evidence
 
 ### Deferred platform effects
 
