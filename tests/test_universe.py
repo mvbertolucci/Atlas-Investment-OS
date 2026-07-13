@@ -57,6 +57,22 @@ def test_load_canonical_universe_policy() -> None:
     }
 
 
+def test_load_canonical_universe_market_policy() -> None:
+    """
+    Segundo screener (mercado amplo, separado do S&P 500): piso de USD 300
+    milhões -- inclui small caps de verdade, ao contrário do piso de USD 1
+    bilhão do screener S&P 500 (que na prática é piso de mid-cap+).
+    """
+    policy = load_universe_policy(Path("config/universe_market.yaml"))
+
+    assert policy.name == "Atlas US Broad Market Equities"
+    assert policy.benchmark != "S&P 500"
+    assert policy.min_market_cap == 300_000_000.0
+    assert policy.min_price == 5.0
+    assert policy.min_volume == 100_000.0
+    assert policy.allowed_quote_types == ("EQUITY",)
+
+
 def test_policy_rejects_invalid_boundaries() -> None:
     with pytest.raises(ValueError, match="min_price"):
         UniversePolicy(

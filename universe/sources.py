@@ -16,6 +16,27 @@ SP500_CONSTITUENTS_URL = (
     "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 )
 
+# Diretório oficial de símbolos da NASDAQ Trader -- cobre NASDAQ (arquivo
+# "nasdaqlisted") e as demais bolsas dos EUA (NYSE, NYSE American, NYSE Arca,
+# Cboe BATS) no arquivo "otherlisted". É a fonte pública mais próxima de um
+# "mercado americano inteiro" com small caps: não existe lista de
+# constituintes gratuita para índices como Russell 3000/Wilshire 5000 (são
+# proprietários da FTSE/Russell).
+NASDAQ_LISTED_URL = (
+    "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"
+)
+OTHER_LISTED_URL = (
+    "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt"
+)
+
+_OTHER_EXCHANGE_NAMES = {
+    "A": "NYSE American",
+    "N": "NYSE",
+    "P": "NYSE Arca",
+    "Z": "Cboe BATS",
+    "V": "IEXG",
+}
+
 
 class _ConstituentsTableParser(HTMLParser):
     def __init__(self) -> None:
@@ -129,6 +150,163 @@ def fetch_sp500_constituents(
     )
 
 
+def _parse_pipe_delimited(text: str) -> list[dict[str, str]]:
+    """
+    Parser genérico dos arquivos de diretório da NASDAQ Trader: pipe-
+    delimited, primeira linha é o cabeçalho, última linha é um rodapé
+    "File Creation Time: ..." (descartado).
+    """
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return []
+
+    header = lines[0].split("|")
+    rows: list[dict[str, str]] = []
+
+    for line in lines[1:]:
+        if line.startswith("File Creation Time"):
+            continue
+        values = line.split("|")
+        if len(values) != len(header):
+            continue
+        rows.append(dict(zip(header, values)))
+
+    return rows
+
+
+def parse_nasdaq_listed(text: str) -> list[dict[str, str]]:
+    """
+    Parser do arquivo `nasdaqlisted.txt`. Exclui explicitamente ETFs,
+    NextShares (veículos tipo fundo) e Test Issues via as flags do próprio
+    arquivo -- não via heurística de ticker.
+
+    O filtro de símbolo (`_SYMBOL_PATTERN`) é best-effort para excluir
+    preferenciais/warrants/units que não têm flag dedicada neste arquivo;
+    a camada real de garantia é o `allowed_quote_types` do universo, que
+    verifica o `quote_type` de verdade retornado pelo Yahoo em cada ticker.
+    """
+    records: list[dict[str, str]] = []
+
+    for row in _parse_pipe_delimited(text):
+        if row.get("Test Issue") == "Y":
+            continue
+        if row.get("ETF") == "Y":
+            continue
+        if row.get("NextShares") == "Y":
+            continue
+
+        symbol = row.get("Symbol", "").strip().upper()
+        if not re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z])?", symbol):
+            continue
+
+        records.append(
+            {
+                "symbol": symbol.replace(".", "-"),
+                "source_symbol": symbol,
+                "name": row.get("Security Name", "").strip(),
+                "exchange": "NASDAQ",
+            }
+        )
+
+    return records
+
+
+def parse_other_listed(text: str) -> list[dict[str, str]]:
+    """
+    Parser do arquivo `otherlisted.txt` (NYSE, NYSE American, NYSE Arca,
+    Cboe BATS). Mesmo critério de exclusão explícita de `parse_nasdaq_listed`.
+    """
+    records: list[dict[str, str]] = []
+
+    for row in _parse_pipe_delimited(text):
+        if row.get("Test Issue") == "Y":
+            continue
+        if row.get("ETF") == "Y":
+            continue
+
+        symbol = row.get("ACT Symbol", "").strip().upper()
+        if not re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z])?", symbol):
+            continue
+
+        exchange_code = row.get("Exchange", "").strip()
+
+        records.append(
+            {
+                "symbol": symbol.replace(".", "-"),
+                "source_symbol": symbol,
+                "name": row.get("Security Name", "").strip(),
+                "exchange": _OTHER_EXCHANGE_NAMES.get(
+                    exchange_code,
+                    exchange_code,
+                ),
+            }
+        )
+
+    return records
+
+
+def fetch_us_market_constituents(
+    *,
+    nasdaq_url: str = NASDAQ_LISTED_URL,
+    other_url: str = OTHER_LISTED_URL,
+    snapshot_date: str | None = None,
+) -> list[dict[str, str]]:
+    """
+    Constrói o snapshot do screener de mercado amplo (NASDAQ + demais bolsas
+    dos EUA), separado do screener S&P 500. Um mesmo símbolo pode aparecer
+    nos dois arquivos-fonte (dupla listagem); mantém a primeira ocorrência
+    de forma determinística.
+
+    Não inclui setor/indústria/GICS -- essa fonte não os fornece. Isso é
+    inofensivo: `universe.collector.collect_constituent_batch` só usa
+    `symbol`/`name`/`source_symbol` do snapshot; setor, país, preço, volume
+    e market cap vêm do fetch ao vivo do Yahoo por ticker, igual ao
+    screener S&P 500.
+    """
+    as_of = snapshot_date or date.today().isoformat()
+
+    nasdaq_request = Request(
+        nasdaq_url,
+        headers={"User-Agent": "Atlas-Investment-OS/2.0"},
+    )
+    with urlopen(nasdaq_request, timeout=30) as response:
+        nasdaq_text = response.read().decode("utf-8")
+
+    other_request = Request(
+        other_url,
+        headers={"User-Agent": "Atlas-Investment-OS/2.0"},
+    )
+    with urlopen(other_request, timeout=30) as response:
+        other_text = response.read().decode("utf-8")
+
+    combined = parse_nasdaq_listed(nasdaq_text) + parse_other_listed(
+        other_text
+    )
+
+    deduplicated: dict[str, dict[str, str]] = {}
+    for record in combined:
+        deduplicated.setdefault(record["symbol"], record)
+
+    records = [
+        {
+            **record,
+            "source_url": f"{nasdaq_url} ; {other_url}",
+            "snapshot_date": as_of,
+        }
+        for record in sorted(
+            deduplicated.values(),
+            key=lambda item: item["symbol"],
+        )
+    ]
+
+    if not records:
+        raise ValueError(
+            "Nenhum constituinte válido encontrado nas fontes da NASDAQ Trader."
+        )
+
+    return records
+
+
 def write_constituent_snapshot(
     records: Iterable[dict[str, str]],
     output_path: str | Path,
@@ -182,15 +360,31 @@ def select_constituent_batch(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Atualiza o snapshot versionado do universo S&P 500."
+        description=(
+            "Atualiza o snapshot versionado de constituintes. Por padrão, "
+            "o universo S&P 500 (Wikipedia); com --market, o universo "
+            "amplo de mercado (NASDAQ Trader), um screener separado."
+        )
     )
     parser.add_argument(
-        "--output",
-        default="config/research_universe.csv",
+        "--market",
+        action="store_true",
+        help="Usa a fonte de mercado amplo (NASDAQ + demais bolsas) em vez do S&P 500.",
     )
+    parser.add_argument("--output", default=None)
     args = parser.parse_args()
-    records = fetch_sp500_constituents()
-    output = write_constituent_snapshot(records, args.output)
+
+    if args.market:
+        records = fetch_us_market_constituents()
+        default_output = "config/research_universe_market.csv"
+    else:
+        records = fetch_sp500_constituents()
+        default_output = "config/research_universe.csv"
+
+    output = write_constituent_snapshot(
+        records,
+        args.output or default_output,
+    )
     print(f"{len(records)} constituintes salvos em {output}")
 
 

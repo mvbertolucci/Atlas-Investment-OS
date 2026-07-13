@@ -281,9 +281,22 @@ def collect_constituent_batch(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Coleta um lote retomável do universo amplo de pesquisa."
+        description=(
+            "Coleta um lote retomável do universo de pesquisa. Por padrão, "
+            "o screener S&P 500; com --market, o screener de mercado amplo "
+            "(separado, próprio snapshot/checkpoint/tamanho de lote)."
+        )
     )
     parser.add_argument("--batch-number", type=int)
+    parser.add_argument(
+        "--market",
+        action="store_true",
+        help="Usa a configuração do screener de mercado amplo em vez do S&P 500.",
+    )
+    parser.add_argument(
+        "--snapshot",
+        help="Sobrescreve o caminho do snapshot de constituintes.",
+    )
     parser.add_argument("--state")
     parser.add_argument("--retries", type=int)
     args = parser.parse_args()
@@ -291,16 +304,31 @@ def main() -> None:
     settings = json.loads(
         (ROOT / "config" / "settings.json").read_text(encoding="utf-8")
     )
+
+    if args.market:
+        snapshot_key = "research_universe_market_path"
+        batch_size_key = "research_universe_market_batch_size"
+        state_key = "research_collection_market_state_path"
+        default_snapshot = "config/research_universe_market.csv"
+        default_state = "data/research_universe_collection_market.json"
+    else:
+        snapshot_key = "research_universe_path"
+        batch_size_key = "research_universe_batch_size"
+        state_key = "research_collection_state_path"
+        default_snapshot = "config/research_universe.csv"
+        default_state = "data/research_universe_collection.json"
+
     records = load_constituent_snapshot(
-        ROOT / settings["research_universe_path"]
+        ROOT
+        / (
+            args.snapshot
+            or settings.get(snapshot_key, default_snapshot)
+        )
     )
-    batch_size = int(settings.get("research_universe_batch_size", 25))
+    batch_size = int(settings.get(batch_size_key, 25))
     configured_state = Path(
         args.state
-        or settings.get(
-            "research_collection_state_path",
-            "data/research_universe_collection.json",
-        )
+        or settings.get(state_key, default_state)
     )
     state_path = (
         configured_state

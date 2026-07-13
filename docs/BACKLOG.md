@@ -133,6 +133,26 @@
 - [ ] PR-035 Track a prospective shadow portfolio
 - [ ] PR-036 Calibrate only from versioned out-of-sample evidence
 
+### Second screener: broad US market (small caps)
+
+A separate screener from the S&P 500 one, requested to also cover small
+caps under an explicit minimum-entry parameter. Distinct config, snapshot,
+checkpoint and batch size throughout -- the S&P 500 screener is unchanged.
+
+- [x] Source: NASDAQ Trader symbol directory (`nasdaqlisted.txt` +
+      `otherlisted.txt`) -- the closest free, public, comprehensive US-market
+      listing, since Russell 3000/Wilshire 5000 have no free constituent list
+- [x] Governed policy `config/universe_market.yaml`: USD 300 million minimum
+      market cap (a genuine small-cap floor, vs. the S&P 500 screener's USD 1
+      billion, which is really a mid-cap-and-up floor)
+- [x] `universe.collector` gains `--market` (own snapshot/state/batch-size,
+      via `config/settings.json`) and `--snapshot` overrides
+- [ ] Run the actual collection (not started -- expected several thousand
+      eligible names, materially slower/more rate-limit-prone than the
+      503-name S&P 500 screener; see `docs/UNIVERSE_SOURCES.md`)
+- [ ] Run ranking / `portfolio.model_portfolio` over the broad-market
+      collection once it completes (deliberately deferred)
+
 ### Deferred platform effects
 
 - [ ] Scheduling — resume after the analytical method is validated
