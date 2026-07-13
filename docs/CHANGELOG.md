@@ -1,5 +1,13 @@
 # Changelog
 
+## Claude Code project handoff
+
+### Added
+
+- Root `CLAUDE.md` importing the canonical Atlas rules and current handoff.
+- Windows opening, validation and safe parallel-work instructions.
+- Ignore rule for machine-local Claude Code settings.
+
 ## 1.2.0 — Outcome Analytics release
 
 ### Consolidated

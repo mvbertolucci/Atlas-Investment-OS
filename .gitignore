@@ -34,6 +34,7 @@ data/*.sqlite3
 # Configurações locais e segredos
 .env
 .env.*
+.claude/settings.local.json
 
 # Editores e sistema operacional
 .vscode/

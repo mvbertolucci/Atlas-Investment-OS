@@ -60,6 +60,11 @@ Generated artifacts are stored locally in:
 - `logs/`
 - `data/atlas_history.db`
 
+Agent entry points:
+
+- Codex and shared rules: `AGENTS.md`
+- Claude Code: `CLAUDE.md` and `docs/CLAUDE_CODE.md`
+
 These runtime artifacts should not be committed to Git.
 
 ## Documentation
