@@ -42,6 +42,8 @@ from portfolio.report import PortfolioReport
 from providers.yahoo import fetch_watchlist
 from reports.excel import write_latest_and_history
 from reports.morning_brief import render_morning_brief, write_morning_brief
+from dashboard import build_dashboard_view, write_dashboard_view
+from reports.report_engine import build_company_reports
 from scoring.investment import score_dataframe
 from storage.history_db import HistoryDatabase
 
@@ -57,6 +59,7 @@ MORNING_BRIEF_FILE = OUTPUT / "morning_brief.md"
 EXECUTION_METRICS_FILE = LOGS / "execution_metrics.csv"
 PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
 OUTCOME_REPORT_FILE = OUTPUT / "outcome_report.json"
+DASHBOARD_REPORT_FILE = OUTPUT / "dashboard.json"
 
 logger = get_logger("run_all")
 
@@ -306,6 +309,39 @@ def generate_outcome_analytics(
     return report
 
 
+def generate_dashboard(
+    df: pd.DataFrame,
+    settings: dict,
+    portfolio_report: PortfolioReport | None = None,
+    outcome_report: OutcomeAnalyticsReport | None = None,
+) -> Path | None:
+    """
+    Emite o contrato read-only do dashboard (output/dashboard.json).
+
+    Pura agregação das visões que o Atlas já produziu nesta execução
+    (empresas, carteira e outcomes); não recomputa nem altera nada. Guardado
+    por `dashboard_enabled` (default True). `market` é preenchido em incremento
+    futuro.
+    """
+    if not settings.get("dashboard_enabled", True):
+        return None
+
+    view = build_dashboard_view(
+        build_company_reports(df),
+        portfolio=portfolio_report,
+        outcomes=outcome_report,
+    )
+
+    write_dashboard_view(view, DASHBOARD_REPORT_FILE)
+
+    logger.info(
+        "Dashboard contract gerado em %s (%s empresas).",
+        DASHBOARD_REPORT_FILE,
+        len(view.companies),
+    )
+    return DASHBOARD_REPORT_FILE
+
+
 def generate_excel_reports(
     df: pd.DataFrame,
     portfolio_report: PortfolioReport | None = None,
@@ -542,6 +578,13 @@ def main() -> None:
                 )
             )
 
+        dashboard_file = generate_dashboard(
+            df,
+            settings,
+            portfolio_report=portfolio_report,
+            outcome_report=outcome_analytics,
+        )
+
         print_console_table(df)
 
         print(_safe_console_text(brief_text))
@@ -600,6 +643,9 @@ def main() -> None:
                 f"({hit_rate.hit_count}/{hit_rate.eligible_count})"
             )
             print(f"Outcome JSON    : {OUTCOME_REPORT_FILE}")
+
+        if dashboard_file is not None:
+            print(f"Dashboard JSON  : {dashboard_file}")
 
         if portfolio_result is not None:
             portfolio_file, portfolio_report = portfolio_result
