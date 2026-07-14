@@ -11,7 +11,12 @@ import pandas as pd
 import yaml
 
 from analytics.mapper import normalize_columns
-from ranking import load_ranking_policy, rank_companies, write_ranking_report
+from ranking import (
+    load_ranking_policy,
+    rank_companies,
+    write_candidate_ranking_csv,
+    write_ranking_report,
+)
 from ranking.models import RankingReport
 from scoring.investment import score_dataframe
 from universe import evaluate_universe, load_universe_policy, write_universe_report
@@ -458,6 +463,11 @@ def build_from_collection(
     write_ranking_report(
         ranking_report,
         outputs / _labeled_filename("research_ranking_report.json", output_label),
+    )
+    write_candidate_ranking_csv(
+        ranking_report,
+        outputs / _labeled_filename("research_candidates.csv", output_label),
+        metadata=metadata,
     )
     write_model_portfolio_report(
         report,

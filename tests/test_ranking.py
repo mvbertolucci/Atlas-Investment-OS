@@ -6,12 +6,16 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import csv
+
 from ranking import (
     RankingPolicy,
     load_ranking_policy,
     rank_companies,
+    write_candidate_ranking_csv,
     write_ranking_report,
 )
+from ranking.models import RankedCompany, RankingReport
 from universe import UniversePolicy, evaluate_universe
 
 
@@ -160,3 +164,57 @@ def test_contract_validation() -> None:
         RankingPolicy("Invalid", min_confidence_score=101)
     with pytest.raises(TypeError, match="DataFrame"):
         rank_companies([], None, None)  # type: ignore[arg-type]
+
+
+def _candidate(symbol: str, sector: str, rank: int) -> RankedCompany:
+    return RankedCompany(
+        symbol=symbol,
+        sector=sector,
+        universe_eligible=True,
+        safeguard_passed=True,
+        safeguard_reasons=(),
+        market_rank=rank,
+        sector_rank=1,
+        candidate_rank=rank,
+        investment_score=90.0 - rank,
+        opportunity_score=80.0,
+        conviction_score=75.0,
+        confidence_score=95.0,
+        deal_breakers=(),
+    )
+
+
+def test_candidate_csv_lists_all_candidates_in_buy_order(tmp_path: Path) -> None:
+    blocked = RankedCompany(
+        symbol="ZZZ",
+        sector="Energy",
+        universe_eligible=True,
+        safeguard_passed=False,
+        safeguard_reasons=("CONFIDENCE",),
+        market_rank=None,
+        sector_rank=None,
+        candidate_rank=None,
+        investment_score=50.0,
+        opportunity_score=None,
+        conviction_score=None,
+        confidence_score=40.0,
+        deal_breakers=(),
+    )
+    report = RankingReport(
+        RankingPolicy("Test"),
+        (_candidate("BBB", "Technology", 2), _candidate("AAA", "Technology", 1), blocked),
+    )
+    path = write_candidate_ranking_csv(
+        report,
+        tmp_path / "research_candidates.csv",
+        metadata={"AAA": {"name": "Alpha Co", "price": 12.5, "market_cap": 1e9}},
+    )
+    rows = list(csv.DictReader(path.open(encoding="utf-8")))
+    # Só os candidatos (o bloqueado ZZZ fica de fora), em ordem de candidate_rank.
+    assert [r["symbol"] for r in rows] == ["AAA", "BBB"]
+    assert rows[0]["candidate_rank"] == "1"
+    assert rows[0]["name"] == "Alpha Co"
+    assert rows[0]["price"] == "12.5"
+    # Sem metadata, nome/preço ficam vazios mas o candidato continua listado.
+    assert rows[1]["name"] == ""
+    assert rows[1]["price"] == ""

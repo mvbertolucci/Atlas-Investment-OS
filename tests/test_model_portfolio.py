@@ -214,6 +214,7 @@ def test_build_from_collection_defaults_match_sp500_screener(
     assert len(report.positions) == 2
     assert (output_dir / "research_universe_report.json").exists()
     assert (output_dir / "research_ranking_report.json").exists()
+    assert (output_dir / "research_candidates.csv").exists()
     assert (output_dir / "model_portfolio_report.json").exists()
 
 
@@ -368,6 +369,8 @@ def test_build_from_collection_labels_output_for_another_screener(
     assert len(report.positions) == 2
     assert (output_dir / "research_universe_report_market.json").exists()
     assert (output_dir / "research_ranking_report_market.json").exists()
+    assert (output_dir / "research_candidates_market.csv").exists()
     assert (output_dir / "model_portfolio_report_market.json").exists()
     # Nenhum arquivo sem sufixo foi criado por essa chamada.
     assert not (output_dir / "research_universe_report.json").exists()
+    assert not (output_dir / "research_candidates.csv").exists()
