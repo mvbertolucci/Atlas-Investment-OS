@@ -1,5 +1,27 @@
 # Changelog
 
+## US-listed ADR advisory ranking run
+
+### Completed
+
+- Reused the completed broad-market checkpoint offline under the governed
+  `config/universe_adr.yaml` policy; no separate collection or provider call.
+- 6,959 observations produced 501 policy-eligible ADRs, 219 safeguarded
+  candidates and a distinct 20-position advisory portfolio; the same 134
+  exhausted provider failures remain visible in output provenance.
+- Total weight is 100% at 5% per position. Basic Materials, Communication
+  Services and Technology each stop exactly at the governed 20% sector cap.
+- Nine higher-ranked candidates were skipped by diversification constraints;
+  all remain visible in the complete ignored
+  `output/research_candidates_adr.csv` shortlist.
+
+### Preserved
+
+- Market, ADR and S&P 500 outputs use distinct filenames and do not overwrite
+  each other.
+- This current-snapshot result is advisory research, not a trade order,
+  historical validation or performance claim.
+
 ## Broad-market advisory ranking run
 
 ### Completed

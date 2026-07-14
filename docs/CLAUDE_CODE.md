@@ -98,8 +98,9 @@ The broad-market universe collection (`universe.collector --market` against
 Trader symbols collected (`data/market_collection_run.log`). The offline
 market ranking/model pass is also complete and reproducible: 2,429 eligible
 companies, 999 safeguarded candidates, 20 positions and 134 exhausted
-provider failures retained explicitly. Only the ADR policy's distinct ranking
-pass remains as the next data-side step.
+provider failures retained explicitly. The distinct ADR policy pass is also
+complete: 501 eligible companies, 219 candidates and 20 positions from the
+same observations/checkpoint.
 
 The executable point-in-time boundary and deterministic walk-forward mechanism
 are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
@@ -177,8 +178,8 @@ longer a bounded, purely offline coding increment:
    selected-symbol Yahoo bars for `execution_evidence.py` and
    `total_return_evidence.py`, and source real `DelistingRecord` terminal
    events for whatever symbols actually delisted in the sample.
-2. **Run the ADR policy** over the completed broad-market collection with
-   `config/universe_adr.yaml --label adr`; the market-policy run is complete.
+2. The current-snapshot market and ADR policy passes are complete; no further
+   collection/ranking operation is pending for these snapshots.
 
 A regression-based factor-*return* decomposition (as opposed to the
 exposure/composition summary just added) remains explicitly out of scope:
@@ -213,13 +214,14 @@ The broad-market universe collection (universe.collector --market against
 config/universe_market.yaml) finished on 2026-07-14 -- 6,959/7,093 symbols
 (data/market_collection_run.log). Its offline ranking/model pass is complete:
 2,429 eligible companies, 999 candidates, 20 positions and 134 exhausted
-provider failures retained in the output provenance.
+provider failures retained in the output provenance. The ADR pass over the
+same collection is also complete: 501 eligible, 219 candidates and 20
+positions in distinct `*_adr` artifacts.
 
 PR-034's remaining offline-coding thread (factor exposure) is done. What's
-left needs either an explicit go-ahead for live provider calls (real
-execution/total-return bar acquisition and delisting-record sourcing) or the
-offline ADR ranking pass over the completed collection. Do not start live
-acquisition without asking first.
+left needs an explicit go-ahead for live provider calls (real execution/
+total-return bar acquisition and delisting-record sourcing). Do not start
+live acquisition without asking first.
 ```
 
 ## Parallel work with Codex

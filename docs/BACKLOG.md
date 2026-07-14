@@ -325,10 +325,11 @@ policy, not missing data.
       test that the two existing screeners are unaffected)
 - [x] Governed policy `config/universe_adr.yaml`: same USD 300 million floor,
       `allowed_countries: ["*"]`, `excluded_countries: [United States]`
-- [ ] Run `portfolio.model_portfolio --universe-policy
+- [x] Run `portfolio.model_portfolio --universe-policy
       config/universe_adr.yaml --label adr` against the broad-market
-      collection (the shared collection is complete; this distinct policy
-      pass remains open)
+      collection: 501 eligible companies, 219 safeguarded candidates and a
+      distinct constrained 20-position advisory portfolio; ignored `*_adr`
+      artifacts generated
 
 ### Deferred platform effects
 
