@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from analytics.history import earnings_between_runs
 from portfolio.models import (
     Portfolio,
     RebalanceAction,
@@ -544,20 +545,6 @@ def _quantity_increase_warning(
     return None
 
 
-def _earnings_between_runs(
-    value: Any,
-    previous_run_at: pd.Timestamp | None,
-    current_run_at: str | datetime | pd.Timestamp,
-) -> bool | None:
-    if value is None or pd.isna(value) or previous_run_at is None:
-        return None
-    earnings_at = pd.to_datetime(value, errors="coerce")
-    current_at = pd.Timestamp(current_run_at)
-    if pd.isna(earnings_at):
-        return None
-    return previous_run_at < earnings_at <= current_at
-
-
 def build_stateful_sell_plan(
     portfolio: Portfolio,
     analysis_df: pd.DataFrame,
@@ -621,7 +608,7 @@ def build_stateful_sell_plan(
             )
             if quantity_warning:
                 warnings.append(quantity_warning)
-        earnings = _earnings_between_runs(
+        earnings = earnings_between_runs(
             row.get("earnings_date"),
             previous_run_at,
             current_run_at,

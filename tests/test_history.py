@@ -8,6 +8,7 @@ from analytics.history import (
     build_period_trends,
     build_score_changes,
     classify_trend,
+    earnings_between_runs,
     load_history,
 )
 from reports.history_report import (
@@ -202,3 +203,49 @@ def test_history_reports_are_generated(
     assert aaa_summary["Current Opportunity"] == 82.0
     assert aaa_summary["Minimum Opportunity"] == 70.0
     assert aaa_summary["Maximum Opportunity"] == 82.0
+
+
+def test_earnings_between_runs_is_a_transition() -> None:
+    previous_run_at = pd.Timestamp("2026-07-01")
+    current_run_at = pd.Timestamp("2026-07-14")
+
+    inside_window = earnings_between_runs(
+        "2026-07-10", previous_run_at, current_run_at
+    )
+    assert inside_window is True
+
+    before_previous_run = earnings_between_runs(
+        "2026-06-20", previous_run_at, current_run_at
+    )
+    assert before_previous_run is False
+
+    after_current_run = earnings_between_runs(
+        "2026-07-20", previous_run_at, current_run_at
+    )
+    assert after_current_run is False
+
+
+def test_earnings_between_runs_none_without_data() -> None:
+    current_run_at = pd.Timestamp("2026-07-14")
+    assert earnings_between_runs(None, pd.Timestamp("2026-07-01"), current_run_at) is None
+    assert earnings_between_runs("2026-07-10", None, current_run_at) is None
+    assert earnings_between_runs(float("nan"), pd.Timestamp("2026-07-01"), current_run_at) is None
+
+
+def test_watchlist_triggers_table_saves_and_upserts(tmp_path: Path) -> None:
+    database_path = tmp_path / "atlas_history.db"
+
+    with HistoryDatabase(database_path) as database:
+        assert database.load_watchlist_triggers() == {}
+
+        database.save_watchlist_trigger("AAA", "score > 75", "2026-07-14")
+        stored = database.load_watchlist_triggers()
+        assert stored["AAA"]["condition_text"] == "score > 75"
+        assert stored["AAA"]["last_triggered_at"] == "2026-07-14"
+
+        # Mesmo símbolo, condição/dado atualizados -- upsert, não duplica.
+        database.save_watchlist_trigger("AAA", "score > 80", "2026-08-01")
+        stored = database.load_watchlist_triggers()
+        assert len(stored) == 1
+        assert stored["AAA"]["condition_text"] == "score > 80"
+        assert stored["AAA"]["last_triggered_at"] == "2026-08-01"

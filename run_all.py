@@ -70,6 +70,15 @@ from universe import (
     load_universe_policy,
     write_universe_report,
 )
+from watchlist import (
+    WatchlistError,
+    WatchlistReport,
+    attach_aging,
+    evaluate_watchlist_triggers,
+    load_watchlist_csv,
+    normalize_current_row,
+    write_watchlist_report,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -88,6 +97,7 @@ PRIORITY_REPORT_FILE = OUTPUT / "priority_report.json"
 RESEARCH_RANKING_REPORT_FILE = OUTPUT / "research_ranking_report.json"
 UNIVERSE_REPORT_FILE = OUTPUT / "universe_report.json"
 RANKING_REPORT_FILE = OUTPUT / "ranking_report.json"
+WATCHLIST_REPORT_FILE = OUTPUT / "watchlist_report.json"
 
 logger = get_logger("run_all")
 
@@ -724,6 +734,93 @@ def generate_portfolio_intelligence(
     return report_path, report
 
 
+def generate_watchlist_report(
+    df: pd.DataFrame,
+    settings: dict,
+    *,
+    previous_by_symbol: dict | None = None,
+    baseline_status: str = "first_run",
+    previous_run_at: pd.Timestamp | None = None,
+    current_run_at: str | None = None,
+) -> tuple[Path, WatchlistReport] | None:
+    """
+    Independente do motor de venda estar bloqueado: watchlist tracking é uma
+    preocupação separada de PR-020, nunca acoplada ao estado da carteira.
+    """
+    watchlist_path = ROOT / settings.get(
+        "watchlist_path", "config/watchlist.csv"
+    )
+
+    if not watchlist_path.exists():
+        logger.info(
+            "Watchlist tracking ignorado: arquivo não encontrado em %s.",
+            watchlist_path,
+        )
+        return None
+
+    try:
+        entries = load_watchlist_csv(watchlist_path)
+    except WatchlistError as exc:
+        logger.warning(
+            "Não foi possível avaliar triggers da watchlist: %s",
+            exc,
+        )
+        return None
+
+    current_by_symbol = {
+        str(row.get("symbol", "")).strip().upper(): normalize_current_row(
+            row.to_dict()
+        )
+        for _, row in df.iterrows()
+        if str(row.get("symbol", "")).strip()
+    }
+
+    results = evaluate_watchlist_triggers(
+        entries,
+        current_by_symbol,
+        previous_by_symbol=previous_by_symbol,
+        baseline_status=baseline_status,
+        previous_run_at=previous_run_at,
+        current_run_at=current_run_at,
+    )
+
+    aging_threshold_days = int(
+        settings.get("watchlist_aging_threshold_days", 180)
+    )
+    last_triggered_value = (
+        str(current_run_at)
+        if current_run_at is not None
+        else datetime.now().isoformat(timespec="seconds")
+    )
+
+    with HistoryDatabase(HISTORY_DATABASE) as database:
+        trigger_history = database.load_watchlist_triggers()
+        results = attach_aging(
+            results,
+            entries,
+            trigger_history=trigger_history,
+            aging_threshold_days=aging_threshold_days,
+        )
+        for result in results:
+            if result.triggered_this_run:
+                database.save_watchlist_trigger(
+                    result.symbol,
+                    result.trigger_condition,
+                    last_triggered_value,
+                )
+
+    report = WatchlistReport(results=results)
+    report_path = write_watchlist_report(report, WATCHLIST_REPORT_FILE)
+
+    logger.info(
+        "Watchlist tracking: %s trigger(s) disparado(s); %s sugestão(ões) "
+        "de limpeza.",
+        len(report.triggered),
+        len(report.cleanup_candidates),
+    )
+    return report_path, report
+
+
 def _safe_console_text(
     value: object,
     encoding: str | None = None,
@@ -921,6 +1018,20 @@ def main() -> None:
             else None
         )
 
+        watchlist_result = generate_watchlist_report(
+            df,
+            settings,
+            previous_by_symbol=previous_by_symbol,
+            baseline_status=baseline_status,
+            previous_run_at=previous_run_at,
+            current_run_at=snapshot_date,
+        )
+        watchlist_report = (
+            watchlist_result[1]
+            if watchlist_result is not None
+            else None
+        )
+
         with StageTimer(metrics, "reports_time"):
             history_file, latest_file = (
                 generate_excel_reports(
@@ -1064,6 +1175,23 @@ def main() -> None:
                 "Portfolio       : não executado "
                 "(config/portfolio.csv ausente)"
             )
+
+        if watchlist_result is not None:
+            watchlist_file, watchlist_report = watchlist_result
+            print(f"Watchlist JSON  : {watchlist_file}")
+            print(
+                "Watchlist       : "
+                f"{len(watchlist_report.triggered)} trigger(s) disparado(s); "
+                f"{len(watchlist_report.cleanup_candidates)} sugestão(ões) "
+                "de limpeza"
+            )
+            for triggered in watchlist_report.triggered:
+                print(f"  [TRIGGER] {triggered.symbol} -- {triggered.message}")
+            for candidate in watchlist_report.cleanup_candidates:
+                print(
+                    f"  [LIMPEZA?] {candidate.symbol} -- {candidate.age_days} "
+                    "dias sem trigger"
+                )
 
         print("=" * 70)
 

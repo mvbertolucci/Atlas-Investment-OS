@@ -26,5 +26,6 @@
   "outcome_horizons_days": [30, 90, 180, 365],
   "outcome_hit_threshold_pct": 0.0,
   "outcome_calibration_bucket_size": 20,
-  "priority_enabled": true
+  "priority_enabled": true,
+  "watchlist_aging_threshold_days": 180
 }
