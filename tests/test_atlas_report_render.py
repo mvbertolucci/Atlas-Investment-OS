@@ -1,0 +1,187 @@
+from __future__ import annotations
+
+import re
+
+import pandas as pd
+import pytest
+
+from portfolio.models import RebalanceAction, RebalancePlan
+from ranking.models import RankedCompany, RankingPolicy, RankingReport
+from reports.atlas_report.context import build_report_context
+from reports.atlas_report.render import render_report
+from watchlist.models import WatchlistReport, WatchlistTriggerResult
+
+_EXTERNAL_RESOURCE_PATTERN = re.compile(
+    r'(?:src|href)\s*=\s*["\'](https?://[^"\']+)["\']', re.IGNORECASE
+)
+
+
+def _df() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "symbol": "AAA",
+                "name": "Alpha",
+                "sector": "Tech",
+                "Investment Score": 80.0,
+                "Confidence Score": 90.0,
+                "earnings_date": None,
+            },
+            {
+                "symbol": "BBB",
+                "name": "Beta",
+                "sector": "Health",
+                "Investment Score": 50.0,
+                "Confidence Score": 60.0,
+                "earnings_date": None,
+            },
+        ]
+    )
+
+
+def _full_context():
+    plan = RebalancePlan(
+        actions=(
+            RebalanceAction(
+                symbol="AAA", action="HOLD", current_weight=0.1, target_weight=0.1,
+                target_value=100, trade_value=0, reason="ok",
+            ),
+            RebalanceAction(
+                symbol="BBB", action="SELL", current_weight=0.1, target_weight=0.0,
+                target_value=0, trade_value=-100, reason="distress disparou",
+                triggered_rules=("distress",),
+            ),
+        ),
+        warnings=("aviso de carteira",),
+    )
+    wl = WatchlistReport(
+        results=(
+            WatchlistTriggerResult(
+                symbol="AAA", trigger_condition="score > 75", status="triggered",
+                message="score > 75: passou a valer.",
+            ),
+        )
+    )
+    ranking = RankingReport(
+        RankingPolicy("Test"),
+        (
+            RankedCompany(
+                symbol="AAA", sector="Tech", universe_eligible=True,
+                safeguard_passed=True, safeguard_reasons=(), market_rank=1,
+                sector_rank=1, candidate_rank=1, investment_score=80.0,
+                opportunity_score=70.0, conviction_score=80.0,
+                confidence_score=90.0, deal_breakers=(),
+            ),
+        ),
+    )
+    return build_report_context(
+        mode="full",
+        df=_df(),
+        snapshot_date="2026-07-14T00:00:00",
+        previous_run_at=pd.Timestamp("2026-07-01"),
+        rebalance=plan.to_dict(),
+        portfolio_warnings=plan.warnings,
+        watchlist_report=wl,
+        ranking_report=ranking,
+        phantom_weight_pct=3.5,
+    )
+
+
+def test_full_fixture_renders_all_sections() -> None:
+    html = render_report(_full_context())
+    for heading in (
+        "Ações requeridas",
+        "Carteira",
+        "Watchlist",
+        "Earnings",
+        "Screener",
+        "Qualidade de dados",
+    ):
+        assert f">{heading}<" in html
+
+
+def test_portfolio_mode_marks_screener_not_included() -> None:
+    ctx = build_report_context(
+        mode="portfolio", df=_df(), snapshot_date="2026-07-14T00:00:00"
+    )
+    html = render_report(ctx)
+    assert "Screener não incluído neste run." in html
+
+
+def test_never_empty_silently_when_no_data() -> None:
+    ctx = build_report_context(
+        mode="portfolio", df=_df(), snapshot_date="2026-07-14T00:00:00"
+    )
+    html = render_report(ctx)
+    assert "Carteira não incluído neste run." in html
+    assert "Watchlist não incluído neste run." in html
+
+
+_PILL_LABEL_PATTERN = re.compile(r'<span class="pill pill-\w+">(\w+)</span>')
+
+
+def test_pill_matches_rebalance_action_1_to_1() -> None:
+    """
+    BBB (SELL, com mudança de estado) aparece com pill; AAA (HOLD, sem
+    regra disparada) é colapsada no resumo -- nunca tem pill isolado, mas
+    também nunca aparece com um pill de OUTRA decisão. Sem watchlist neste
+    contexto para não confundir o pill de decisão com o badge "DISPAROU".
+    """
+    plan = RebalancePlan(
+        actions=(
+            RebalanceAction(
+                symbol="AAA", action="HOLD", current_weight=0.1, target_weight=0.1,
+                target_value=100, trade_value=0, reason="ok",
+            ),
+            RebalanceAction(
+                symbol="BBB", action="SELL", current_weight=0.1, target_weight=0.0,
+                target_value=0, trade_value=-100, reason="distress disparou",
+                triggered_rules=("distress",),
+            ),
+        ),
+    )
+    context = build_report_context(
+        mode="full", df=_df(), snapshot_date="2026-07-14T00:00:00", rebalance=plan.to_dict()
+    )
+    html = render_report(context)
+    pill_labels = set(_PILL_LABEL_PATTERN.findall(html))
+    actions_with_state_change = {
+        row.action for row in context.portfolio_rows if row.has_state_change
+    }
+    assert pill_labels == actions_with_state_change
+    assert '<span class="pill pill-sell">SELL</span>' in html
+
+
+@pytest.mark.parametrize("action_value", ["HOLD", "REVISAR", "TRIM", "SELL"])
+def test_pill_never_shows_a_decision_not_in_the_source_action(action_value: str) -> None:
+    """
+    Com uma única posição na carteira, qualquer pill renderizado em
+    QUALQUER seção da página (Ações Requeridas ou Carteira) só pode
+    mostrar o mesmo action_value que veio do RebalanceAction -- nunca uma
+    decisão diferente, nunca recalculada.
+    """
+    plan = RebalancePlan(
+        actions=(
+            RebalanceAction(
+                symbol="AAA",
+                action=action_value,
+                current_weight=0.1,
+                target_weight=0.1 if action_value in ("HOLD", "REVISAR") else 0.0,
+                target_value=100,
+                trade_value=0,
+                reason="teste",
+            ),
+        )
+    )
+    ctx = build_report_context(
+        mode="full", df=_df(), snapshot_date="2026-07-14T00:00:00", rebalance=plan.to_dict()
+    )
+    html = render_report(ctx)
+    pill_labels = set(_PILL_LABEL_PATTERN.findall(html))
+    assert pill_labels <= {action_value}
+
+
+def test_no_external_resources_in_generated_html() -> None:
+    html = render_report(_full_context())
+    matches = _EXTERNAL_RESOURCE_PATTERN.findall(html)
+    assert matches == []

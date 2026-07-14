@@ -125,7 +125,18 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
     }
 
 
-def fetch_watchlist(watchlist: pd.DataFrame, period: str = "2y", interval: str = "1d") -> list[dict]:
+def fetch_watchlist(
+    watchlist: pd.DataFrame,
+    period: str = "2y",
+    interval: str = "1d",
+    *,
+    failures: list[str] | None = None,
+) -> list[dict]:
+    """
+    `failures`, se informado, recebe "SYMBOL: erro" para cada fetch que
+    falhou -- opcional para não quebrar chamadores existentes que só querem
+    as linhas coletadas.
+    """
     rows: list[dict] = []
     for _, row in watchlist.iterrows():
         symbol = str(row.get("symbol", "")).strip()
@@ -137,4 +148,6 @@ def fetch_watchlist(watchlist: pd.DataFrame, period: str = "2y", interval: str =
             print(f"[OK] {symbol}")
         except Exception as exc:
             print(f"[ERRO] {symbol}: {exc}")
+            if failures is not None:
+                failures.append(f"{symbol}: {exc}")
     return rows

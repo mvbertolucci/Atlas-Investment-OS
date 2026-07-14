@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from datetime import datetime
@@ -52,6 +53,13 @@ from ranking import (
     rank_companies,
     write_ranking_report,
 )
+from reports.atlas_report.context import build_report_context
+from reports.atlas_report.one_pager import (
+    compute_symbol_contributions,
+    render_one_pager,
+)
+from reports.atlas_report.render import page_shell, render_report
+from reports.atlas_report.write import write_one_pager, write_report
 from reports.excel import write_latest_and_history
 from reports.morning_brief import render_morning_brief, write_morning_brief
 from dashboard import build_dashboard_view, write_dashboard_view
@@ -238,6 +246,8 @@ def merge_watchlist_with_portfolio(
 def collect_market_data(
     settings: dict,
     watchlist: pd.DataFrame,
+    *,
+    failures: list[str] | None = None,
 ) -> pd.DataFrame:
     logger.info(
         "Iniciando coleta de dados para %s empresas.",
@@ -265,6 +275,7 @@ def collect_market_data(
         watchlist,
         period=settings.get("history_period", "2y"),
         interval=settings.get("history_interval", "1d"),
+        failures=failures,
     )
 
     for row in rows:
@@ -880,12 +891,143 @@ def print_console_table(df: pd.DataFrame) -> None:
     print()
 
 
+def run_ticker_mode(symbol: str, settings: dict) -> Path:
+    """
+    Modo --ticker SYM: gera o one-pager de um símbolo (decomposição de
+    score + histórico + tese, se for uma posição real).
+
+    O Atlas pontua CROSS-SECIONALMENTE (percentil dentro do lote analisado,
+    ver docs/SCORING_MODEL.md) -- pontuar o símbolo isolado faria todo
+    percentil cair no neutro 50 (pct_rank exige >=2 valores para comparar).
+    Por isso este modo reaproveita o MESMO lote analisado por --full/
+    --portfolio (watchlist ∪ carteira), acrescentando o símbolo pedido se
+    ele ainda não estiver lá -- não é um fetch leve de 1 símbolo, é o
+    mesmo custo de --portfolio, só que renderiza apenas 1 one-pager no
+    final.
+    """
+    symbol = symbol.strip().upper()
+    logger.info("Modo --ticker: analisando %s dentro do lote watchlist+carteira.", symbol)
+
+    watchlist_path, watchlist = load_watchlist(settings)
+    analysis_universe = merge_watchlist_with_portfolio(watchlist, settings)
+
+    existing_symbols = (
+        analysis_universe["symbol"].astype(str).str.strip().str.upper()
+    )
+    if symbol not in set(existing_symbols):
+        analysis_universe = pd.concat(
+            [
+                analysis_universe,
+                pd.DataFrame([{"symbol": symbol, "name": symbol, "origin": "ticker"}]),
+            ],
+            ignore_index=True,
+        )
+
+    df = collect_market_data(settings, analysis_universe)
+    df = build_scores(df)
+
+    symbol_rows = df.index[
+        df["symbol"].astype(str).str.strip().str.upper() == symbol
+    ]
+    if len(symbol_rows) == 0:
+        raise RuntimeError(
+            f"Não foi possível coletar dados de mercado para {symbol}."
+        )
+    position = symbol_rows[0]
+
+    investment_score = None
+    if "Investment Score" in df.columns:
+        try:
+            investment_score = float(df.loc[position, "Investment Score"])
+        except (TypeError, ValueError):
+            investment_score = None
+
+    positive, negative = compute_symbol_contributions(
+        df,
+        symbol,
+        CONFIG / "features.yaml",
+        CONFIG / "model.yaml",
+    )
+
+    score_history = load_score_history(HISTORY_DATABASE)
+    if not score_history.empty and "symbol" in score_history.columns:
+        score_history = score_history.loc[
+            score_history["symbol"].astype(str).str.upper() == symbol
+        ]
+
+    thesis = ""
+    portfolio_path = ROOT / settings.get("portfolio_path", "config/portfolio.csv")
+    if portfolio_path.exists():
+        try:
+            holding = load_portfolio_csv(portfolio_path).holding(symbol)
+            if holding is not None:
+                thesis = holding.thesis
+        except PortfolioError:
+            logger.warning(
+                "Não foi possível ler %s para buscar a tese de %s.",
+                portfolio_path,
+                symbol,
+            )
+
+    company_name = str(df.loc[position].get("name", "") or "").strip() or symbol
+    body = render_one_pager(
+        symbol=symbol,
+        company_name=company_name,
+        investment_score=investment_score,
+        positive=positive,
+        negative=negative,
+        score_history=score_history,
+        thesis=thesis,
+    )
+    html = page_shell(f"Atlas One-Pager — {symbol}", body)
+
+    date_stamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
+    path = write_one_pager(html, OUTPUT, symbol, date_stamp)
+    print(f"One-pager de {symbol} gerado em {path}")
+    logger.info("One-pager de %s gerado em %s.", symbol, path)
+    return path
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Atlas Decision Intelligence Platform."
+    )
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--full",
+        action="store_true",
+        help="Universo + funil + carteira + watchlist (default).",
+    )
+    mode_group.add_argument(
+        "--portfolio",
+        action="store_true",
+        help="Só carteira + watchlist, sem funil de screener.",
+    )
+    parser.add_argument(
+        "--ticker",
+        metavar="SYM",
+        default=None,
+        help="Analisa só um símbolo e gera o one-pager (ex.: --ticker MSFT).",
+    )
+    args = parser.parse_args()
+
+    if args.ticker:
+        mode = "ticker"
+    elif args.portfolio:
+        mode = "portfolio"
+    else:
+        mode = "full"
+
     metrics = ExecutionMetrics()
 
-    logger.info("Iniciando Atlas.")
+    logger.info("Iniciando Atlas (modo=%s).", mode)
 
     try:
+        if mode == "ticker":
+            settings = load_settings()
+            run_ticker_mode(args.ticker, settings)
+            return
+
         health_report = run_health_check(ROOT)
         print_health_report(health_report)
 
@@ -913,10 +1055,12 @@ def main() -> None:
         print(f"Execution log   : {LOGS / 'atlas.log'}")
         print()
 
+        fetch_failures: list[str] = []
         with StageTimer(metrics, "download_time"):
             df = collect_market_data(
                 settings,
                 analysis_universe,
+                failures=fetch_failures,
             )
 
         metrics.companies = len(df)
@@ -924,17 +1068,21 @@ def main() -> None:
         with StageTimer(metrics, "scoring_time"):
             df = build_scores(df)
 
-        audit_feature_coverage(df)
+        feature_coverage_summary = audit_feature_coverage(df)
 
-        universe_report = generate_universe_report(
-            df,
-            settings,
-        )
-        ranking_report = generate_ranking_report(
-            df,
-            settings,
-            universe_report,
-        )
+        if mode == "full":
+            universe_report = generate_universe_report(
+                df,
+                settings,
+            )
+            ranking_report = generate_ranking_report(
+                df,
+                settings,
+                universe_report,
+            )
+        else:
+            universe_report = None
+            ranking_report = None
 
         # Contexto de histórico calculado ANTES de gravar o snapshot deste
         # run: "run anterior" precisa ser o run anterior de verdade, nunca
@@ -987,6 +1135,26 @@ def main() -> None:
                     portfolio_path_for_snapshot,
                 )
 
+        # Anexa se o símbolo foi candidato neste run (ranking_report já
+        # computado acima) -- é o único jeito de comparar "quem é candidato
+        # agora" vs. "quem era candidato no run anterior" (seção SCREENER do
+        # relatório) sem recalcular ranking a partir do histórico.
+        if ranking_report is not None:
+            candidate_by_symbol = {
+                company.symbol: bool(
+                    company.safeguard_passed
+                    and company.candidate_rank is not None
+                )
+                for company in ranking_report.companies
+            }
+            df["is_candidate"] = (
+                df["symbol"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+                .map(candidate_by_symbol)
+            )
+
         with StageTimer(metrics, "history_time"):
             save_history_snapshot(df, snapshot_date, model_version)
             outcome_capture = save_outcome_decisions(
@@ -1030,6 +1198,48 @@ def main() -> None:
             watchlist_result[1]
             if watchlist_result is not None
             else None
+        )
+
+        portfolio_blocked_reason = None
+        if (
+            portfolio_result is None
+            and portfolio_path_for_snapshot.exists()
+        ):
+            portfolio_blocked_reason = (
+                "Motor de venda bloqueado -- posição(ões) sem tese "
+                "registrada (ver aviso acima)."
+            )
+
+        report_context = build_report_context(
+            mode=mode,
+            df=df,
+            snapshot_date=snapshot_date,
+            previous_run_at=previous_run_at,
+            baseline_status=baseline_status,
+            previous_by_symbol=previous_by_symbol,
+            rebalance=(
+                portfolio_report.rebalance
+                if portfolio_report is not None
+                else None
+            ),
+            portfolio_blocked_reason=portfolio_blocked_reason,
+            portfolio_warnings=(
+                portfolio_report.warnings
+                if portfolio_report is not None
+                else ()
+            ),
+            watchlist_report=watchlist_report,
+            ranking_report=ranking_report,
+            universe_report=universe_report,
+            fetch_failures=tuple(fetch_failures),
+            phantom_weight_pct=feature_coverage_summary.get(
+                "phantom_investment_share", 0.0
+            ),
+        )
+        atlas_report_dated, atlas_report_latest = write_report(
+            render_report(report_context),
+            OUTPUT,
+            snapshot_date.replace(":", "-"),
         )
 
         with StageTimer(metrics, "reports_time"):
@@ -1192,6 +1402,9 @@ def main() -> None:
                     f"  [LIMPEZA?] {candidate.symbol} -- {candidate.age_days} "
                     "dias sem trigger"
                 )
+
+        print(f"Atlas Report    : {atlas_report_dated}")
+        print(f"Atlas Latest    : {atlas_report_latest}")
 
         print("=" * 70)
 
