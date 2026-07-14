@@ -31,8 +31,16 @@ does not overwrite the S&P 500 output:
   --state data/research_universe_collection_market.json `
   --snapshot config/research_universe_market.csv `
   --universe-policy config/universe_market.yaml `
-  --label market
+  --label market `
+  --allow-exhausted-failures
 ```
+
+`--allow-exhausted-failures` is required for the broad-market and ADR
+screeners: those universes contain warrants, units, rights, preferreds and
+suspended tickers with no price history, so a small tail of collection
+failures is terminal, not transient. See *Failure behavior* below. The S&P 500
+screener needs no such flag — its universe collects with zero residual
+failures.
 
 This writes `research_universe_report_market.json`,
 `research_ranking_report_market.json` and `model_portfolio_report_market.json`
@@ -72,10 +80,31 @@ tests. They are assumptions to validate, not calibrated optimal values.
 
 Construction stops explicitly when:
 
-- collection is incomplete or retains provider failures;
+- collection is incomplete or retains provider failures (strict default);
 - the policy constraints are internally incompatible;
 - too few safeguarded candidates remain to satisfy position and sector limits;
 - output types do not match the documented contracts.
+
+### Exhausted vs transient failures
+
+By default the builder demands a collection with every constituent observed
+and zero residual failures. With `--allow-exhausted-failures` it distinguishes
+two kinds of residual failure:
+
+- **Transient** — a symbol whose retry budget is *not* exhausted
+  (`attempts < retries + 1`). This may be a recoverable provider hiccup that
+  could still hide a real large cap, so construction still stops.
+- **Exhausted / permanent** — a symbol whose retry budget *is* exhausted
+  (`attempts >= retries + 1`). These are terminal: instruments with no price
+  series (warrants, units, rights, preferreds, suspended tickers) that would
+  be dropped by the universe policy's `allowed_quote_types`/thresholds anyway
+  if they had ever produced an observation. Construction proceeds and records
+  each excluded symbol and its provider error under
+  `source.excluded_failures` (with `source.excluded_failure_count` and a
+  summary warning) so the exclusion is auditable.
+
+Construction still stops if any snapshot symbol was never attempted, so the
+flag relaxes only the terminal-failure tail, never an incomplete run.
 
 The output records source dates, eligible/candidate counts, ranks, existing
 scores, target weights, sector weights, reference prices and any higher-ranked

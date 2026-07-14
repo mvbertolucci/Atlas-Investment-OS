@@ -217,6 +217,134 @@ def test_build_from_collection_defaults_match_sp500_screener(
     assert (output_dir / "model_portfolio_report.json").exists()
 
 
+def _observation(symbol: str, name: str) -> dict:
+    return {
+        "symbol": symbol,
+        "name": name,
+        "quote_type": "EQUITY",
+        "currency": "USD",
+        "country": "United States",
+        "sector": "Technology",
+        "industry": "Software",
+        "price": 100.0,
+        "market_cap": 10_000_000_000.0,
+        "volume": 1_000_000.0,
+    }
+
+
+def _write_collection_with_failure(
+    tmp_path: Path,
+    *,
+    attempts: int,
+) -> tuple[Path, Path]:
+    """
+    Coleta de 3 constituintes: 2 observados e 1 falha com ``attempts``
+    tentativas registradas. Com ``attempts >= budget`` (3) a falha é
+    permanente/esgotada; com ``attempts < budget`` é transitória.
+    """
+    snapshot_path = tmp_path / "snapshot.csv"
+    write_constituent_snapshot(
+        [
+            {"symbol": "AAA", "name": "Alpha Co", "snapshot_date": "2026-07-13"},
+            {"symbol": "BBB", "name": "Beta Co", "snapshot_date": "2026-07-13"},
+            {"symbol": "CCC-W", "name": "Gamma Warrant", "snapshot_date": "2026-07-13"},
+        ],
+        snapshot_path,
+    )
+    state = CollectionState(
+        snapshot_date="2026-07-13",
+        total_constituents=3,
+        created_at="2026-07-13T00:00:00+00:00",
+        updated_at="2026-07-13T00:00:00+00:00",
+        observations={
+            "AAA": _observation("AAA", "Alpha Co"),
+            "BBB": _observation("BBB", "Beta Co"),
+        },
+        failures={
+            "CCC-W": {
+                "attempts": attempts,
+                "last_error": "Sem histórico para CCC-W",
+                "updated_at": "2026-07-13T00:00:00+00:00",
+            }
+        },
+    )
+    state_path = tmp_path / "state.json"
+    write_collection_state(state, state_path)
+    return snapshot_path, state_path
+
+
+def test_residual_failure_blocks_strict_default(tmp_path: Path) -> None:
+    """Sem allow_exhausted_failures, qualquer falha residual barra (contrato histórico)."""
+    snapshot_path, state_path = _write_collection_with_failure(tmp_path, attempts=3)
+    with pytest.raises(PortfolioConstructionError, match="completa e sem falhas"):
+        build_from_collection(
+            state_path=state_path,
+            snapshot_path=snapshot_path,
+            output_dir=tmp_path / "output",
+            universe_policy_path="config/universe_market.yaml",
+            ranking_policy_path=_write_permissive_ranking_policy(tmp_path),
+            model_portfolio_policy_path=_write_tiny_model_portfolio_policy(tmp_path),
+        )
+
+
+def test_exhausted_failure_accepted_and_recorded(tmp_path: Path) -> None:
+    """Falha esgotada (attempts >= budget) é aceita e registrada no relatório."""
+    snapshot_path, state_path = _write_collection_with_failure(tmp_path, attempts=3)
+    output_dir = tmp_path / "output"
+    report = build_from_collection(
+        state_path=state_path,
+        snapshot_path=snapshot_path,
+        output_dir=output_dir,
+        universe_policy_path="config/universe_market.yaml",
+        ranking_policy_path=_write_permissive_ranking_policy(tmp_path),
+        model_portfolio_policy_path=_write_tiny_model_portfolio_policy(tmp_path),
+        output_label="market",
+        allow_exhausted_failures=True,
+        failure_attempt_budget=3,
+    )
+    assert len(report.positions) == 2
+    assert report.excluded_failures == (("CCC-W", "Sem histórico para CCC-W"),)
+    payload = json.loads(
+        (output_dir / "model_portfolio_report_market.json").read_text(encoding="utf-8")
+    )
+    assert payload["source"]["excluded_failure_count"] == 1
+    assert payload["source"]["excluded_failures"] == [
+        {"symbol": "CCC-W", "reason": "Sem histórico para CCC-W"}
+    ]
+    assert any("permanente" in warning for warning in payload["summary"]["warnings"])
+
+
+def test_transient_failure_still_blocks_when_permissive(tmp_path: Path) -> None:
+    """Falha ainda retentável (attempts < budget) barra mesmo em modo permissivo."""
+    snapshot_path, state_path = _write_collection_with_failure(tmp_path, attempts=1)
+    with pytest.raises(PortfolioConstructionError, match="transitórias"):
+        build_from_collection(
+            state_path=state_path,
+            snapshot_path=snapshot_path,
+            output_dir=tmp_path / "output",
+            universe_policy_path="config/universe_market.yaml",
+            ranking_policy_path=_write_permissive_ranking_policy(tmp_path),
+            model_portfolio_policy_path=_write_tiny_model_portfolio_policy(tmp_path),
+            allow_exhausted_failures=True,
+            failure_attempt_budget=3,
+        )
+
+
+def test_permissive_requires_positive_budget(tmp_path: Path) -> None:
+    snapshot_path, state_path = _write_collection_with_failure(tmp_path, attempts=3)
+    with pytest.raises(ValueError, match="failure_attempt_budget"):
+        build_from_collection(
+            state_path=state_path,
+            snapshot_path=snapshot_path,
+            output_dir=tmp_path / "output",
+            universe_policy_path="config/universe_market.yaml",
+            ranking_policy_path=_write_permissive_ranking_policy(tmp_path),
+            model_portfolio_policy_path=_write_tiny_model_portfolio_policy(tmp_path),
+            allow_exhausted_failures=True,
+            failure_attempt_budget=None,
+        )
+
+
 def test_build_from_collection_labels_output_for_another_screener(
     tmp_path: Path,
 ) -> None:

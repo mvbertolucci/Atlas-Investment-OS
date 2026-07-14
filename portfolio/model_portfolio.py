@@ -15,7 +15,7 @@ from ranking import load_ranking_policy, rank_companies, write_ranking_report
 from ranking.models import RankingReport
 from scoring.investment import score_dataframe
 from universe import evaluate_universe, load_universe_policy, write_universe_report
-from universe.collector import load_collection_state
+from universe.collector import CollectionState, load_collection_state
 from universe.sources import load_constituent_snapshot
 
 
@@ -133,6 +133,7 @@ class ModelPortfolioReport:
     candidate_count: int
     positions: tuple[ModelPosition, ...]
     warnings: tuple[str, ...] = ()
+    excluded_failures: tuple[tuple[str, str], ...] = ()
     generated_at: datetime = field(default_factory=datetime.now)
 
     @property
@@ -160,6 +161,11 @@ class ModelPortfolioReport:
                 "total_observations": self.total_observations,
                 "universe_eligible_count": self.universe_eligible_count,
                 "candidate_count": self.candidate_count,
+                "excluded_failure_count": len(self.excluded_failures),
+                "excluded_failures": [
+                    {"symbol": symbol, "reason": reason}
+                    for symbol, reason in self.excluded_failures
+                ],
             },
             "summary": {
                 "position_count": len(self.positions),
@@ -193,6 +199,7 @@ def build_model_portfolio(
     metadata: Mapping[str, Mapping[str, Any]] | None = None,
     universe_snapshot_date: str = "",
     collection_updated_at: str = "",
+    excluded_failures: Mapping[str, str] | None = None,
 ) -> ModelPortfolioReport:
     if not isinstance(ranking_report, RankingReport):
         raise TypeError("build_model_portfolio exige RankingReport.")
@@ -261,11 +268,18 @@ def build_model_portfolio(
             )
         )
 
-    warnings = (
-        (f"{sector_cap_skips} candidato(s) superior(es) ignorado(s) pelo limite setorial.",)
-        if sector_cap_skips
-        else ()
-    )
+    excluded = tuple(sorted((excluded_failures or {}).items()))
+    warnings_list: list[str] = []
+    if sector_cap_skips:
+        warnings_list.append(
+            f"{sector_cap_skips} candidato(s) superior(es) ignorado(s) "
+            "pelo limite setorial."
+        )
+    if excluded:
+        warnings_list.append(
+            f"{len(excluded)} constituinte(s) excluído(s) por falha "
+            "permanente do provider (sem série de preço)."
+        )
     return ModelPortfolioReport(
         policy=policy,
         universe_snapshot_date=universe_snapshot_date,
@@ -274,7 +288,8 @@ def build_model_portfolio(
         universe_eligible_count=ranking_report.universe_eligible_count,
         candidate_count=ranking_report.candidate_count,
         positions=tuple(positions),
-        warnings=warnings,
+        warnings=tuple(warnings_list),
+        excluded_failures=excluded,
     )
 
 
@@ -305,6 +320,69 @@ def _labeled_filename(base_name: str, label: str) -> str:
     return f"{stem}_{label}.{suffix}"
 
 
+def _resolve_residual_failures(
+    state: CollectionState,
+    *,
+    expected: int,
+    allow_exhausted_failures: bool,
+    failure_attempt_budget: int | None,
+) -> dict[str, str]:
+    """
+    Decide se uma coleta pode alimentar a construção da carteira e devolve as
+    falhas permanentes a registrar no relatório.
+
+    Contrato estrito (padrão, ``allow_exhausted_failures=False``): a coleta
+    precisa estar completa e sem falha alguma — comportamento idêntico ao
+    histórico do screener S&P 500.
+
+    Contrato permissivo (``allow_exhausted_failures=True``): aceita falhas cujo
+    orçamento de tentativas se esgotou (``attempts >= failure_attempt_budget``),
+    pois são terminais — instrumentos sem série de preço (warrants, units,
+    rights, preferenciais, papéis suspensos) que nunca produzirão observação.
+    Ainda BARRA quando há falha transitória (retentável) ou quando algum
+    símbolo do snapshot não foi sequer tentado (coleta incompleta poderia
+    esconder uma large cap ausente por erro transitório).
+    """
+    observed = len(state.observations)
+    if not allow_exhausted_failures:
+        if observed != expected or state.failures:
+            raise PortfolioConstructionError(
+                "A coleta deve estar completa e sem falhas antes da construção."
+            )
+        return {}
+
+    if failure_attempt_budget is None or failure_attempt_budget <= 0:
+        raise ValueError(
+            "failure_attempt_budget deve ser positivo quando "
+            "allow_exhausted_failures está ativo."
+        )
+
+    transient = sorted(
+        symbol
+        for symbol, details in state.failures.items()
+        if int(details.get("attempts", 0)) < failure_attempt_budget
+    )
+    if transient:
+        raise PortfolioConstructionError(
+            "A coleta ainda tem falhas retentáveis (transitórias): "
+            f"{', '.join(transient[:10])}"
+            f"{'…' if len(transient) > 10 else ''}. "
+            "Conclua a coleta antes da construção."
+        )
+
+    if observed + len(state.failures) != expected:
+        raise PortfolioConstructionError(
+            "A coleta não cobre todo o snapshot: "
+            f"{expected - observed - len(state.failures)} símbolo(s) sem "
+            "tentativa registrada. Conclua a coleta antes da construção."
+        )
+
+    return {
+        symbol: str(details.get("last_error", "")).strip()
+        for symbol, details in state.failures.items()
+    }
+
+
 def build_from_collection(
     *,
     state_path: str | Path,
@@ -315,6 +393,8 @@ def build_from_collection(
     model_portfolio_policy_path: str
     | Path = ROOT / "config" / "model_portfolio.yaml",
     output_label: str = "",
+    allow_exhausted_failures: bool = False,
+    failure_attempt_budget: int | None = None,
 ) -> ModelPortfolioReport:
     """
     Constrói a carteira-modelo a partir de uma coleta completa.
@@ -336,10 +416,12 @@ def build_from_collection(
         snapshot_date=snapshot_date,
         total_constituents=len(snapshot),
     )
-    if len(state.observations) != len(snapshot) or state.failures:
-        raise PortfolioConstructionError(
-            "A coleta deve estar completa e sem falhas antes da construção."
-        )
+    excluded_failures = _resolve_residual_failures(
+        state,
+        expected=len(snapshot),
+        allow_exhausted_failures=allow_exhausted_failures,
+        failure_attempt_budget=failure_attempt_budget,
+    )
 
     frame = normalize_columns(pd.DataFrame(state.observations.values()))
     scored = score_dataframe(
@@ -366,6 +448,7 @@ def build_from_collection(
         metadata=metadata,
         universe_snapshot_date=snapshot_date,
         collection_updated_at=state.updated_at,
+        excluded_failures=excluded_failures,
     )
     outputs = Path(output_dir)
     write_universe_report(
@@ -421,7 +504,24 @@ def main() -> None:
             "(padrão) mantém os nomes históricos do screener S&P 500."
         ),
     )
+    parser.add_argument(
+        "--allow-exhausted-failures",
+        action="store_true",
+        help=(
+            "Aceita falhas permanentes (orçamento de tentativas esgotado — "
+            "instrumentos sem série de preço) e as registra no relatório, em "
+            "vez de barrar a construção. Ainda barra falhas transitórias e "
+            "coleta incompleta. Necessário no screener de mercado amplo, onde "
+            "warrants/units/rights nunca produzem observação."
+        ),
+    )
     args = parser.parse_args()
+
+    settings = json.loads(
+        (ROOT / "config" / "settings.json").read_text(encoding="utf-8")
+    )
+    failure_attempt_budget = int(settings.get("research_collection_retries", 2)) + 1
+
     report = build_from_collection(
         state_path=args.state,
         snapshot_path=args.snapshot,
@@ -430,11 +530,15 @@ def main() -> None:
         ranking_policy_path=args.ranking_policy,
         model_portfolio_policy_path=args.model_portfolio_policy,
         output_label=args.label,
+        allow_exhausted_failures=args.allow_exhausted_failures,
+        failure_attempt_budget=failure_attempt_budget,
     )
+    excluded = len(report.excluded_failures)
     print(
         f"Carteira-modelo: {len(report.positions)} posições; "
         f"{report.universe_eligible_count} elegíveis; "
-        f"{report.candidate_count} candidatos."
+        f"{report.candidate_count} candidatos"
+        + (f"; {excluded} falha(s) permanente(s) excluída(s)." if excluded else ".")
     )
 
 
