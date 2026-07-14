@@ -104,6 +104,7 @@ def test_excel_portfolio_sheets_are_generated(
             "currency": ["USD"],
             "sector": ["Technology"],
             "country": ["USA"],
+            "thesis": ["Tese de teste AAA."],
         }
     ).to_csv(portfolio_path, index=False)
 

@@ -13,6 +13,9 @@ OPTIONAL_COLUMNS = (
     "industry",
     "country",
     "notes",
+    "entry_date",
+    "thesis",
+    "thesis_updated_at",
 )
 
 SUPPORTED_COLUMNS = (
@@ -40,6 +43,14 @@ COLUMN_ALIASES = {
     "país": "country",
     "observacoes": "notes",
     "observações": "notes",
+    "data_entrada": "entry_date",
+    "data de entrada": "entry_date",
+    "entry date": "entry_date",
+    "tese": "thesis",
+    "investment thesis": "thesis",
+    "tese_atualizada_em": "thesis_updated_at",
+    "tese atualizada em": "thesis_updated_at",
+    "thesis updated at": "thesis_updated_at",
 }
 
 

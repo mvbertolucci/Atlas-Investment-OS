@@ -51,6 +51,7 @@ def _portfolio_file(tmp_path: Path) -> Path:
             "currency": ["USD", "BRL"],
             "sector": ["", "Financials"],
             "country": ["", "Brazil"],
+            "thesis": ["Tese de teste AAA.", "Tese de teste BBB."],
         }
     ).to_csv(path, index=False)
     return path

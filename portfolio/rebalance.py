@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Mapping
+
+import pandas as pd
 
 from portfolio.models import (
     Portfolio,
@@ -9,6 +12,12 @@ from portfolio.models import (
     RebalancePlan,
 )
 from portfolio.quality import PortfolioQualityResult
+from portfolio.sell_rules import (
+    SellRuleContext,
+    SellRulesPolicy,
+    evaluate_sell_rules,
+    score_percentiles,
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +41,25 @@ DEFAULT_REBALANCE_POLICY = RebalancePolicy()
 
 class RebalanceError(ValueError):
     """Erro de geração do plano de rebalanceamento."""
+
+
+class SellEngineBlockedError(RebalanceError):
+    """
+    O motor de venda stateful recusa produzir qualquer decisão (HOLD/TRIM/
+    SELL/REVISAR) enquanto houver posição real (quantity > 0) sem tese
+    registrada em config/portfolio.csv. Distinto de RebalanceError genérico
+    para que o chamador (run_all.py) possa capturar especificamente e manter
+    o resto do pipeline (screener, watchlist, ranking) funcionando -- só a
+    seção de venda fica indisponível, nunca o run inteiro.
+    """
+
+    def __init__(self, missing_thesis_symbols: tuple[str, ...]) -> None:
+        self.missing_thesis_symbols = missing_thesis_symbols
+        super().__init__(
+            "Motor de venda bloqueado: posição(ões) sem tese registrada "
+            "(config/portfolio.csv, coluna 'thesis'): "
+            + ", ".join(missing_thesis_symbols)
+        )
 
 
 @dataclass(frozen=True)
@@ -469,6 +497,216 @@ def build_sell_only_plan(
         warnings=tuple(
             dict.fromkeys(warnings)
         ),
+    )
+
+
+def _missing_rule_data(row: Mapping[str, Any]) -> tuple[str, ...]:
+    missing: list[str] = []
+    for key, value in row.items():
+        if str(key).endswith("_available") and not bool(value):
+            missing.append(str(key)[: -len("_available")])
+    for field_name in (
+        "altman_z",
+        "interest_coverage",
+        "target_upside",
+        "f_score_annual",
+        "roic",
+    ):
+        value = row.get(field_name)
+        if value is None or pd.isna(value):
+            missing.append(field_name)
+    return tuple(dict.fromkeys(missing))
+
+
+def _quantity_increase_warning(
+    symbol: str,
+    current_quantity: float,
+    previous_quantity: Any,
+) -> str | None:
+    """
+    Aviso não-bloqueante quando a quantidade de uma posição existente
+    aumentou desde o último run -- pede confirmação manual da tese (não
+    exige nova tese automaticamente). Reduções/vendas parciais e o
+    primeiro run (sem quantidade anterior) nunca disparam este aviso.
+    """
+    try:
+        previous = float(previous_quantity)
+    except (TypeError, ValueError):
+        return None
+    if previous != previous:
+        return None
+    if current_quantity > previous + 1e-9:
+        return (
+            f"{symbol}: quantidade aumentou de {previous:g} para "
+            f"{current_quantity:g} desde o último run -- confirme a tese "
+            "(atualize thesis_updated_at em config/portfolio.csv)."
+        )
+    return None
+
+
+def _earnings_between_runs(
+    value: Any,
+    previous_run_at: pd.Timestamp | None,
+    current_run_at: str | datetime | pd.Timestamp,
+) -> bool | None:
+    if value is None or pd.isna(value) or previous_run_at is None:
+        return None
+    earnings_at = pd.to_datetime(value, errors="coerce")
+    current_at = pd.Timestamp(current_run_at)
+    if pd.isna(earnings_at):
+        return None
+    return previous_run_at < earnings_at <= current_at
+
+
+def build_stateful_sell_plan(
+    portfolio: Portfolio,
+    analysis_df: pd.DataFrame,
+    *,
+    sell_rules_policy: SellRulesPolicy,
+    previous_by_symbol: Mapping[str, Mapping[str, Any]] | None = None,
+    baseline_status: str = "first_run",
+    previous_run_at: pd.Timestamp | None = None,
+    current_run_at: str | datetime | pd.Timestamp | None = None,
+    quality: PortfolioQualityResult | None = None,
+    policy: RebalancePolicy = DEFAULT_REBALANCE_POLICY,
+) -> RebalancePlan:
+    """Motor sell-only stateful; produz sinais consultivos, nunca ordens."""
+    if not isinstance(portfolio, Portfolio):
+        raise TypeError("build_stateful_sell_plan exige Portfolio.")
+    if not isinstance(analysis_df, pd.DataFrame):
+        raise TypeError("analysis_df exige DataFrame.")
+    if portfolio.total_value <= 0:
+        raise RebalanceError("A carteira precisa ter valor total positivo.")
+    if portfolio.missing_thesis_symbols:
+        raise SellEngineBlockedError(portfolio.missing_thesis_symbols)
+    _validate_policy(policy)
+
+    previous_by_symbol = previous_by_symbol or {}
+    current_run_at = current_run_at or datetime.now()
+    rows = {
+        str(row.get("symbol", "")).strip().upper(): row.to_dict()
+        for _, row in analysis_df.iterrows()
+        if str(row.get("symbol", "")).strip()
+    }
+    percentiles, universe_size, universe_scope = score_percentiles(
+        analysis_df,
+        sell_rules_policy,
+    )
+    current_weights = _current_weights(portfolio)
+    actions: list[RebalanceAction] = []
+    warnings: list[str] = []
+    released_cash = 0.0
+    turnover_numerator = 0.0
+    non_portfolio_origin: list[str] = []
+
+    for holding in portfolio.holdings:
+        if holding.origin and holding.origin != "portfolio":
+            non_portfolio_origin.append(holding.symbol)
+            continue
+        row = rows.get(holding.symbol, {})
+        current = dict(row)
+        current["score_coverage"] = row.get(
+            "Score Coverage", row.get("Confidence Score")
+        )
+        current["confidence_score"] = row.get("Confidence Score")
+        symbol_baseline = baseline_status
+        previous = previous_by_symbol.get(holding.symbol)
+        if baseline_status == "comparable" and previous is None:
+            symbol_baseline = "first_run"
+        if previous is not None:
+            quantity_warning = _quantity_increase_warning(
+                holding.symbol,
+                holding.quantity,
+                previous.get("quantity"),
+            )
+            if quantity_warning:
+                warnings.append(quantity_warning)
+        earnings = _earnings_between_runs(
+            row.get("earnings_date"),
+            previous_run_at,
+            current_run_at,
+        )
+        context = SellRuleContext(
+            symbol=holding.symbol,
+            sector=holding.sector or str(row.get("sector", "")),
+            industry=holding.industry or str(row.get("industry", "")),
+            current=current,
+            previous=previous,
+            baseline_status=symbol_baseline,
+            score_percentile=percentiles.get(holding.symbol),
+            universe_size=universe_size,
+            universe_scope=universe_scope,
+            missing_data=_missing_rule_data(row),
+            earnings_since_last_run=earnings,
+        )
+        decision = evaluate_sell_rules(context, sell_rules_policy)
+        legacy_text = str(row.get("Deal Breakers", "") or "").strip()
+        legacy_flagged = bool(legacy_text) and legacy_text.lower() != "nenhum"
+        if legacy_flagged != (decision.action in ("SELL", "TRIM")):
+            warnings.append(
+                f"{holding.symbol}: diagnóstico-sombra do motor antigo "
+                f"diverge da decisão nova (legado: "
+                f"{'SELL' if legacy_flagged else 'HOLD'}; motor novo: "
+                f"{decision.action}) -- não altera a decisão, só calibração."
+            )
+        current_weight = current_weights.get(holding.symbol, 0.0)
+        if decision.action == "SELL":
+            target_weight = 0.0
+        elif decision.action == "TRIM":
+            target_weight = current_weight * (1.0 - sell_rules_policy.trim_fraction)
+        else:
+            target_weight = current_weight
+        trade_value = (target_weight - current_weight) * portfolio.total_value
+        if trade_value < 0:
+            released_cash += abs(trade_value)
+            turnover_numerator += abs(trade_value)
+        reason = decision.reason
+        if earnings is True:
+            reason += " Houve divulgação de resultado desde o último run."
+        actions.append(
+            RebalanceAction(
+                symbol=holding.symbol,
+                action=decision.action,
+                current_weight=current_weight,
+                target_weight=target_weight,
+                target_value=target_weight * portfolio.total_value,
+                trade_value=trade_value,
+                reason=reason,
+                priority={"SELL": 0, "TRIM": 10, "REVISAR": 20, "HOLD": 50}[
+                    decision.action
+                ],
+                triggered_rules=decision.triggered_rules,
+                rule_results=tuple(
+                    item.to_dict() for item in decision.evaluations
+                ),
+                missing_data=decision.missing_data,
+                baseline_status=decision.baseline_status,
+                earnings_since_last_run=decision.earnings_since_last_run,
+                score_coverage=decision.score_coverage,
+                confidence=decision.confidence,
+                legacy_flagged=legacy_flagged,
+            )
+        )
+
+    if non_portfolio_origin:
+        warnings.append(
+            "Holdings ignorados por proveniência não confirmada como "
+            "'portfolio': " + ", ".join(non_portfolio_origin)
+        )
+    if quality is not None:
+        if not isinstance(quality, PortfolioQualityResult):
+            raise TypeError("quality deve ser PortfolioQualityResult.")
+        warnings.extend(quality.warnings)
+    actions.sort(key=lambda item: (item.priority, item.symbol))
+    return RebalancePlan(
+        actions=tuple(actions),
+        required_cash=0.0,
+        released_cash=round(released_cash, 2),
+        estimated_turnover=min(
+            1.0,
+            round(turnover_numerator / portfolio.total_value, 6),
+        ),
+        warnings=tuple(dict.fromkeys(warnings)),
     )
 
 

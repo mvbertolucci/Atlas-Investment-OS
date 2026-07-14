@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from reports.report_models import CompanyReport
@@ -40,6 +40,9 @@ class Holding:
     country: str = ""
     currency: str = "USD"
     notes: str = ""
+    entry_date: date | str | None = None
+    thesis: str = ""
+    thesis_updated_at: date | str | None = None
 
     # Proveniência do universo analisado (run_all.merge_watchlist_with_portfolio):
     # "" quando desconhecida (holding ainda não ligado a uma linha do
@@ -101,6 +104,7 @@ class Holding:
             "country",
             "currency",
             "notes",
+            "thesis",
             "origin",
         ]:
             value = normalize_text(
@@ -115,6 +119,22 @@ class Holding:
                 field_name,
                 value,
             )
+
+        for date_field_name in ("entry_date", "thesis_updated_at"):
+            raw_value = getattr(self, date_field_name)
+            if isinstance(raw_value, str):
+                text = raw_value.strip()
+                try:
+                    raw_value = date.fromisoformat(text) if text else None
+                except ValueError as exc:
+                    raise ValueError(
+                        f"{date_field_name} deve usar o formato YYYY-MM-DD."
+                    ) from exc
+            if raw_value is not None and not isinstance(raw_value, date):
+                raise TypeError(
+                    f"{date_field_name} exige date, string ISO ou None."
+                )
+            object.__setattr__(self, date_field_name, raw_value)
 
         if (
             self.company_report is not None
@@ -191,6 +211,10 @@ class Holding:
             country=self.country,
             currency=self.currency,
             notes=self.notes,
+            entry_date=self.entry_date,
+            thesis=self.thesis,
+            thesis_updated_at=self.thesis_updated_at,
+            origin=self.origin,
             company_report=self.company_report,
         )
 
@@ -210,6 +234,18 @@ class Holding:
             "country": self.country,
             "currency": self.currency,
             "notes": self.notes,
+            "entry_date": (
+                self.entry_date.isoformat()
+                if self.entry_date is not None
+                else None
+            ),
+            "thesis": self.thesis,
+            "thesis_updated_at": (
+                self.thesis_updated_at.isoformat()
+                if self.thesis_updated_at is not None
+                else None
+            ),
+            "origin": self.origin,
             "company_report": (
                 self.company_report.to_dict()
                 if self.company_report is not None
@@ -325,6 +361,19 @@ class Portfolio:
             if not holding.has_company_report
         )
 
+    @property
+    def missing_thesis_symbols(self) -> tuple[str, ...]:
+        """
+        Símbolos com posição real (quantity > 0) sem tese registrada. Uma
+        posição zerada (quantity == 0, ex.: holding em transição) não exige
+        tese -- só posições vivas o motor de venda pode precisar justificar.
+        """
+        return tuple(
+            holding.symbol
+            for holding in self.holdings
+            if holding.quantity > 0 and not holding.thesis
+        )
+
     def holding(
         self,
         symbol: str,
@@ -371,6 +420,9 @@ class Portfolio:
             ),
             "missing_report_symbols": list(
                 self.missing_report_symbols
+            ),
+            "missing_thesis_symbols": list(
+                self.missing_thesis_symbols
             ),
             "holdings": [
                 holding.to_dict()
@@ -605,6 +657,14 @@ class RebalanceAction:
 
     reason: str
     priority: int = 100
+    triggered_rules: tuple[str, ...] = field(default_factory=tuple)
+    rule_results: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    missing_data: tuple[str, ...] = field(default_factory=tuple)
+    baseline_status: str = ""
+    earnings_since_last_run: bool | None = None
+    score_coverage: float | None = None
+    confidence: float | None = None
+    legacy_flagged: bool = False
 
     def __post_init__(self) -> None:
         symbol = normalize_symbol(self.symbol)
@@ -620,9 +680,11 @@ class RebalanceAction:
             "BUY",
             "SELL",
             "HOLD",
+            "TRIM",
+            "REVISAR",
         }:
             raise ValueError(
-                "action deve ser BUY, SELL ou HOLD."
+                "action deve ser BUY, SELL, HOLD, TRIM ou REVISAR."
             )
 
         if not reason:
@@ -682,6 +744,41 @@ class RebalanceAction:
             "priority",
             max(0, int(self.priority)),
         )
+        object.__setattr__(
+            self,
+            "triggered_rules",
+            normalize_items(self.triggered_rules),
+        )
+        object.__setattr__(
+            self,
+            "rule_results",
+            tuple(dict(item) for item in self.rule_results),
+        )
+        object.__setattr__(
+            self,
+            "missing_data",
+            normalize_items(self.missing_data),
+        )
+        object.__setattr__(
+            self,
+            "baseline_status",
+            normalize_text(self.baseline_status),
+        )
+        object.__setattr__(
+            self,
+            "score_coverage",
+            normalize_score(self.score_coverage, field_name="score_coverage"),
+        )
+        object.__setattr__(
+            self,
+            "confidence",
+            normalize_score(self.confidence, field_name="confidence"),
+        )
+        object.__setattr__(
+            self,
+            "legacy_flagged",
+            bool(self.legacy_flagged),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -693,6 +790,14 @@ class RebalanceAction:
             "trade_value": self.trade_value,
             "reason": self.reason,
             "priority": self.priority,
+            "triggered_rules": list(self.triggered_rules),
+            "rule_results": [dict(item) for item in self.rule_results],
+            "missing_data": list(self.missing_data),
+            "baseline_status": self.baseline_status,
+            "earnings_since_last_run": self.earnings_since_last_run,
+            "score_coverage": self.score_coverage,
+            "confidence": self.confidence,
+            "legacy_flagged": self.legacy_flagged,
         }
 
 
@@ -782,6 +887,22 @@ class RebalancePlan:
             action
             for action in self.actions
             if action.action == "HOLD"
+        )
+
+    @property
+    def trim_actions(self) -> tuple[RebalanceAction, ...]:
+        return tuple(
+            action
+            for action in self.actions
+            if action.action == "TRIM"
+        )
+
+    @property
+    def review_actions(self) -> tuple[RebalanceAction, ...]:
+        return tuple(
+            action
+            for action in self.actions
+            if action.action == "REVISAR"
         )
 
     @property

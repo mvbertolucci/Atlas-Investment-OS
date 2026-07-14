@@ -183,6 +183,11 @@ def score_all_factors(
     else:
         result["Model Confidence"] = 0.0
 
+    # Cobertura efetiva do score: o mesmo percentual de peso de features
+    # observado pelo motor de fatores. Nome explícito para gating operacional;
+    # não altera score, pesos ou semântica de Confidence Score.
+    result["Score Coverage"] = result["Model Confidence"].round(1)
+
     aliases = {
         "Business Factor": "Business Score",
         "Valuation Factor": "Valuation Score",

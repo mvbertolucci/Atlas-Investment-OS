@@ -1,4 +1,4 @@
-symbol,quantity,average_price,current_price,currency,sector,country,notes
-MSFT,10,410.50,450.00,USD,Technology,USA,Core holding
-GOOGL,8,175.20,180.00,USD,Communication Services,USA,
-BUD,20,58.10,62.00,USD,Consumer Defensive,Belgium,
+symbol,quantity,average_price,current_price,currency,sector,country,notes,entry_date,thesis,thesis_updated_at
+MSFT,10,410.50,450.00,USD,Technology,USA,Core holding,2026-01-15,Qualidade e crescimento recorrente de nuvem com balanço resiliente.,2026-01-15
+GOOGL,8,175.20,180.00,USD,Communication Services,USA,,2026-02-10,Liderança em busca e publicidade com opcionalidade em IA e cloud.,2026-02-10
+BUD,20,58.10,62.00,USD,Consumer Defensive,Belgium,,2026-03-05,Marcas globais e desalavancagem sustentam recuperação de margem.,2026-03-05
