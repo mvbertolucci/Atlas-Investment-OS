@@ -185,3 +185,30 @@ def test_no_external_resources_in_generated_html() -> None:
     html = render_report(_full_context())
     matches = _EXTERNAL_RESOURCE_PATTERN.findall(html)
     assert matches == []
+
+
+def test_required_action_card_shows_which_engine_signed_it() -> None:
+    html = render_report(_full_context())
+    assert "[portfolio.sell_rules]" in html
+
+
+def test_diagnostico_heading_present() -> None:
+    html = render_report(_full_context())
+    assert ">Diagnóstico<" in html
+
+
+def test_engine_conflict_alerts_rendered_in_diagnostico() -> None:
+    ctx = build_report_context(
+        mode="portfolio",
+        df=_df(),
+        snapshot_date="2026-07-14T00:00:00",
+        status_md_text="### ⚠️ Conflitos sinalizados\n1. Motor A vs Motor B.\n\n---\n",
+    )
+    html = render_report(ctx)
+    assert "1 conflito entre motores" in html
+    assert 'class="alert"' in html
+
+
+def test_no_conflict_alerts_when_status_md_not_supplied() -> None:
+    html = render_report(_full_context())
+    assert 'class="alert"' not in html

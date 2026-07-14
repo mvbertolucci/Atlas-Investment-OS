@@ -44,8 +44,8 @@ h2 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; border-bottom: 1px solid var(-
 .meta { color: var(--muted); font-size: 0.85rem; }
 .section-empty { color: var(--muted); font-style: italic; }
 .table-scroll { overflow-x: auto; max-width: 100%; }
-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
-th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 0.85rem; }
+th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); overflow-wrap: break-word; }
 th { color: var(--muted); font-weight: 600; }
 .pill { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
 .pill-hold { color: var(--hold); background: var(--hold-bg); }
@@ -54,7 +54,9 @@ th { color: var(--muted); font-weight: 600; }
 .delta-up { color: var(--hold); }
 .delta-down { color: var(--sell); }
 .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; }
+.card .engine { color: var(--muted); font-size: 0.75rem; }
 .footer { margin-top: 2rem; color: var(--muted); font-size: 0.78rem; }
+.alert { color: var(--sell); background: var(--sell-bg); border-radius: 0.4rem; padding: 0.4rem 0.6rem; margin: 0.25rem 0; font-size: 0.82rem; }
 """
 
 _PILL_CLASS = {
@@ -109,7 +111,8 @@ def render_required_actions(context: ReportContext) -> str:
         ).replace("não incluído neste run.", "")
     cards = "\n".join(
         f'<div class="card"><strong>{_e(item.symbol)}</strong> '
-        f'{_pill(item.label)}<br>{_e(item.message)}</div>'
+        f'{_pill(item.label)} <span class="engine">[{_e(item.engine)}]</span>'
+        f'<br>{_e(item.message)}</div>'
         for item in context.required_actions
     )
     return f"<h2>Ações requeridas</h2>\n{cards}"
@@ -156,6 +159,11 @@ def render_portfolio(context: ReportContext) -> str:
 {warnings_html}
 <div class="table-scroll">
 <table>
+<colgroup>
+<col style="width:12%"><col style="width:20%"><col style="width:10%">
+<col style="width:10%"><col style="width:10%"><col style="width:13%">
+<col style="width:25%">
+</colgroup>
 <thead><tr><th>Símbolo</th><th>Nome</th><th>Score</th><th>Δ</th>
 <th>Coverage</th><th>Decisão</th><th>Regra ativa</th></tr></thead>
 <tbody>
@@ -197,6 +205,11 @@ def render_watchlist(context: ReportContext) -> str:
 <h2>Watchlist</h2>
 <div class="table-scroll">
 <table>
+<colgroup>
+<col style="width:12%"><col style="width:18%"><col style="width:24%">
+<col style="width:10%"><col style="width:10%"><col style="width:14%">
+<col style="width:12%">
+</colgroup>
 <thead><tr><th>Símbolo</th><th>Nome</th><th>Condição</th><th>Score</th>
 <th>Idade</th><th>Trigger</th><th>Limpeza?</th></tr></thead>
 <tbody>{rows_html}</tbody>
@@ -224,6 +237,10 @@ def render_earnings(context: ReportContext) -> str:
 <h2>Earnings</h2>
 <div class="table-scroll">
 <table>
+<colgroup>
+<col style="width:15%"><col style="width:20%"><col style="width:15%">
+<col style="width:50%">
+</colgroup>
 <thead><tr><th>Símbolo</th><th>Nome</th><th>Origem</th>
 <th>Mudança nos fundamentals</th></tr></thead>
 <tbody>{rows_html}</tbody>
@@ -264,6 +281,10 @@ def render_screener(context: ReportContext) -> str:
 {new_html}
 <div class="table-scroll">
 <table>
+<colgroup>
+<col style="width:12%"><col style="width:20%"><col style="width:28%">
+<col style="width:20%"><col style="width:20%">
+</colgroup>
 <thead><tr><th>Rank</th><th>Símbolo</th><th>Setor</th><th>Score</th>
 <th>Confiança</th></tr></thead>
 <tbody>{top_rows}</tbody>
@@ -284,9 +305,14 @@ def render_footer(context: ReportContext) -> str:
         if quality.stale_statements
         else ""
     )
+    conflicts_html = "".join(
+        f'<div class="alert">⚠ {_e(alert)}</div>' for alert in context.engine_conflicts
+    )
     return f"""
 <div class="footer">
-<h2 style="border:none;">Qualidade de dados</h2>
+<h2 style="border:none;">Diagnóstico</h2>
+{conflicts_html}
+<h3>Qualidade de dados</h3>
 <ul>
 <li>Peso fantasma no Investment Score: {quality.phantom_weight_pct:.1f}%</li>
 {failures_html}

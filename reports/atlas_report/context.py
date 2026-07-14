@@ -8,9 +8,12 @@ import pandas as pd
 
 from analytics.history import earnings_between_runs
 from ranking.models import RankingReport
+from reports.atlas_report.diagnostics import extract_status_conflicts
 from universe.models import UniverseReport
 from watchlist.models import WatchlistReport
 from watchlist.triggers import normalize_current_row
+
+_REASON_PENDING = "razão: motor pendente"
 
 MODES = ("full", "portfolio", "ticker")
 
@@ -71,6 +74,7 @@ class RequiredAction:
     kind: str
     label: str
     message: str
+    engine: str = "motor pendente"
 
 
 @dataclass(frozen=True)
@@ -109,6 +113,7 @@ class ReportContext:
     earnings_rows: tuple[EarningsRow, ...]
     screener: ScreenerSummary
     data_quality: DataQualityFootnote
+    engine_conflicts: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
@@ -160,6 +165,7 @@ def build_report_context(
     fetch_failures: tuple[str, ...] = (),
     phantom_weight_pct: float = 0.0,
     stale_statements: tuple[str, ...] = (),
+    status_md_text: str = "",
 ) -> ReportContext:
     """
     Monta o contexto de apresentação a partir dos objetos que os motores já
@@ -205,13 +211,14 @@ def build_report_context(
                 kind="portfolio_blocked",
                 label="REVISAR",
                 message=portfolio_blocked_reason,
+                engine="portfolio.sell_rules",
             )
         )
     if rebalance is not None:
         for action in rebalance.get("actions", []):
             symbol = str(action.get("symbol", ""))
             action_value = str(action.get("action", "HOLD"))
-            reason = str(action.get("reason", ""))
+            reason = str(action.get("reason", "")).strip()
             triggered_rules = tuple(action.get("triggered_rules", ()) or ())
             current = current_by_symbol.get(symbol, {})
             portfolio_rows.append(
@@ -224,7 +231,7 @@ def build_report_context(
                         current.get("score_coverage", current.get("confidence_score"))
                     ),
                     action=action_value,
-                    reason=reason,
+                    reason=reason or _REASON_PENDING,
                     triggered_rules=triggered_rules,
                     legacy_flagged=bool(action.get("legacy_flagged", False)),
                 )
@@ -235,7 +242,8 @@ def build_report_context(
                         symbol=symbol,
                         kind="sell_engine",
                         label=action_value,
-                        message=reason,
+                        message=reason or _REASON_PENDING,
+                        engine="portfolio.sell_rules",
                     )
                 )
 
@@ -263,7 +271,8 @@ def build_report_context(
                         symbol=result.symbol,
                         kind="watchlist_trigger",
                         label="TRIGGER",
-                        message=result.message,
+                        message=result.message or _REASON_PENDING,
+                        engine="watchlist.triggers",
                     )
                 )
 
@@ -370,4 +379,5 @@ def build_report_context(
             phantom_weight_pct=phantom_weight_pct,
             stale_statements=stale_statements,
         ),
+        engine_conflicts=extract_status_conflicts(status_md_text),
     )

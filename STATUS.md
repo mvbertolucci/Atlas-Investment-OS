@@ -96,6 +96,20 @@
 
 ---
 
+## 7. Relatório HTML (Report v0)
+
+| Item | Estado |
+|---|---|
+| Existe desde | PR-022 (`feat(reports): self-contained HTML report + one-pager, 3 run modes`), **já em produção antes desta sessão** — não foi listado na v1 deste STATUS.md, correção aplicada aqui |
+| Módulos | `reports/atlas_report/context.py` (monta `ReportContext` só lendo o que os motores já produziram), `render.py` (HTML self-contido, CSS inline, zero dependência externa), `write.py` (grava arquivo), `one_pager.py` (relatório por ticker, `--ticker`), `diagnostics.py` (extrai alertas de conflito do próprio STATUS.md — adicionado nesta sessão) |
+| Regra central | O relatório não calcula nem decide nada — `Decision`/`action`/scores vêm prontos dos motores; ausência de razão textual cai em fallback `"razão: motor pendente"`, nunca inventado |
+| Wiring | `run_all.py::main` chama `build_report_context`+`render_report`+`write_report` para os modos `--full` e `--portfolio`; `--ticker` usa `one_pager.py` à parte |
+| Saída | `output/atlas_report_AAAA-MM-DD.html` + `output/atlas_report_latest.html` (formato de nome mudou de timestamp completo para data nesta sessão) |
+| Seção Diagnóstico | Lê o texto de STATUS.md em runtime (`run_all.py::_read_status_md`) e conta marcadores que o próprio documento já usa (`### ⚠️ Conflitos sinalizados`, `CONFLITO A RESOLVER` em linhas de tabela) — exibe alerta "N conflito(s) sinalizado(s) em STATUS.md", nunca reinterpreta o conteúdo |
+| Testes | `tests/test_atlas_report_*.py` — fixture renderiza todas as seções, seção sem dado mostra "não incluído neste run", teste de contrato (pill exibido == `action` do motor), teste que falha se houver `http://`/`https://` em `src`/`href`, teste de fallback "motor pendente", teste de alerta de conflito |
+
+---
+
 ## Última atualização
 - **Data**: 2026-07-14
-- **Commit**: `25728a4` (merge PR #24, feat-research-html-reports)
+- **Commit**: pendente (sessão que adiciona diagnósticos de conflito ao Report v0 — ver seção 7)

@@ -110,6 +110,19 @@ WATCHLIST_REPORT_FILE = OUTPUT / "watchlist_report.json"
 logger = get_logger("run_all")
 
 
+def _read_status_md() -> str:
+    """
+    Lê STATUS.md só para extrair os alertas de conflito de motor exibidos
+    no Diagnóstico do relatório -- se o arquivo não existir, o relatório
+    simplesmente não mostra alertas (nunca quebra o run por isso).
+    """
+    status_path = ROOT / "STATUS.md"
+    try:
+        return status_path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
 def load_settings() -> dict:
     settings_path = CONFIG / "settings.json"
 
@@ -1235,11 +1248,12 @@ def main() -> None:
             phantom_weight_pct=feature_coverage_summary.get(
                 "phantom_investment_share", 0.0
             ),
+            status_md_text=_read_status_md(),
         )
         atlas_report_dated, atlas_report_latest = write_report(
             render_report(report_context),
             OUTPUT,
-            snapshot_date.replace(":", "-"),
+            run_at.strftime("%Y-%m-%d"),
         )
 
         with StageTimer(metrics, "reports_time"):

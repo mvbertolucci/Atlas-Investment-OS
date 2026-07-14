@@ -231,3 +231,72 @@ def test_screener_new_candidates_only_when_comparable() -> None:
         baseline_status="first_run",
     )
     assert not_comparable.screener.new_candidates == ()
+
+
+def test_required_actions_carry_the_engine_that_signed_the_decision() -> None:
+    plan = RebalancePlan(
+        actions=(
+            RebalanceAction(
+                symbol="BBB", action="SELL", current_weight=0.1, target_weight=0.0,
+                target_value=0, trade_value=-100, reason="distress disparou",
+                triggered_rules=("distress",),
+            ),
+        ),
+    )
+    wl = WatchlistReport(
+        results=(
+            WatchlistTriggerResult(
+                symbol="AAA", trigger_condition="score > 75", status="triggered",
+                message="score > 75: passou a valer.",
+            ),
+        )
+    )
+    ctx = build_report_context(
+        mode="full",
+        df=_df(),
+        snapshot_date="2026-07-14T00:00:00",
+        rebalance=plan.to_dict(),
+        watchlist_report=wl,
+    )
+    sell_action = next(a for a in ctx.required_actions if a.symbol == "BBB")
+    trigger_action = next(a for a in ctx.required_actions if a.symbol == "AAA")
+    assert sell_action.engine == "portfolio.sell_rules"
+    assert trigger_action.engine == "watchlist.triggers"
+
+
+def test_missing_reason_falls_back_to_motor_pendente_never_invents_text() -> None:
+    """
+    `RebalanceAction` já valida e proíbe razão vazia na origem -- mas o
+    relatório recebe o dict serializado (`rebalance=`), não o dataclass, e
+    não deve confiar cegamente nisso. Simula um payload incompleto (motor
+    que não preencheu "reason") para provar que o relatório nunca inventa
+    texto, só marca "motor pendente".
+    """
+    rebalance = {"actions": [{"symbol": "BBB", "action": "TRIM"}]}
+    ctx = build_report_context(
+        mode="full", df=_df(), snapshot_date="2026-07-14T00:00:00", rebalance=rebalance
+    )
+    action = next(a for a in ctx.required_actions if a.symbol == "BBB")
+    assert action.message == "razão: motor pendente"
+    row = next(r for r in ctx.portfolio_rows if r.symbol == "BBB")
+    assert row.reason == "razão: motor pendente"
+
+
+def test_engine_conflicts_populated_from_status_md_text() -> None:
+    status_md = (
+        "### ⚠️ Conflitos sinalizados\n"
+        "1. Motor A vs Motor B.\n"
+        "\n---\n"
+    )
+    ctx = build_report_context(
+        mode="full",
+        df=_df(),
+        snapshot_date="2026-07-14T00:00:00",
+        status_md_text=status_md,
+    )
+    assert len(ctx.engine_conflicts) == 1
+
+
+def test_engine_conflicts_empty_when_status_md_not_supplied() -> None:
+    ctx = build_report_context(mode="full", df=_df(), snapshot_date="2026-07-14T00:00:00")
+    assert ctx.engine_conflicts == ()
