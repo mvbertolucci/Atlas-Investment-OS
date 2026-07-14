@@ -249,3 +249,31 @@ def test_watchlist_triggers_table_saves_and_upserts(tmp_path: Path) -> None:
         assert len(stored) == 1
         assert stored["AAA"]["condition_text"] == "score > 80"
         assert stored["AAA"]["last_triggered_at"] == "2026-08-01"
+
+
+def test_is_candidate_migrates_and_persists(tmp_path: Path) -> None:
+    database_path = tmp_path / "atlas_history.db"
+
+    # Snapshot legado, sem is_candidate no df -- a coluna deve existir na
+    # tabela (migração) e ficar NULL para essas linhas.
+    with HistoryDatabase(database_path) as database:
+        database.save_snapshot(
+            _sample_snapshot(70.0, 50.0),
+            "2026-06-01T09:00:00",
+        )
+        legacy_history = database.load_history()
+    assert "is_candidate" in legacy_history.columns
+    assert legacy_history["is_candidate"].isna().all()
+
+    # Run novo, com is_candidate no df -- grava 1/0 corretamente.
+    df = _sample_snapshot(80.0, 40.0)
+    df["is_candidate"] = [True, False]
+    with HistoryDatabase(database_path) as database:
+        database.save_snapshot(df, "2026-07-01T09:00:00")
+        history = database.load_history()
+
+    new_rows = history.loc[history["snapshot_date"] == "2026-07-01T09:00:00"]
+    aaa = new_rows.loc[new_rows["symbol"] == "AAA"].iloc[0]
+    bbb = new_rows.loc[new_rows["symbol"] == "BBB"].iloc[0]
+    assert aaa["is_candidate"] == 1
+    assert bbb["is_candidate"] == 0

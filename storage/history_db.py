@@ -56,6 +56,7 @@ class HistoryDatabase:
                 score_coverage      REAL,
                 earnings_date       TEXT,
                 quantity            REAL,
+                is_candidate        INTEGER,
 
                 recommendation     TEXT,
 
@@ -154,6 +155,7 @@ class HistoryDatabase:
             "score_coverage": "REAL",
             "earnings_date": "TEXT",
             "quantity": "REAL",
+            "is_candidate": "INTEGER",
         }
         for name, definition in additions.items():
             if name not in columns:
@@ -402,6 +404,11 @@ class HistoryDatabase:
                     row.get("Score Coverage", row.get("Confidence Score")),
                     row.get("earnings_date"),
                     row.get("quantity"),
+                    (
+                        int(row["is_candidate"])
+                        if "is_candidate" in row and pd.notna(row["is_candidate"])
+                        else None
+                    ),
 
                     row.get("Recommendation"),
                 )
@@ -429,11 +436,12 @@ class HistoryDatabase:
                 score_coverage,
                 earnings_date,
                 quantity,
+                is_candidate,
                 recommendation
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             rows,
