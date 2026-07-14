@@ -27,6 +27,7 @@ data/*.sqlite
 data/*.sqlite3
 data/research_universe_collection*.json
 data/research_universe_collection*.tmp
+data/*.log
 !data/.gitkeep
 
 # Arquivos temporários do Excel
