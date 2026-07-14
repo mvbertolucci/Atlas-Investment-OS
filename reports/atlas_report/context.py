@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
@@ -9,6 +10,7 @@ import pandas as pd
 from analytics.history import earnings_between_runs
 from ranking.models import RankingReport
 from reports.atlas_report.diagnostics import extract_status_conflicts
+from reports.atlas_report.ticker_detail import TickerDetail, anchor_id, build_ticker_detail
 from universe.models import UniverseReport
 from watchlist.models import WatchlistReport
 from watchlist.triggers import normalize_current_row
@@ -37,6 +39,8 @@ class PortfolioRow:
     reason: str
     triggered_rules: tuple[str, ...] = ()
     legacy_flagged: bool = False
+    anchor_id: str = ""
+    rule_results: tuple[Mapping[str, Any], ...] = ()
 
     @property
     def has_state_change(self) -> bool:
@@ -58,6 +62,7 @@ class WatchlistRow:
     age_days: int | None
     cleanup_suggested: bool
     message: str
+    anchor_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -114,6 +119,7 @@ class ReportContext:
     screener: ScreenerSummary
     data_quality: DataQualityFootnote
     engine_conflicts: tuple[str, ...] = ()
+    ticker_details: tuple[TickerDetail, ...] = ()
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
@@ -166,6 +172,10 @@ def build_report_context(
     phantom_weight_pct: float = 0.0,
     stale_statements: tuple[str, ...] = (),
     status_md_text: str = "",
+    holdings: tuple[Mapping[str, Any], ...] = (),
+    score_history: pd.DataFrame | None = None,
+    features_path: Path | None = None,
+    model_path: Path | None = None,
 ) -> ReportContext:
     """
     Monta o contexto de apresentação a partir dos objetos que os motores já
@@ -234,6 +244,8 @@ def build_report_context(
                     reason=reason or _REASON_PENDING,
                     triggered_rules=triggered_rules,
                     legacy_flagged=bool(action.get("legacy_flagged", False)),
+                    anchor_id=anchor_id(symbol),
+                    rule_results=tuple(action.get("rule_results", ()) or ()),
                 )
             )
             if action_value != "HOLD":
@@ -263,6 +275,7 @@ def build_report_context(
                     age_days=result.age_days,
                     cleanup_suggested=result.cleanup_suggested,
                     message=result.message,
+                    anchor_id=anchor_id(result.symbol),
                 )
             )
             if result.triggered_this_run:
@@ -275,6 +288,62 @@ def build_report_context(
                         engine="watchlist.triggers",
                     )
                 )
+
+    # --- one-pager por ticker (seção de detalhe, âncorada a partir das
+    # linhas de carteira/watchlist) -- só monta quando features_path foi
+    # informado (run_all.py sempre informa; testes que não precisam desta
+    # seção simplesmente não a recebem, em vez de quebrar).
+    ticker_details: list[TickerDetail] = []
+    if features_path is not None:
+        holdings_by_symbol = {
+            str(item.get("symbol", "")).strip().upper(): item
+            for item in holdings
+            if str(item.get("symbol", "")).strip()
+        }
+        portfolio_rows_by_symbol = {row.symbol: row for row in portfolio_rows}
+        watchlist_rows_by_symbol = {row.symbol: row for row in watchlist_rows}
+        detail_symbols = dict.fromkeys(
+            (*portfolio_rows_by_symbol, *watchlist_rows_by_symbol)
+        )
+        history_df = score_history if score_history is not None else pd.DataFrame()
+        as_of = pd.Timestamp(snapshot_date)
+        for symbol in detail_symbols:
+            portfolio_row = portfolio_rows_by_symbol.get(symbol)
+            watchlist_row = watchlist_rows_by_symbol.get(symbol)
+            if portfolio_row is not None:
+                action = portfolio_row.action
+                action_engine = "portfolio.sell_rules"
+                action_reason = portfolio_row.reason
+            elif watchlist_row is not None:
+                action = "TRIGGER" if watchlist_row.triggered_this_run else watchlist_row.status
+                action_engine = "watchlist.triggers"
+                action_reason = watchlist_row.message or _REASON_PENDING
+            else:
+                action = "HOLD"
+                action_engine = "motor pendente"
+                action_reason = _REASON_PENDING
+            ticker_details.append(
+                build_ticker_detail(
+                    symbol=symbol,
+                    name=name_by_symbol.get(symbol, symbol),
+                    sector=sector_by_symbol.get(symbol, ""),
+                    origin="portfolio" if portfolio_row is not None else "watchlist",
+                    action=action,
+                    action_engine=action_engine,
+                    action_reason=action_reason,
+                    score=portfolio_row.score if portfolio_row is not None else watchlist_row.score,
+                    score_delta=portfolio_row.score_delta if portfolio_row is not None else None,
+                    coverage=portfolio_row.coverage if portfolio_row is not None else None,
+                    current=current_by_symbol.get(symbol, {}),
+                    df=df,
+                    rule_results=portfolio_row.rule_results if portfolio_row is not None else (),
+                    holding=holdings_by_symbol.get(symbol),
+                    score_history=history_df,
+                    features_path=features_path,
+                    model_path=model_path,
+                    as_of=as_of,
+                )
+            )
 
     # --- earnings (carteira + watchlist, união por símbolo) ------------
     earnings_symbols: dict[str, str] = {}
@@ -380,4 +449,5 @@ def build_report_context(
             stale_statements=stale_statements,
         ),
         engine_conflicts=extract_status_conflicts(status_md_text),
+        ticker_details=tuple(ticker_details),
     )

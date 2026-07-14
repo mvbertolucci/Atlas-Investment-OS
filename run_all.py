@@ -1249,6 +1249,12 @@ def main() -> None:
                 "phantom_investment_share", 0.0
             ),
             status_md_text=_read_status_md(),
+            holdings=(
+                portfolio_report.holdings if portfolio_report is not None else ()
+            ),
+            score_history=score_history,
+            features_path=CONFIG / "features.yaml",
+            model_path=CONFIG / "model.yaml",
         )
         atlas_report_dated, atlas_report_latest = write_report(
             render_report(report_context),

@@ -28,6 +28,7 @@ class PortfolioReport:
     quality: dict[str, Any]
     rebalance: dict[str, Any]
     warnings: tuple[str, ...] = ()
+    holdings: tuple[dict[str, Any], ...] = ()
 
     @property
     def has_warnings(self) -> bool:
@@ -171,4 +172,5 @@ def build_portfolio_report(
             quality_result,
             rebalance_plan,
         ),
+        holdings=tuple(holding.to_dict() for holding in portfolio.holdings),
     )

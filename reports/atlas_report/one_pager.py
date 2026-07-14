@@ -11,6 +11,7 @@ from analytics.feature_audit import FeatureBinding, collect_model_features
 from analytics.history import build_metric_history
 from factors.engine import get_factor_features, load_yaml, pct_rank
 from factors.valuation import resolve_valuation_features
+from reports.atlas_report.svg import sparkline_svg
 
 
 @dataclass(frozen=True)
@@ -110,23 +111,7 @@ def _e(value: object) -> str:
     return escape(str(value if value is not None else ""))
 
 
-def _sparkline_svg(values: list[float], *, width: int = 220, height: int = 40) -> str:
-    """SVG inline simples -- sem JS, sem dependência externa."""
-    if len(values) < 2:
-        return '<p class="section-empty">Histórico insuficiente para gráfico.</p>'
-    low, high = min(values), max(values)
-    span = (high - low) or 1.0
-    step = width / (len(values) - 1)
-    points = " ".join(
-        f"{index * step:.1f},{height - ((value - low) / span * height):.1f}"
-        for index, value in enumerate(values)
-    )
-    return (
-        f'<svg viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
-        'role="img" aria-label="Histórico de score">'
-        f'<polyline points="{points}" fill="none" stroke="currentColor" '
-        'stroke-width="2" /></svg>'
-    )
+_sparkline_svg = sparkline_svg
 
 
 def render_one_pager(

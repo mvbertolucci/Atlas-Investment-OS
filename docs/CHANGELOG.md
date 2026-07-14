@@ -1,5 +1,35 @@
 # Changelog
 
+## Per-ticker decision detail embedded in the main Atlas Report
+
+### Added
+
+- Each portfolio/watchlist symbol in `--full`/`--portfolio` now gets an
+  anchored detail section (`reports/atlas_report/ticker_detail.py`) inside
+  the same self-contained HTML report: score decomposition (top
+  contributions with formula, raw inputs and threshold-based
+  interpretation, reusing `analytics/feature_audit.py` and
+  `config/features.yaml` — no new calculation), sell-rule-by-rule status
+  when the position is a real holding, per-metric sparkline history
+  (only for columns actually persisted in `snapshots`, per STATUS.md
+  section 4), and the position thesis with an age/attention flag when a
+  `fundamental_decay` rule is triggered.
+- `config/portfolio.csv` holdings and `analytics.history` score history are
+  now passed into `build_report_context` for `--full`/`--portfolio`.
+- Symbol cells in the Carteira/Watchlist tables link to their anchor.
+
+### Preserved
+
+- Zero external dependency: no `http(s)://` in any `src`/`href`, verified
+  by a test that actually populates ticker details (the previous fixture
+  never passed `features_path`, so it silently never exercised this path).
+  An earlier version of this feature linked out to Yahoo Finance per
+  feature for quick cross-reference; removed before merge to keep the
+  report fully offline, per the existing tested contract.
+- No new decision logic — the section only renders what
+  `portfolio.sell_rules`, `factors.engine` and `analytics.history` already
+  computed this run.
+
 ## US-listed ADR advisory ranking run
 
 ### Completed
