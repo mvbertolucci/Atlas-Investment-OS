@@ -66,6 +66,7 @@ class RankedCompany:
     conviction_score: float | None
     confidence_score: float | None
     deal_breakers: tuple[str, ...]
+    already_held: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -82,6 +83,7 @@ class RankedCompany:
             "conviction_score": self.conviction_score,
             "confidence_score": self.confidence_score,
             "deal_breakers": list(self.deal_breakers),
+            "already_held": self.already_held,
         }
 
 

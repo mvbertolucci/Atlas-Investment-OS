@@ -126,6 +126,21 @@
       day: `run_all.merge_watchlist_with_portfolio` merges the two **only in
       memory**, once per run, so the analyzed/scored universe covers both
       without polluting either source file
+- [x] Universe provenance: every merged row carries an `origin`
+      (`portfolio` > `watchlist`, ready for a future `> universe` tier from
+      the broad-market screener), propagated through
+      `collect_market_data`/`build_scores` untouched. Two contract
+      guarantees, both regression-tested end to end:
+      - `portfolio.rebalance.build_sell_only_plan` never emits SELL/HOLD for
+        a holding whose origin (verified via `Holding.origin`, filled by
+        `enrich_portfolio_from_analysis` from the analyzed row) is not
+        `portfolio` -- a real gap was found and fixed here: the engine
+        previously trusted `Portfolio.holdings` unconditionally, with no
+        defense if a caller ever built one from a non-portfolio symbol
+      - `ranking.RankedCompany.already_held` (and the existing
+        `priority.BuyPriorityItem.already_held`) flag every portfolio-origin
+        row, so a real holding is never presented as an ordinary fresh
+        candidate in `output/ranking_report.json` or the buy screener
 
 ### Analytical-method priority
 

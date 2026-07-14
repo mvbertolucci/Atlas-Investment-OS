@@ -32,6 +32,19 @@ Deal Breakers reuse the governed absolute thresholds in
 `config/deal_breakers.json`. The ranking does not reproduce or override those
 financial rules.
 
+## Universe provenance
+
+Every row of the analyzed DataFrame carries an `origin` tag set by
+`run_all.merge_watchlist_with_portfolio` (`portfolio`, `watchlist`, or --
+once a broad-market screener is wired into the same merge -- `universe`;
+hierarchy `portfolio > watchlist > universe` when a symbol belongs to more
+than one). `RankedCompany.already_held` mirrors that tag
+(`origin == "portfolio"`), so a real holding is never presented as an
+ordinary fresh candidate without that flag, even when it also passes every
+safeguard above. A frame that never went through that merge (a point-in-time
+replay, a standalone research collection) simply has no `origin` column, and
+`already_held` defaults to `False`.
+
 Every block is explicit through one or more codes:
 
 - `UNIVERSE_INELIGIBLE`;

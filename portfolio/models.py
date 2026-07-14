@@ -41,6 +41,15 @@ class Holding:
     currency: str = "USD"
     notes: str = ""
 
+    # Proveniência do universo analisado (run_all.merge_watchlist_with_portfolio):
+    # "" quando desconhecida (holding ainda não ligado a uma linha do
+    # DataFrame analisado), ou o valor exato daquela linha ("portfolio",
+    # "watchlist", "universe"). portfolio.rebalance.build_sell_only_plan usa
+    # isto para nunca agir sobre um holding cuja origem conhecida não seja
+    # "portfolio" -- defesa em profundidade contra um Portfolio construído
+    # incorretamente a partir de um símbolo que não é uma posição real.
+    origin: str = ""
+
     company_report: CompanyReport | None = None
 
     def __post_init__(self) -> None:
@@ -92,6 +101,7 @@ class Holding:
             "country",
             "currency",
             "notes",
+            "origin",
         ]:
             value = normalize_text(
                 getattr(self, field_name)

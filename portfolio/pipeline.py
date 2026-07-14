@@ -59,6 +59,7 @@ def enrich_portfolio_from_analysis(
         industry = holding.industry
         country = holding.country
         currency = holding.currency
+        origin = holding.origin
 
         if row is not None:
             if current_price is None:
@@ -67,6 +68,22 @@ def enrich_portfolio_from_analysis(
             industry = industry or _clean_text(row.get("industry"))
             country = country or _clean_text(row.get("country"))
             currency = currency or _clean_text(row.get("currency"))
+            # A linha do DataFrame analisado (tagueada por
+            # run_all.merge_watchlist_with_portfolio) é a fonte autoritativa
+            # de proveniência -- nunca assumida, sempre lida do que o merge
+            # de fato tagueou. Isso é o que permite build_sell_only_plan
+            # detectar e recusar um holding cuja origem verificada não seja
+            # "portfolio".
+            row_origin = _clean_text(row.get("origin"))
+            if row_origin:
+                origin = row_origin
+
+        # Sem nenhuma linha correspondente no DataFrame analisado (holding
+        # sem CompanyReport, por exemplo), não há como verificar a
+        # proveniência -- mantém o comportamento anterior de tratar como
+        # posição real, já que todo Holding carregado de
+        # config/portfolio.csv é, por definição, uma posição real.
+        origin = origin or "portfolio"
 
         holdings.append(
             replace(
@@ -76,6 +93,7 @@ def enrich_portfolio_from_analysis(
                 industry=industry,
                 country=country,
                 currency=currency or "USD",
+                origin=origin,
                 company_report=reports.get(holding.symbol),
             )
         )

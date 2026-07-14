@@ -124,6 +124,24 @@ def load_watchlist(
     return watchlist_path, watchlist
 
 
+ORIGIN_PORTFOLIO = "portfolio"
+ORIGIN_WATCHLIST = "watchlist"
+ORIGIN_UNIVERSE = "universe"
+
+# Prioridade de proveniência quando um símbolo aparece em mais de um
+# universo de origem: quem já é posição real (`portfolio`) importa mais
+# operacionalmente do que "só" curiosidade de pesquisa (`watchlist`) ou
+# candidato descoberto num screener amplo (`universe`, ainda não wireado
+# neste merge). Hierarquia, não composição: cada linha carrega um único
+# rótulo, o de maior prioridade entre os universos aos quais pertence --
+# mais simples de consultar (`row["origin"] == "portfolio"`) do que um
+# valor composto, e suficiente para as duas garantias que a proveniência
+# precisa dar: o motor sell-only nunca deve agir fora de `portfolio`, e um
+# screener de compra nunca deve apresentar uma posição já existente como
+# candidata nova sem marcá-la.
+ORIGIN_PRIORITY = (ORIGIN_PORTFOLIO, ORIGIN_WATCHLIST, ORIGIN_UNIVERSE)
+
+
 def merge_watchlist_with_portfolio(
     watchlist: pd.DataFrame,
     settings: dict,
@@ -142,16 +160,28 @@ def merge_watchlist_with_portfolio(
     símbolos da carteira -- só em memória, nunca gravado de volta em
     `watchlist.csv`. Símbolos já presentes na watchlist não são duplicados.
 
+    Toda linha do resultado carrega uma coluna `origin` (`portfolio` ou
+    `watchlist`, hierarquia `portfolio > watchlist`: um símbolo presente
+    nos dois ganha `portfolio`, porque "eu possuo isso" é o fato mais
+    relevante para decisão do que "eu me interessei por isso"). Motores de
+    decisão a jusante (sell-only, screeners de compra) usam essa coluna
+    para saber por que cada linha está sendo analisada -- nunca recomputam
+    a proveniência a partir do zero.
+
     Ausência ou erro de leitura de `portfolio.csv` não interrompe a run:
     a análise segue apenas com a watchlist, como antes de a carteira
     existir.
     """
+    result = watchlist.copy()
+    if "origin" not in result.columns:
+        result["origin"] = ORIGIN_WATCHLIST
+
     portfolio_path = ROOT / settings.get(
         "portfolio_path",
         "config/portfolio.csv",
     )
     if not portfolio_path.exists():
-        return watchlist
+        return result
 
     try:
         portfolio = load_portfolio_csv(portfolio_path)
@@ -161,22 +191,32 @@ def merge_watchlist_with_portfolio(
             "analisado; seguindo apenas com a watchlist.",
             portfolio_path,
         )
-        return watchlist
+        return result
 
-    existing = {
-        str(symbol).strip().upper()
-        for symbol in watchlist.get("symbol", pd.Series(dtype=str))
-    }
+    portfolio_symbols = {holding.symbol for holding in portfolio.holdings}
+
+    existing_symbols = (
+        result["symbol"].astype(str).str.strip().str.upper()
+    )
+    result.loc[
+        existing_symbols.isin(portfolio_symbols), "origin"
+    ] = ORIGIN_PORTFOLIO
+
+    already_present = set(existing_symbols)
     extra_rows = [
-        {"symbol": holding.symbol, "name": holding.symbol}
+        {
+            "symbol": holding.symbol,
+            "name": holding.symbol,
+            "origin": ORIGIN_PORTFOLIO,
+        }
         for holding in portfolio.holdings
-        if holding.symbol not in existing
+        if holding.symbol not in already_present
     ]
     if not extra_rows:
-        return watchlist
+        return result
 
     return pd.concat(
-        [watchlist, pd.DataFrame(extra_rows)],
+        [result, pd.DataFrame(extra_rows)],
         ignore_index=True,
     )
 
@@ -190,11 +230,32 @@ def collect_market_data(
         len(watchlist),
     )
 
+    # `providers.yahoo.fetch_symbol` reconstrói cada linha do zero a partir
+    # do que o Yahoo devolve -- qualquer coluna extra do `watchlist` de
+    # entrada (como `origin`) não sobrevive à chamada. Reanexa por símbolo
+    # (não por posição: falhas de fetch são só logadas e pulam a linha, então
+    # `rows` não fica necessariamente alinhado 1:1 com `watchlist`).
+    origin_by_symbol = (
+        {
+            str(symbol).strip().upper(): origin
+            for symbol, origin in zip(
+                watchlist.get("symbol", []),
+                watchlist.get("origin", []),
+            )
+        }
+        if "origin" in watchlist.columns
+        else {}
+    )
+
     rows = fetch_watchlist(
         watchlist,
         period=settings.get("history_period", "2y"),
         interval=settings.get("history_interval", "1d"),
     )
+
+    for row in rows:
+        symbol = str(row.get("symbol", "")).strip().upper()
+        row["origin"] = origin_by_symbol.get(symbol, ORIGIN_WATCHLIST)
 
     enriched = [
         compute_fundamentals(enrich_technicals(row))

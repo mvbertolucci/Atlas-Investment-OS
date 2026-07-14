@@ -9,12 +9,17 @@ next-open execution, validation, per-sector return-contribution and
 weighted-average factor-exposure cores. Watchlist/portfolio decoupling:
 `config/watchlist.csv` is manually curated research symbols again, distinct
 from `config/portfolio.csv` (real holdings); `run_all.merge_watchlist_with_portfolio`
-merges the two in memory only, per run.
+merges the two in memory only, per run, and tags every row with an `origin`
+(`portfolio` > `watchlist` hierarchy) that decision engines read instead of
+recomputing provenance -- `portfolio.rebalance.build_sell_only_plan` refuses
+to act on a holding whose verified origin is not `portfolio`, and
+`ranking.RankedCompany.already_held` flags a portfolio-origin row so it is
+never shown as an ordinary fresh candidate.
 
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 598 tests passing / 88.62% production coverage
+**Validation baseline:** 604 tests passing / 88.61% production coverage
 
 ## 1. Product mission
 
@@ -174,7 +179,14 @@ track (none of it changes governed scoring):
   (now the default): flags SELL only for AVOID holdings, holds everyone
   else at current weight, never suggests buying more of an existing
   position -- freed cash is meant for new candidates from the screener, not
-  internal reallocation. See `docs/BACKLOG.md`'s "Portfolio workflow".
+  internal reallocation. Every row in the merged, analyzed DataFrame also
+  carries an explicit `origin` (`portfolio` > `watchlist`, and eventually
+  `> universe`); `enrich_portfolio_from_analysis` verifies each `Holding`'s
+  origin against that column, and `build_sell_only_plan` refuses to emit
+  SELL or HOLD for any holding whose verified origin is not `portfolio` --
+  a real regression test proved this was previously unguarded (a
+  Portfolio built incorrectly from a non-portfolio symbol would have acted
+  on it silently). See `docs/BACKLOG.md`'s "Portfolio workflow".
 - **On-demand priority classification** (`priority/`): sell priority (current
   holdings, ranked by Investment Score, SELL/HOLD by Deal Breaker presence)
   and buy priority (screener candidates, ranked by `candidate_rank`) --

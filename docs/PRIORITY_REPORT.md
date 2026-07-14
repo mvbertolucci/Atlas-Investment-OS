@@ -22,7 +22,10 @@ esses artefatos já computados.
 - **Compra** (`BuyPriorityReport`): candidatos do screener (universo amplo),
   ordenados por `candidate_rank` (só quem passou o safeguard governado --
   sem Deal Breaker, confiança mínima). `already_held` sinaliza quando o
-  candidato já está na carteira atual.
+  candidato já está na carteira atual (via `held_symbols`, derivado do
+  `PortfolioReport` real). `RankedCompany.already_held` (a mesma flag, na
+  origem, em `output/ranking_report.json`) usa a mesma ideia mas a coluna
+  `origin` diretamente -- ver `docs/RANKING_METHOD.md#universe-provenance`.
 
 ## Como consultar
 

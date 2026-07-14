@@ -130,6 +130,31 @@ def test_report_serialization(tmp_path: Path) -> None:
     assert payload["summary"]["candidate_count"] == 2
 
 
+def test_already_held_reflects_portfolio_origin_never_watchlist_or_absent() -> None:
+    """
+    already_held comes from the `origin` column run_all.merge_watchlist_with_portfolio
+    tags each row with. A frame without that column (point-in-time replay,
+    broad research collection) must default to False, never crash or guess.
+    """
+    frame = _frame()
+    frame["origin"] = ["portfolio", "watchlist", "portfolio", "watchlist"]
+    report = rank_companies(frame, _universe(frame), RankingPolicy("Test"))
+    by_symbol = {company.symbol: company for company in report.companies}
+
+    assert by_symbol["AAA"].already_held is True
+    assert by_symbol["BBB"].already_held is False
+    assert by_symbol["CCC"].already_held is True
+    assert by_symbol["DDD"].already_held is False
+
+    frame_without_origin = _frame()
+    report_without_origin = rank_companies(
+        frame_without_origin, _universe(frame_without_origin), RankingPolicy("Test")
+    )
+    assert all(
+        company.already_held is False for company in report_without_origin.companies
+    )
+
+
 def test_contract_validation() -> None:
     with pytest.raises(ValueError, match="entre 0 e 100"):
         RankingPolicy("Invalid", min_confidence_score=101)

@@ -1,5 +1,40 @@
 # Changelog
 
+## Add universe provenance to the pipeline
+
+### Added
+
+- `origin` column on the analyzed DataFrame: `run_all.merge_watchlist_with_portfolio`
+  now tags every row `portfolio` or `watchlist` (hierarchy `portfolio >
+  watchlist`, ready for a future `> universe` tier once the broad-market
+  screener merges into the same universe), and `collect_market_data`
+  reattaches it by symbol after `providers.yahoo.fetch_watchlist` (which
+  rebuilds each row from scratch and would otherwise drop it).
+- `Holding.origin` (`portfolio/models.py`): filled by
+  `enrich_portfolio_from_analysis` from the analyzed row's `origin` --
+  the verified source of truth, never assumed just because a symbol
+  appears in `Portfolio.holdings`.
+- `ranking.RankedCompany.already_held` (`ranking/models.py`,
+  `ranking/pipeline.py`): `True` when a row's `origin == "portfolio"`,
+  `False` (never invented) when the frame carries no `origin` column at
+  all (point-in-time replay, standalone research collection).
+
+### Fixed
+
+- `portfolio.rebalance.build_sell_only_plan` had no defense against acting
+  on a holding whose provenance wasn't actually the real portfolio -- it
+  trusted `Portfolio.holdings` unconditionally. A regression test proved
+  this by constructing a `Portfolio` from a watchlist-only symbol and
+  showing the engine happily emitted an action for it. Now checks
+  `Holding.origin` and skips (never SELL, never HOLD) any holding whose
+  verified origin is not `portfolio`, with an explicit warning listing the
+  skipped symbols.
+
+### Validation
+
+- 604 automated tests passed.
+- 88.61% production coverage overall.
+
 ## Decouple the research watchlist from the real portfolio
 
 ### Fixed

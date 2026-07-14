@@ -70,29 +70,36 @@ and pushes are being held back deliberately until explicitly requested:
     worktree`;
   - `e94ab07 feat(backtesting): add per-sector return contribution to
     portfolio validation`;
-  - a new, not-yet-committed increment: weighted-average factor exposure in
-    `backtesting/portfolio_validation.py`
-    (`PortfolioRebalance.factor_exposures`,
-    `ValidationPeriod.factor_exposures`) and
-    `backtesting/historical_portfolio.py` (reads it from the governed
-    scoring pass already computed at each cutoff);
-  - also new and not yet committed, unrelated to PR-034: restored
-    `config/watchlist.csv` to its intended manually curated research
-    symbols (it had been overwritten with the real portfolio's 24 symbols
-    earlier the same day) and added `run_all.merge_watchlist_with_portfolio`
-    so the real portfolio still gets scored `CompanyReport`s for sell-only
-    rebalance, merged in memory only, never written back to either CSV --
-    see the "Fixed"/"Added" entries at the top of `docs/CHANGELOG.md`;
+  - `fe555ce feat(backtesting): add weighted-average factor exposure to
+    portfolio validation`;
+  - `160e6ea fix(run_all): decouple the research watchlist from the real
+    portfolio` -- restored `config/watchlist.csv` to its intended manually
+    curated research symbols (it had been overwritten with the real
+    portfolio's 24 symbols earlier the same day) and added
+    `run_all.merge_watchlist_with_portfolio`, merged in memory only, never
+    written back to either CSV;
+  - a new, not-yet-committed increment, unrelated to PR-034: universe
+    provenance. `merge_watchlist_with_portfolio` now tags every row's
+    `origin` (`portfolio` > `watchlist` hierarchy), propagated through
+    `collect_market_data`. `ranking.RankedCompany.already_held` flags a
+    portfolio-origin row so it is never shown as an ordinary fresh
+    candidate. `portfolio.rebalance.build_sell_only_plan` now verifies
+    `Holding.origin` (filled by `enrich_portfolio_from_analysis` from the
+    analyzed row) and refuses to act on anything not confirmed
+    `portfolio` -- a real, previously unguarded gap, found and fixed by a
+    regression test in the same change. See `docs/CHANGELOG.md`'s "Add
+    universe provenance to the pipeline" and
+    `docs/RANKING_METHOD.md#universe-provenance`;
 - released version remains `v1.2.0`;
-- validation baseline is 598 passing tests and 88.62% production coverage.
+- validation baseline is 604 passing tests and 88.61% production coverage.
 
-A broad-market universe collection (`universe.collector --market` against
-`config/universe_market.yaml`, ~7,093 NASDAQ Trader symbols) may still be
-running in the background in this same working directory. Check for a live
-`python.exe -m universe.collector` process and `data/market_collection_run.log`
-before starting anything else that touches
-`data/research_universe_collection_market.json` -- do not invoke the
-collector or edit that checkpoint while another process owns it.
+The broad-market universe collection (`universe.collector --market` against
+`config/universe_market.yaml`) finished on 2026-07-14: 6,959/7,093 NASDAQ
+Trader symbols collected (`data/market_collection_run.log`). Ranking over
+that screener (`portfolio.model_portfolio --universe-policy
+config/universe_market.yaml --label market`) has not been run yet -- that
+and the ADR screener's own ranking pass are the natural next data-side
+steps, independent of the code changes above.
 
 The executable point-in-time boundary and deterministic walk-forward mechanism
 are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
@@ -201,15 +208,18 @@ Read CLAUDE.md, docs/ATLAS_CONTEXT.md, docs/PORTFOLIO_VALIDATION.md and
 docs/BACKLOG.md fully before changing anything. Verify git status and that
 master includes the PR-034 merge, per-sector return contribution,
 weighted-average factor exposure (PortfolioRebalance.factor_exposures,
-ValidationPeriod.factor_exposures) and the watchlist/portfolio decoupling
-(run_all.merge_watchlist_with_portfolio). Run the full test/coverage gate;
-expect 598 tests and 88.62% production coverage. Report any mismatch before
-editing. Do not push without explicit approval, even after committing.
+ValidationPeriod.factor_exposures), the watchlist/portfolio decoupling
+(run_all.merge_watchlist_with_portfolio) and universe provenance
+(origin column, RankedCompany.already_held, Holding.origin). Run the full
+test/coverage gate; expect 604 tests and 88.61% production coverage. Report
+any mismatch before editing. Do not push without explicit approval, even
+after committing.
 
-Check whether a broad-market universe.collector --market process or
-data/market_collection_run.log shows it is still running. Do not invoke or
-interfere with that collector and do not read or write
-data/research_universe_collection_market.json while it owns that checkpoint.
+The broad-market universe collection (universe.collector --market against
+config/universe_market.yaml) finished on 2026-07-14 -- 6,959/7,093 symbols
+(data/market_collection_run.log). Ranking over that screener
+(portfolio.model_portfolio --universe-policy config/universe_market.yaml
+--label market) has not been run yet.
 
 PR-034's remaining offline-coding thread (factor exposure) is done. What's
 left needs either an explicit go-ahead for live provider calls (real

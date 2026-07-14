@@ -344,8 +344,20 @@ def build_sell_only_plan(
     actions: list[RebalanceAction] = []
     released_cash = 0.0
     turnover_numerator = 0.0
+    non_portfolio_origin: list[str] = []
 
     for holding in portfolio.holdings:
+        # Defesa em profundidade: um Holding só existe legitimamente porque
+        # veio de config/portfolio.csv, mas se `origin` foi verificado contra
+        # a linha do DataFrame analisado (enrich_portfolio_from_analysis) e
+        # essa verificação disser algo diferente de "portfolio", este motor
+        # nunca emite SELL nem HOLD para o símbolo -- nunca age fora de uma
+        # posição real, mesmo que o Portfolio tenha sido construído
+        # incorretamente por um chamador.
+        if holding.origin and holding.origin != "portfolio":
+            non_portfolio_origin.append(holding.symbol)
+            continue
+
         current_weight = current_weights.get(
             holding.symbol,
             0.0,
@@ -410,10 +422,18 @@ def build_sell_only_plan(
 
     warnings: list[str] = []
 
+    if non_portfolio_origin:
+        warnings.append(
+            "Holdings ignorados por proveniência não confirmada como "
+            "'portfolio' (nenhum sinal de venda/manutenção foi emitido "
+            "para eles): " + ", ".join(non_portfolio_origin)
+        )
+
     missing_reports = tuple(
         holding.symbol
         for holding in portfolio.holdings
         if holding.company_report is None
+        and holding.symbol not in non_portfolio_origin
     )
 
     if missing_reports:

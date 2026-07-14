@@ -108,6 +108,11 @@ def rank_companies(
             reasons.append("CONFIDENCE_BELOW_MINIMUM")
         if policy.require_no_deal_breakers and breakers:
             reasons.append("DEAL_BREAKER_TRIGGERED")
+        # `origin` vem de run_all.merge_watchlist_with_portfolio (proveniência
+        # do universo analisado); um frame que não passa por esse merge --
+        # replay point-in-time, coleta de research amplo -- simplesmente não
+        # tem a coluna, e already_held cai no default seguro False.
+        already_held = str(row.get("origin", "")).strip().lower() == "portfolio"
         preliminary.append(
             {
                 "symbol": symbol,
@@ -122,6 +127,7 @@ def rank_companies(
                 "conviction_score": _number(row.get("Conviction Score")),
                 "confidence_score": confidence,
                 "deal_breakers": breakers,
+                "already_held": already_held,
             }
         )
 

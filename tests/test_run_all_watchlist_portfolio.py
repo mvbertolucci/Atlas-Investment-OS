@@ -50,6 +50,33 @@ def test_merge_adds_portfolio_symbols_not_already_in_watchlist(
     assert list(result["symbol"]).count("MSFT") == 1
 
 
+def test_merge_tags_origin_with_portfolio_over_watchlist_hierarchy(
+    tmp_path: Path,
+) -> None:
+    """
+    MSFT is on both the watchlist and the portfolio: origin must resolve to
+    "portfolio" (hierarchy portfolio > watchlist), because "I own this" is
+    more operationally relevant than "I'm curious about this". ADBE (only
+    on the watchlist) and LMT (only in the portfolio) keep their single
+    origin.
+    """
+    portfolio_path = _write_portfolio_csv(
+        tmp_path / "portfolio.csv",
+        "MSFT,10,100,110,USD,Technology,USA,\n"
+        "LMT,5,300,320,USD,Industrials,USA,\n",
+    )
+    settings = {"portfolio_path": str(portfolio_path)}
+
+    result = run_all.merge_watchlist_with_portfolio(_watchlist(), settings)
+    origin_by_symbol = dict(zip(result["symbol"], result["origin"]))
+
+    assert origin_by_symbol == {
+        "ADBE": "watchlist",
+        "MSFT": "portfolio",
+        "LMT": "portfolio",
+    }
+
+
 def test_merge_does_not_write_back_to_watchlist_csv(tmp_path: Path) -> None:
     portfolio_path = _write_portfolio_csv(
         tmp_path / "portfolio.csv", "LMT,5,300,320,USD,Industrials,USA,\n"
@@ -66,7 +93,7 @@ def test_merge_does_not_write_back_to_watchlist_csv(tmp_path: Path) -> None:
     assert sorted(on_disk["symbol"]) == ["ADBE", "MSFT"]
 
 
-def test_merge_returns_watchlist_unchanged_without_a_portfolio_file(
+def test_merge_returns_watchlist_only_symbols_without_a_portfolio_file(
     tmp_path: Path,
 ) -> None:
     settings = {"portfolio_path": str(tmp_path / "does_not_exist.csv")}
@@ -74,7 +101,10 @@ def test_merge_returns_watchlist_unchanged_without_a_portfolio_file(
 
     result = run_all.merge_watchlist_with_portfolio(watchlist, settings)
 
-    assert result is watchlist
+    assert sorted(result["symbol"]) == ["ADBE", "MSFT"]
+    assert set(result["origin"]) == {"watchlist"}
+    # The caller's original frame is never mutated in place.
+    assert "origin" not in watchlist.columns
 
 
 def test_merge_degrades_gracefully_on_an_unreadable_portfolio_file(
@@ -87,10 +117,11 @@ def test_merge_degrades_gracefully_on_an_unreadable_portfolio_file(
 
     result = run_all.merge_watchlist_with_portfolio(watchlist, settings)
 
-    assert result is watchlist
+    assert sorted(result["symbol"]) == ["ADBE", "MSFT"]
+    assert set(result["origin"]) == {"watchlist"}
 
 
-def test_merge_with_no_new_symbols_returns_the_same_frame(tmp_path: Path) -> None:
+def test_merge_with_no_new_symbols_still_tags_origin(tmp_path: Path) -> None:
     portfolio_path = _write_portfolio_csv(
         tmp_path / "portfolio.csv", "MSFT,10,100,110,USD,Technology,USA,\n"
     )
@@ -100,4 +131,6 @@ def test_merge_with_no_new_symbols_returns_the_same_frame(tmp_path: Path) -> Non
         watchlist, {"portfolio_path": str(portfolio_path)}
     )
 
-    assert result is watchlist
+    assert sorted(result["symbol"]) == ["ADBE", "MSFT"]
+    origin_by_symbol = dict(zip(result["symbol"], result["origin"]))
+    assert origin_by_symbol == {"ADBE": "watchlist", "MSFT": "portfolio"}
