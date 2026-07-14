@@ -6,6 +6,8 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from reports.research_common import company_status
+
 ROOT = Path(__file__).resolve().parent.parent
 
 _STYLE = """
@@ -101,16 +103,13 @@ def _num(value: Any) -> str:
     return "" if number != number else f"{number:.4g}"
 
 
+_BADGE_CLASS = {"good": "badge-good", "bad": "badge-bad", "neutral": "badge-neutral"}
+
+
 def _company_status(company: dict[str, Any]) -> tuple[str, str]:
     """Retorna (rótulo, classe do badge) -- lido do dado, nunca recalculado."""
-    if company.get("safeguard_passed") and company.get("candidate_rank") is not None:
-        return f"Candidato #{company['candidate_rank']}", "badge-good"
-    if not company.get("universe_eligible"):
-        return "Fora do universo", "badge-neutral"
-    reasons = company.get("safeguard_reasons") or []
-    if reasons:
-        return "Bloqueado: " + ", ".join(reasons), "badge-bad"
-    return "—", "badge-neutral"
+    label, category = company_status(company)
+    return label, _BADGE_CLASS[category]
 
 
 def _render_stats(summary: dict[str, Any]) -> str:
