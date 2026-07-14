@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -148,6 +150,28 @@ def previous_run_context(
         if str(row.get("symbol", "")).strip()
     }
     return rows, "comparable", previous_at
+
+
+def earnings_between_runs(
+    value: Any,
+    previous_run_at: pd.Timestamp | None,
+    current_run_at: str | datetime | pd.Timestamp,
+) -> bool | None:
+    """
+    True quando a data de earnings cai estritamente entre o run anterior e o
+    run atual (transição, não estado) -- None quando não há data de earnings
+    ou não há run anterior para comparar. Compartilhada pelo motor de venda
+    (portfolio/rebalance.py) e pelos triggers de watchlist (watchlist/
+    triggers.py): "houve divulgação de resultado desde o último run" é a
+    mesma pergunta nos dois lugares.
+    """
+    if value is None or pd.isna(value) or previous_run_at is None:
+        return None
+    earnings_at = pd.to_datetime(value, errors="coerce")
+    current_at = pd.Timestamp(current_run_at)
+    if pd.isna(earnings_at):
+        return None
+    return previous_run_at < earnings_at <= current_at
 
 
 def classify_trend(delta: float | int | None) -> str:

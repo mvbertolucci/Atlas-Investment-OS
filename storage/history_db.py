@@ -124,6 +124,17 @@ class HistoryDatabase:
 
         self._ensure_outcome_snapshot_columns()
 
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS watchlist_triggers
+            (
+                symbol             TEXT NOT NULL PRIMARY KEY,
+                condition_text     TEXT NOT NULL,
+                last_triggered_at  TEXT NOT NULL
+            )
+            """
+        )
+
         self.connection.commit()
 
     def _ensure_snapshot_columns(self) -> None:
@@ -476,6 +487,45 @@ class HistoryDatabase:
         )
 
         return [row[0] for row in cursor.fetchall()]
+
+    def save_watchlist_trigger(
+        self,
+        symbol: str,
+        condition_text: str,
+        last_triggered_at: str,
+    ) -> None:
+        """
+        Registra a última vez que a condição de trigger de um símbolo da
+        watchlist passou a valer. Nunca escreve em config/watchlist.csv --
+        esse arquivo é curado à mão pelo usuário; este é o estado que o run
+        calcula (ver watchlist/aging.py).
+        """
+        self.connection.execute(
+            """
+            INSERT INTO watchlist_triggers
+                (symbol, condition_text, last_triggered_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(symbol) DO UPDATE SET
+                condition_text = excluded.condition_text,
+                last_triggered_at = excluded.last_triggered_at
+            """,
+            (symbol, condition_text, last_triggered_at),
+        )
+        self.connection.commit()
+
+    def load_watchlist_triggers(self) -> dict[str, dict[str, str]]:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            "SELECT symbol, condition_text, last_triggered_at "
+            "FROM watchlist_triggers"
+        )
+        return {
+            row[0]: {
+                "condition_text": row[1],
+                "last_triggered_at": row[2],
+            }
+            for row in cursor.fetchall()
+        }
 
     def close(self) -> None:
         self.connection.close()
