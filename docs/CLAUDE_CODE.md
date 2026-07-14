@@ -91,7 +91,7 @@ and pushes are being held back deliberately until explicitly requested:
     universe provenance to the pipeline" and
     `docs/RANKING_METHOD.md#universe-provenance`;
 - released version remains `v1.2.0`;
-- validation baseline is 604 passing tests and 88.61% production coverage.
+- validation baseline is 609 passing tests and 88.61% production coverage.
 
 The broad-market universe collection (`universe.collector --market` against
 `config/universe_market.yaml`) finished on 2026-07-14: 6,959/7,093 NASDAQ
@@ -211,7 +211,7 @@ weighted-average factor exposure (PortfolioRebalance.factor_exposures,
 ValidationPeriod.factor_exposures), the watchlist/portfolio decoupling
 (run_all.merge_watchlist_with_portfolio) and universe provenance
 (origin column, RankedCompany.already_held, Holding.origin). Run the full
-test/coverage gate; expect 604 tests and 88.61% production coverage. Report
+test/coverage gate; expect 609 tests and 88.61% production coverage. Report
 any mismatch before editing. Do not push without explicit approval, even
 after committing.
 
