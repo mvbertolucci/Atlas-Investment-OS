@@ -18,6 +18,7 @@ from ranking import (
     write_ranking_report,
 )
 from ranking.models import RankingReport
+from reports.research_html import render_research_report, write_research_report
 from scoring.investment import score_dataframe
 from universe import evaluate_universe, load_universe_policy, write_universe_report
 from universe.collector import CollectionState, load_collection_state
@@ -472,6 +473,20 @@ def build_from_collection(
     write_model_portfolio_report(
         report,
         outputs / _labeled_filename("model_portfolio_report.json", output_label),
+    )
+
+    screener_display_name = {
+        "": "S&P 500",
+        "market": "Mercado Amplo",
+        "adr": "ADR",
+    }.get(output_label, output_label or "S&P 500")
+    write_research_report(
+        render_research_report(
+            ranking_report.to_dict(),
+            report.to_dict(),
+            label=screener_display_name,
+        ),
+        outputs / _labeled_filename("research_report.html", output_label),
     )
     return report
 
