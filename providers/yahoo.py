@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -27,6 +27,18 @@ def _safe_statement(ticker: "yf.Ticker", attr: str):
         return statement
     except Exception:
         return None
+
+
+def _earnings_date(info: dict[str, Any]) -> str | None:
+    """Normaliza a data de earnings atribuída pelo provider, quando houver."""
+    value = info.get("earningsTimestamp") or info.get("earningsTimestampStart")
+    try:
+        timestamp = float(value)
+    except (TypeError, ValueError):
+        return None
+    if timestamp != timestamp:
+        return None
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).date().isoformat()
 
 
 def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval: str = "1d") -> dict:
@@ -101,6 +113,7 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
         "target_low_price": _safe_float(info.get("targetLowPrice")),
         "analyst_count": _safe_float(info.get("numberOfAnalystOpinions")),
         "rating": info.get("recommendationKey"),
+        "earnings_date": _earnings_date(info),
         "short_float": _safe_float(info.get("shortPercentOfFloat")),
         "insider_own": _safe_float(info.get("heldPercentInsiders")),
         "inst_own": _safe_float(info.get("heldPercentInstitutions")),

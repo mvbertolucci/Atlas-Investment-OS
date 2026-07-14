@@ -47,6 +47,16 @@ class HistoryDatabase:
                 opportunity_score  REAL,
                 confidence_score   REAL,
 
+                model_version      TEXT NOT NULL DEFAULT 'legacy',
+                altman_z            REAL,
+                interest_coverage   REAL,
+                target_upside       REAL,
+                f_score_annual      REAL,
+                roic                REAL,
+                score_coverage      REAL,
+                earnings_date       TEXT,
+                quantity            REAL,
+
                 recommendation     TEXT,
 
                 PRIMARY KEY (
@@ -56,6 +66,8 @@ class HistoryDatabase:
             )
             """
         )
+
+        self._ensure_snapshot_columns()
 
         cursor.execute(
             """
@@ -113,6 +125,30 @@ class HistoryDatabase:
         self._ensure_outcome_snapshot_columns()
 
         self.connection.commit()
+
+    def _ensure_snapshot_columns(self) -> None:
+        columns = {
+            row[1]
+            for row in self.connection.execute(
+                "PRAGMA table_info(snapshots)"
+            ).fetchall()
+        }
+        additions = {
+            "model_version": "TEXT NOT NULL DEFAULT 'legacy'",
+            "altman_z": "REAL",
+            "interest_coverage": "REAL",
+            "target_upside": "REAL",
+            "f_score_annual": "REAL",
+            "roic": "REAL",
+            "score_coverage": "REAL",
+            "earnings_date": "TEXT",
+            "quantity": "REAL",
+        }
+        for name, definition in additions.items():
+            if name not in columns:
+                self.connection.execute(
+                    f"ALTER TABLE snapshots ADD COLUMN {name} {definition}"
+                )
 
     def _ensure_outcome_snapshot_columns(self) -> None:
         columns = {
@@ -322,6 +358,7 @@ class HistoryDatabase:
         self,
         df: pd.DataFrame,
         snapshot_date: str,
+        model_version: str = "legacy",
     ) -> None:
 
         if df.empty:
@@ -345,6 +382,16 @@ class HistoryDatabase:
                     row.get("Opportunity Score"),
                     row.get("Confidence Score"),
 
+                    str(model_version).strip() or "legacy",
+                    row.get("altman_z"),
+                    row.get("interest_coverage"),
+                    row.get("target_upside"),
+                    row.get("f_score_annual", row.get("piotroski_f")),
+                    row.get("roic"),
+                    row.get("Score Coverage", row.get("Confidence Score")),
+                    row.get("earnings_date"),
+                    row.get("quantity"),
+
                     row.get("Recommendation"),
                 )
             )
@@ -352,9 +399,30 @@ class HistoryDatabase:
         self.connection.executemany(
             """
             INSERT OR REPLACE INTO snapshots
+            (
+                snapshot_date,
+                symbol,
+                business_score,
+                valuation_score,
+                financial_score,
+                timing_score,
+                investment_score,
+                opportunity_score,
+                confidence_score,
+                model_version,
+                altman_z,
+                interest_coverage,
+                target_upside,
+                f_score_annual,
+                roic,
+                score_coverage,
+                earnings_date,
+                quantity,
+                recommendation
+            )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             rows,

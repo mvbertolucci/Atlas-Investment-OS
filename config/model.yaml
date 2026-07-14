@@ -1,5 +1,6 @@
 # Atlas default model v0.3
 # Factor weights can be changed without changing Python code.
+model_version: "0.3"
 factor_weights:
   business: 0.35
   valuation: 0.30

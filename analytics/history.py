@@ -114,6 +114,42 @@ def previous_snapshot(history: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(previous_rows).reset_index(drop=True)
 
 
+def previous_run_context(
+    history: pd.DataFrame,
+    *,
+    current_snapshot_date: str | pd.Timestamp,
+    current_model_version: str,
+) -> tuple[dict[str, dict[str, object]], str, pd.Timestamp | None]:
+    """
+    Retorna o run global imediatamente anterior, nunca o último registro
+    disponível por símbolo. Versões diferentes reiniciam a baseline.
+    """
+    if history.empty or "snapshot_date" not in history.columns:
+        return {}, "first_run", None
+    current_at = pd.Timestamp(current_snapshot_date)
+    earlier = history.loc[history["snapshot_date"] < current_at].copy()
+    if earlier.empty:
+        return {}, "first_run", None
+    previous_at = earlier["snapshot_date"].max()
+    previous = earlier.loc[earlier["snapshot_date"] == previous_at].copy()
+    versions = {
+        str(value).strip()
+        for value in previous.get(
+            "model_version",
+            pd.Series(["legacy"]),
+        ).dropna()
+        if str(value).strip()
+    }
+    if versions != {str(current_model_version).strip()}:
+        return {}, "model_version_changed", previous_at
+    rows = {
+        str(row["symbol"]).strip().upper(): row.to_dict()
+        for _, row in previous.iterrows()
+        if str(row.get("symbol", "")).strip()
+    }
+    return rows, "comparable", previous_at
+
+
 def classify_trend(delta: float | int | None) -> str:
     """
     Classifica a tendência com base na variação do score.

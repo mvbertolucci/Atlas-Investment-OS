@@ -43,7 +43,7 @@ For the full regression gate:
   EDGAR data acquisition + paired historical price series, now end to end
   (15 fields, checkpointed collector, ratio derivation, valuation
   derivation).
-- Validation baseline: 506 tests / 87.67% production coverage.
+- Validation baseline: 609 tests / 88.61% production coverage.
 - v1.1 Integrated Portfolio Intelligence and v1.2 Outcome Analytics are
   complete.
 - v2.0 Platform is in progress. The point-in-time data contract is complete;

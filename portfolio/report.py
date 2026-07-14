@@ -141,6 +141,12 @@ def build_portfolio_report(
         "hold_actions": len(
             rebalance_plan.hold_actions
         ),
+        "trim_actions": len(
+            rebalance_plan.trim_actions
+        ),
+        "review_actions": len(
+            rebalance_plan.review_actions
+        ),
         "required_cash": rebalance_plan.required_cash,
         "released_cash": rebalance_plan.released_cash,
         "net_cash_requirement": (

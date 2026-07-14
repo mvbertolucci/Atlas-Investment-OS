@@ -1,5 +1,50 @@
 # Changelog
 
+## US-listed ADR advisory ranking run
+
+### Completed
+
+- Reused the completed broad-market checkpoint offline under the governed
+  `config/universe_adr.yaml` policy; no separate collection or provider call.
+- 6,959 observations produced 501 policy-eligible ADRs, 219 safeguarded
+  candidates and a distinct 20-position advisory portfolio; the same 134
+  exhausted provider failures remain visible in output provenance.
+- Total weight is 100% at 5% per position. Basic Materials, Communication
+  Services and Technology each stop exactly at the governed 20% sector cap.
+- Nine higher-ranked candidates were skipped by diversification constraints;
+  all remain visible in the complete ignored
+  `output/research_candidates_adr.csv` shortlist.
+
+### Preserved
+
+- Market, ADR and S&P 500 outputs use distinct filenames and do not overwrite
+  each other.
+- This current-snapshot result is advisory research, not a trade order,
+  historical validation or performance claim.
+
+## Broad-market advisory ranking run
+
+### Completed
+
+- Re-ran the broad-market model-portfolio pipeline offline from the completed
+  7,093-symbol snapshot and checkpoint, without provider calls.
+- 6,959 observations produced 2,429 policy-eligible companies and 999
+  safeguarded candidates; 134 exhausted provider failures remain attributed
+  under `source.excluded_failures` instead of being silently dropped.
+- The constrained advisory result contains 20 equal-weight positions. Total
+  weight is 100%, maximum position weight is 5% and Healthcare/Technology
+  each stop exactly at the governed 20% sector cap.
+- `CRMD` (candidate 14) and `CRUS` (candidate 21) were the two higher-ranked
+  names skipped by those sector constraints; the complete ordered shortlist
+  remains in the ignored `output/research_candidates_market.csv` artifact.
+
+### Preserved
+
+- Runtime market artifacts remain ignored and are not performance evidence,
+  trade orders or a change to scoring, Deal Breakers or portfolio policy.
+- The ADR policy pass and broad point-in-time historical validation remain
+  separate open work.
+
 ## Add universe provenance to the pipeline
 
 ### Added

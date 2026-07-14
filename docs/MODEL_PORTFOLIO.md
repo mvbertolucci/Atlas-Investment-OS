@@ -58,6 +58,19 @@ default to the same canonical files for every screener (the ranking method
 and portfolio-construction rules are shared; only the eligible population
 differs).
 
+## Latest audited operational runs
+
+Using the completed 7,093-symbol broad-market snapshot/checkpoint:
+
+- market policy: 6,959 observations, 2,429 eligible companies, 999
+  safeguarded candidates and 20 selected positions;
+- ADR policy: the same 6,959 observations, filtered to 501 eligible companies,
+  219 safeguarded candidates and 20 selected positions;
+- both runs retain 134 exhausted provider failures in output provenance;
+- both portfolios invest 100% at 5% per position and respect the 20% sector
+  cap. These current-snapshot outputs are advisory research, not historical
+  performance evidence.
+
 ## Method
 
 The command loads the completed collection checkpoint, applies the existing

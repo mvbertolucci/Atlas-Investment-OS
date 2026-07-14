@@ -13,6 +13,8 @@ from analytics.feature_audit import (
     phantom_weight_summary,
 )
 from analytics.fundamentals import compute_fundamentals
+from analytics.history import load_history as load_score_history
+from analytics.history import previous_run_context
 from analytics.indicators import enrich_technicals
 from analytics.mapper import normalize_columns
 from atlas_logger import get_logger
@@ -40,7 +42,9 @@ from portfolio.pipeline import (
     build_portfolio_intelligence,
     write_portfolio_report,
 )
+from portfolio.rebalance import SellEngineBlockedError
 from portfolio.report import PortfolioReport
+from portfolio.sell_rules import SellRulesPolicy, load_sell_rules_policy
 from providers.yahoo import fetch_watchlist
 from ranking import (
     RankingReport,
@@ -58,7 +62,7 @@ from priority import (
     write_priority_report,
 )
 from reports.report_engine import build_company_reports
-from scoring.investment import score_dataframe
+from scoring.investment import load_yaml, score_dataframe
 from storage.history_db import HistoryDatabase
 from universe import (
     UniverseReport,
@@ -337,20 +341,22 @@ def audit_feature_coverage(df: pd.DataFrame) -> dict:
     return summary
 
 
-def save_history_snapshot(df: pd.DataFrame) -> str:
-    snapshot_date = datetime.now().isoformat(
-        timespec="seconds"
-    )
-
+def save_history_snapshot(
+    df: pd.DataFrame,
+    snapshot_date: str,
+    model_version: str = "legacy",
+) -> str:
     with HistoryDatabase(HISTORY_DATABASE) as database:
         database.save_snapshot(
             df=df,
             snapshot_date=snapshot_date,
+            model_version=model_version,
         )
 
     logger.info(
-        "Snapshot histórico salvo em %s.",
+        "Snapshot histórico salvo em %s (model_version=%s).",
         snapshot_date,
+        model_version,
     )
 
     return snapshot_date
@@ -651,6 +657,12 @@ def generate_morning_brief(
 def generate_portfolio_intelligence(
     df: pd.DataFrame,
     settings: dict,
+    *,
+    sell_rules_policy: SellRulesPolicy | None = None,
+    previous_by_symbol: dict | None = None,
+    baseline_status: str = "first_run",
+    previous_run_at: pd.Timestamp | None = None,
+    current_run_at: str | None = None,
 ) -> tuple[Path, PortfolioReport] | None:
     portfolio_path = ROOT / settings.get(
         "portfolio_path",
@@ -669,16 +681,37 @@ def generate_portfolio_intelligence(
         portfolio_path,
     )
 
-    report = build_portfolio_intelligence(
-        portfolio_path,
-        df,
-        portfolio_name=settings.get("portfolio_name"),
-        cash=float(settings.get("portfolio_cash", 0.0)),
-        currency=settings.get("portfolio_currency", "BRL"),
-        rebalance_mode=settings.get(
-            "portfolio_rebalance_mode", "sell_only"
-        ),
-    )
+    try:
+        report = build_portfolio_intelligence(
+            portfolio_path,
+            df,
+            portfolio_name=settings.get("portfolio_name"),
+            cash=float(settings.get("portfolio_cash", 0.0)),
+            currency=settings.get("portfolio_currency", "BRL"),
+            rebalance_mode=settings.get(
+                "portfolio_rebalance_mode", "sell_only"
+            ),
+            sell_rules_policy=sell_rules_policy,
+            previous_by_symbol=previous_by_symbol,
+            baseline_status=baseline_status,
+            previous_run_at=previous_run_at,
+            current_run_at=current_run_at,
+        )
+    except SellEngineBlockedError as exc:
+        pending = ", ".join(exc.missing_thesis_symbols)
+        logger.warning(
+            "Motor de venda bloqueado -- posição(ões) sem tese registrada: "
+            "%s. Screener/watchlist não são afetados; preencha "
+            "config/portfolio.csv (coluna 'thesis') para destravar.",
+            pending,
+        )
+        print()
+        print(
+            "AVISO: motor de venda bloqueado -- posição(ões) sem tese "
+            f"registrada: {pending}"
+        )
+        return None
+
     report_path = write_portfolio_report(
         report,
         PORTFOLIO_REPORT_FILE,
@@ -806,8 +839,59 @@ def main() -> None:
             universe_report,
         )
 
+        # Contexto de histórico calculado ANTES de gravar o snapshot deste
+        # run: "run anterior" precisa ser o run anterior de verdade, nunca
+        # este mesmo run que ainda está sendo computado.
+        run_at = datetime.now()
+        snapshot_date = run_at.isoformat(timespec="seconds")
+        model_version = (
+            str(load_yaml(CONFIG / "model.yaml").get("model_version", "legacy"))
+            .strip()
+            or "legacy"
+        )
+        score_history = load_score_history(HISTORY_DATABASE)
+        previous_by_symbol, baseline_status, previous_run_at = (
+            previous_run_context(
+                score_history,
+                current_snapshot_date=snapshot_date,
+                current_model_version=model_version,
+            )
+        )
+        sell_rules_policy = load_sell_rules_policy(
+            CONFIG / "sell_rules.yaml"
+        )
+
+        # Anexa a quantidade real da carteira ao df analisado só para as
+        # linhas origin=portfolio (símbolos fora da carteira ficam NaN) --
+        # é o único jeito de comparar "quantidade deste run" vs. "quantidade
+        # do run anterior" no motor de venda sem um arquivo de estado novo.
+        portfolio_path_for_snapshot = ROOT / settings.get(
+            "portfolio_path", "config/portfolio.csv"
+        )
+        if portfolio_path_for_snapshot.exists():
+            try:
+                quantity_by_symbol = {
+                    holding.symbol: holding.quantity
+                    for holding in load_portfolio_csv(
+                        portfolio_path_for_snapshot
+                    ).holdings
+                }
+                df["quantity"] = (
+                    df["symbol"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    .map(quantity_by_symbol)
+                )
+            except PortfolioError:
+                logger.warning(
+                    "Não foi possível ler %s para anexar quantity ao "
+                    "snapshot histórico.",
+                    portfolio_path_for_snapshot,
+                )
+
         with StageTimer(metrics, "history_time"):
-            snapshot_date = save_history_snapshot(df)
+            save_history_snapshot(df, snapshot_date, model_version)
             outcome_capture = save_outcome_decisions(
                 df,
                 snapshot_date,
@@ -825,6 +909,11 @@ def main() -> None:
         portfolio_result = generate_portfolio_intelligence(
             df,
             settings,
+            sell_rules_policy=sell_rules_policy,
+            previous_by_symbol=previous_by_symbol,
+            baseline_status=baseline_status,
+            previous_run_at=previous_run_at,
+            current_run_at=snapshot_date,
         )
         portfolio_report = (
             portfolio_result[1]
@@ -962,6 +1051,13 @@ def main() -> None:
                 "Portfolio Score : "
                 f"{portfolio_report.summary.get('quality_score')} "
                 f"({portfolio_report.summary.get('quality_rating')})"
+            )
+        elif (
+            ROOT / settings.get("portfolio_path", "config/portfolio.csv")
+        ).exists():
+            print(
+                "Portfolio       : motor de venda bloqueado -- posição(ões) "
+                "sem tese (ver aviso acima)"
             )
         else:
             print(

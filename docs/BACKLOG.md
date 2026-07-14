@@ -306,13 +306,12 @@ checkpoint and batch size throughout -- the S&P 500 screener is unchanged.
       `--label`, so ranking/model-portfolio can run over this screener with
       distinct output filenames, not just the S&P 500 one (defaults
       unchanged -- see `docs/MODEL_PORTFOLIO.md`)
-- [ ] Run the actual collection (not started -- expected several thousand
-      eligible names, materially slower/more rate-limit-prone than the
-      503-name S&P 500 screener; see `docs/UNIVERSE_SOURCES.md`)
-- [ ] Run ranking / `portfolio.model_portfolio --universe-policy
-      config/universe_market.yaml --label market` over the broad-market
-      collection once it completes (deliberately deferred; the command
-      itself is ready)
+- [x] Run the actual collection: 6,959 observations from the 7,093-symbol
+      snapshot; 134 exhausted provider failures retained explicitly
+- [x] Run ranking / `portfolio.model_portfolio --universe-policy
+      config/universe_market.yaml --label market --allow-exhausted-failures`:
+      2,429 eligible companies, 999 safeguarded candidates and a constrained
+      20-position advisory portfolio; ignored `*_market` artifacts generated
 
 ### Third screener: US-listed ADRs
 
@@ -326,11 +325,11 @@ policy, not missing data.
       test that the two existing screeners are unaffected)
 - [x] Governed policy `config/universe_adr.yaml`: same USD 300 million floor,
       `allowed_countries: ["*"]`, `excluded_countries: [United States]`
-- [ ] Run `portfolio.model_portfolio --universe-policy
+- [x] Run `portfolio.model_portfolio --universe-policy
       config/universe_adr.yaml --label adr` against the broad-market
-      collection once collected (deliberately deferred, same as the
-      broad-market screener's own ranking step; the command itself is
-      ready)
+      collection: 501 eligible companies, 219 safeguarded candidates and a
+      distinct constrained 20-position advisory portfolio; ignored `*_adr`
+      artifacts generated
 
 ### Deferred platform effects
 

@@ -217,6 +217,15 @@ def holdings_from_dataframe(
                 notes=_clean_optional_text(
                     row.get("notes")
                 ),
+                entry_date=_clean_optional_text(
+                    row.get("entry_date")
+                ) or None,
+                thesis=_clean_optional_text(
+                    row.get("thesis")
+                ),
+                thesis_updated_at=_clean_optional_text(
+                    row.get("thesis_updated_at")
+                ) or None,
             )
 
             holdings.append(holding)
