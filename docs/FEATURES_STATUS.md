@@ -22,7 +22,7 @@
 | Market-universe eligibility | Yes | Yes | No | No | Diagnostic JSON and Dashboard market view operational |
 | Broad research-universe collection | Yes | No | No | No | Resumable checkpoints; exhausted provider failures remain visible without blocking later batches |
 | Analytical market/sector ranking | Yes | Yes | No | No | Diagnostic JSON; no new score or decision |
-| Advisory model portfolio | Yes | No | No | No | 20 equal-weight positions under explicit caps; local JSON |
+| Advisory model portfolio | Yes | No | No | No | Broad run: 2,429 eligible, 999 candidates, 20 equal-weight positions under explicit caps |
 | Point-in-time data contract | Yes | No | No | No | Executable observations, constituents, splits and delistings |
 | Walk-forward replay | Yes | No | No | No | Ratios, two-year F-Score and partial valuation; coverage incomplete |
 | Portfolio return/risk validation | Partial | No | No | No | Targets, execution evidence/next-open and metrics ready; broad real data still open |

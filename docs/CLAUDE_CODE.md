@@ -95,11 +95,11 @@ and pushes are being held back deliberately until explicitly requested:
 
 The broad-market universe collection (`universe.collector --market` against
 `config/universe_market.yaml`) finished on 2026-07-14: 6,959/7,093 NASDAQ
-Trader symbols collected (`data/market_collection_run.log`). Ranking over
-that screener (`portfolio.model_portfolio --universe-policy
-config/universe_market.yaml --label market`) has not been run yet -- that
-and the ADR screener's own ranking pass are the natural next data-side
-steps, independent of the code changes above.
+Trader symbols collected (`data/market_collection_run.log`). The offline
+market ranking/model pass is also complete and reproducible: 2,429 eligible
+companies, 999 safeguarded candidates, 20 positions and 134 exhausted
+provider failures retained explicitly. Only the ADR policy's distinct ranking
+pass remains as the next data-side step.
 
 The executable point-in-time boundary and deterministic walk-forward mechanism
 are complete. Historical inputs now include checkpointed SEC EDGAR fundamentals
@@ -169,22 +169,16 @@ to validate against would be a new, undocumented approximation), and
 
 Both offline adapters (`execution_evidence.py`, `total_return_evidence.py`),
 per-sector return contribution and weighted-average factor exposure are all
-now implemented and tested; only the adapters and sector contribution are
-merged into `master` so far (factor exposure is the latest, not yet
-committed at the top of this section). What remains in PR-034 is no longer
-a bounded, purely offline coding increment -- both open threads need
-something this session does not have on its own:
+implemented, tested and merged into `master`. What remains in PR-034 is no
+longer a bounded, purely offline coding increment:
 
 1. **Real bounded acquisition** (data acquisition, not code, needs an
    explicit go-ahead before provider calls): fetch real reference/
    selected-symbol Yahoo bars for `execution_evidence.py` and
    `total_return_evidence.py`, and source real `DelistingRecord` terminal
    events for whatever symbols actually delisted in the sample.
-2. **Rank over the broad-market/ADR screeners** once the background
-   collection completes: `portfolio.model_portfolio --universe-policy
-   config/universe_market.yaml --label market`, then the same with
-   `config/universe_adr.yaml --label adr` -- both commands are ready, no
-   new code needed.
+2. **Run the ADR policy** over the completed broad-market collection with
+   `config/universe_adr.yaml --label adr`; the market-policy run is complete.
 
 A regression-based factor-*return* decomposition (as opposed to the
 exposure/composition summary just added) remains explicitly out of scope:
@@ -217,16 +211,15 @@ after committing.
 
 The broad-market universe collection (universe.collector --market against
 config/universe_market.yaml) finished on 2026-07-14 -- 6,959/7,093 symbols
-(data/market_collection_run.log). Ranking over that screener
-(portfolio.model_portfolio --universe-policy config/universe_market.yaml
---label market) has not been run yet.
+(data/market_collection_run.log). Its offline ranking/model pass is complete:
+2,429 eligible companies, 999 candidates, 20 positions and 134 exhausted
+provider failures retained in the output provenance.
 
 PR-034's remaining offline-coding thread (factor exposure) is done. What's
 left needs either an explicit go-ahead for live provider calls (real
 execution/total-return bar acquisition and delisting-record sourcing) or the
-broad-market collection to finish first (ranking runs). Do not start either
-without asking first -- summarize the current state and ask which of the two
-threads to pursue, or whether to wait.
+offline ADR ranking pass over the completed collection. Do not start live
+acquisition without asking first.
 ```
 
 ## Parallel work with Codex

@@ -193,22 +193,22 @@ track (none of it changes governed scoring):
   pure classification, no target weight, no sector cap. CLI
   (`python -m priority.cli`), `output/priority_report.json`, API
   (`/priority`), SDK. See `docs/PRIORITY_REPORT.md`.
-- **Two more screeners**, both infrastructure-only so far (no collection run
-  yet): a broad US-market screener (`config/universe_market.yaml`, NASDAQ
-  Trader source, USD 300 million floor -- a genuine small-cap floor, unlike
-  the S&P 500 screener's USD 1 billion mid-cap-and-up floor) and a US-listed
-  ADR screener (`config/universe_adr.yaml`, same floor, reuses the
-  broad-market collection via a new `excluded_countries` policy field --
-  no separate data source or collection). See `docs/UNIVERSE_SOURCES.md`.
+- **Two more screeners**: the broad US-market screener
+  (`config/universe_market.yaml`, NASDAQ Trader source, USD 300 million
+  floor) has completed its 7,093-symbol snapshot/collection and model run;
+  6,959 observations produced 2,429 eligible companies, 999 safeguarded
+  candidates and a 20-position advisory portfolio, while 134 exhausted
+  provider failures remain explicitly attributed. The US-listed ADR screener
+  (`config/universe_adr.yaml`, same floor) reuses that collection but its own
+  ranking pass remains open. See `docs/UNIVERSE_SOURCES.md`.
 
 `portfolio/model_portfolio.py` (`build_from_collection`/`main`) now accepts
 `--universe-policy` / `--ranking-policy` / `--model-portfolio-policy` and
 `--label` (defaults unchanged, so the S&P 500 invocation is byte-for-byte the
-same as before) -- so ranking and buy-priority can run over the broad-market
-or ADR screener with distinct output filenames the moment their collection
-completes. **The collection itself is not started** (deliberately deferred,
-expected to take substantially longer than the 503-name S&P 500 collection --
-see `docs/UNIVERSE_SOURCES.md`).
+same as before) -- so ranking and buy-priority run over the broad-market or
+ADR screener with distinct output filenames. The broad-market run now writes
+the ignored `*_market` universe, ranking, full-candidate and model-portfolio
+artifacts; the ADR pass remains a separate next operation.
 
 **PR-033 (walk-forward) is now merged, but as a mechanism, not a real
 backtest.** `backtesting/walk_forward.py` deterministically replays Atlas
@@ -304,11 +304,11 @@ point-in-time split events to the observed share count. `market_cap`, `pe`,
 `timing` factors therefore remain dimensionally consistent before and after
 forward or reverse splits without leaking the event into an earlier cutoff.
 
-**Open threads, in priority order:** (1) `forward_pe`/`peg` (need analyst
-estimates), `ev_ebitda` (needs a live formula to mirror first) and
-`target_upside` remain unbuilt -- each needs a new data source or design
-decision, not just a tag addition; (2) run the broad-market/ADR collections
-when resumed; (3)
+**Open threads, in priority order:** (1) run the ADR policy over the completed
+broad-market collection and audit its distinct output; (2) `forward_pe`/`peg`
+(need analyst estimates), `ev_ebitda` (needs a live formula to mirror first)
+and `target_upside` remain unbuilt -- each needs a new data source or design
+decision, not just a tag addition; (3)
 complete PR-034 by running the now-implemented execution/total-return
 adapters against a broad real dataset (reference/selected-symbol bars plus
 real `DelistingRecord` evidence, neither acquired yet) and running

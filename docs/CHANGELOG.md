@@ -1,5 +1,28 @@
 # Changelog
 
+## Broad-market advisory ranking run
+
+### Completed
+
+- Re-ran the broad-market model-portfolio pipeline offline from the completed
+  7,093-symbol snapshot and checkpoint, without provider calls.
+- 6,959 observations produced 2,429 policy-eligible companies and 999
+  safeguarded candidates; 134 exhausted provider failures remain attributed
+  under `source.excluded_failures` instead of being silently dropped.
+- The constrained advisory result contains 20 equal-weight positions. Total
+  weight is 100%, maximum position weight is 5% and Healthcare/Technology
+  each stop exactly at the governed 20% sector cap.
+- `CRMD` (candidate 14) and `CRUS` (candidate 21) were the two higher-ranked
+  names skipped by those sector constraints; the complete ordered shortlist
+  remains in the ignored `output/research_candidates_market.csv` artifact.
+
+### Preserved
+
+- Runtime market artifacts remain ignored and are not performance evidence,
+  trade orders or a change to scoring, Deal Breakers or portfolio policy.
+- The ADR policy pass and broad point-in-time historical validation remain
+  separate open work.
+
 ## Add universe provenance to the pipeline
 
 ### Added
