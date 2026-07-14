@@ -112,4 +112,4 @@
 
 ## Última atualização
 - **Data**: 2026-07-14
-- **Commit**: pendente (sessão que adiciona diagnósticos de conflito ao Report v0 — ver seção 7)
+- **Commit**: `514110c` (feat(reports): diagnóstico de conflito de motor no Atlas Report)
