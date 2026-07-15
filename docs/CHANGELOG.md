@@ -1,5 +1,37 @@
 # Changelog
 
+## Criteria-driven watchlist logic (propose + derived triggers)
+
+### Added
+
+- `watchlist/screening.py` turns the watchlist into a living, criteria-fed
+  instrument instead of a static hand-picked list:
+  - `propose_watchlist_candidates` reads the screener ranking and **proposes**
+    (never writes) additions — candidates already filtered by the screener
+    (confidence ≥ 70, no deal breakers), not already held, not already
+    watched, diversified at 2 per sector by `candidate_rank`.
+  - `derive_trigger_condition` assigns each name a `trigger_condition` tied to
+    *why it's worth watching* — the most-binding gap to a clear buy. Every
+    threshold is reused from production config, none invented: `confidence >=
+    70` (`config/ranking.yaml`), `target_upside > 0` (consensus fair value),
+    and the `score > 70/80/90` ladder (`models/investment_model.py` buy
+    tiers), falling back to `earnings_passed` for names already in the top
+    tier. Every derived condition is guaranteed parseable by the existing
+    `watchlist.triggers` whitelist (pinned by a test).
+- New "Sugestões para a watchlist" section in the Atlas Report (`--full`):
+  proposed symbol, sector, score, the suggested trigger and its rationale,
+  plus the exact `python -m watchlist.promote` command to apply it. Nothing
+  is written to `config/watchlist.csv` — the user stays in control.
+
+### Rationale
+
+- Closes the gap between the tool's stated goal ("watchlist fed manually **or
+  by established criteria**") and the code: the manual path already worked,
+  but the criteria path existed only as an orphaned `watchlist/promote.py`
+  CLI never called by `run_all.py`, and the watchlist itself carried no
+  trigger conditions (100% passive). Now the screener feeds proposals and
+  every proposed name is actionable.
+
 ## Broad-market/ADR screener results surfaced in the main Atlas Report
 
 ### Added

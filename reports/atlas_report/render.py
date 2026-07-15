@@ -227,6 +227,52 @@ def render_watchlist(context: ReportContext) -> str:
 """
 
 
+def render_watchlist_proposals(context: ReportContext) -> str:
+    if not context.watchlist_proposals:
+        return "<h2>Sugestões para a watchlist</h2>" + _not_included(
+            "Sugestões para a watchlist"
+        )
+    rows_html = "\n".join(
+        "<tr>"
+        f"<td>#{proposal.candidate_rank}</td>"
+        f"<td>{_e(proposal.symbol)}</td>"
+        f"<td>{_e(proposal.name)}</td>"
+        f"<td>{_e(proposal.sector)}</td>"
+        + (
+            f"<td>{proposal.investment_score:.1f}</td>"
+            if proposal.investment_score is not None
+            else "<td>—</td>"
+        )
+        + (
+            f"<td><code>{_e(proposal.suggested_condition)}</code></td>"
+            if proposal.suggested_condition
+            else "<td>—</td>"
+        )
+        + f"<td>{_e(proposal.condition_rationale)}</td>"
+        "</tr>"
+        for proposal in context.watchlist_proposals
+    )
+    return f"""
+<h2>Sugestões para a watchlist</h2>
+<p class="meta">Candidatos do screener (confiança ≥ 70, sem deal breaker) fora da
+carteira e da watchlist, diversificados por setor. Apenas sugestão — nada é
+gravado. Para incluir: <code>python -m watchlist.promote SÍMBOLO "motivo"</code>
+e defina a condição sugerida.</p>
+<div class="table-scroll">
+<table>
+<colgroup>
+<col style="width:8%"><col style="width:10%"><col style="width:20%">
+<col style="width:16%"><col style="width:8%"><col style="width:14%">
+<col style="width:24%">
+</colgroup>
+<thead><tr><th>Rank</th><th>Símbolo</th><th>Nome</th><th>Setor</th>
+<th>Score</th><th>Trigger sugerido</th><th>Por quê</th></tr></thead>
+<tbody>{rows_html}</tbody>
+</table>
+</div>
+"""
+
+
 def render_earnings(context: ReportContext) -> str:
     if not context.earnings_rows:
         return "<h2>Earnings</h2>" + (
@@ -535,6 +581,7 @@ def render_report(context: ReportContext) -> str:
             render_required_actions(context),
             render_portfolio(context),
             render_watchlist(context),
+            render_watchlist_proposals(context),
             render_earnings(context),
             render_screener(context),
             render_broad_screeners(context),

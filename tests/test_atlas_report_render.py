@@ -346,6 +346,46 @@ def test_broad_screener_renders_top_candidates_and_no_stale_alert(tmp_path: Path
     assert 'class="alert"' not in html
 
 
+def test_watchlist_proposals_rendered_with_derived_trigger() -> None:
+    ranking = RankingReport(
+        RankingPolicy("Test"),
+        (
+            RankedCompany(
+                symbol="ZZZ", sector="Energy", universe_eligible=True,
+                safeguard_passed=True, safeguard_reasons=(), market_rank=1,
+                sector_rank=1, candidate_rank=1, investment_score=72.0,
+                opportunity_score=70.0, conviction_score=80.0,
+                confidence_score=95.0, deal_breakers=(), already_held=False,
+            ),
+        ),
+    )
+    df = _df()
+    df.loc[df.index[-1] + 1] = {
+        "symbol": "ZZZ", "name": "Zeta Corp", "sector": "Energy",
+        "Investment Score": 72.0, "Confidence Score": 95.0, "earnings_date": None,
+    }
+    ctx = build_report_context(
+        mode="full",
+        df=df,
+        snapshot_date="2026-07-14T00:00:00",
+        ranking_report=ranking,
+    )
+    html = render_report(ctx)
+    assert ">Sugestões para a watchlist<" in html
+    assert "ZZZ" in html
+    assert "Zeta Corp" in html
+    # score 72 (zona Acumular), sem info de valuation -> próxima faixa
+    assert "score &gt; 80" in html or "score > 80" in html
+
+
+def test_watchlist_proposals_omitted_without_ranking() -> None:
+    ctx = build_report_context(
+        mode="portfolio", df=_df(), snapshot_date="2026-07-14T00:00:00"
+    )
+    html = render_report(ctx)
+    assert "Sugestões para a watchlist não incluído neste run." in html
+
+
 def test_broad_screener_flags_stale_collection(tmp_path: Path) -> None:
     report_path = tmp_path / "research_ranking_report_adr.json"
     _write_broad_report(report_path, generated_at="2026-01-01T00:00:00")

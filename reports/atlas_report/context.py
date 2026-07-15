@@ -12,6 +12,7 @@ from ranking.models import RankingReport
 from reports.atlas_report.broad_screener import BroadScreenerSummary, load_broad_screener_summary
 from reports.atlas_report.diagnostics import extract_status_conflicts
 from reports.atlas_report.ticker_detail import TickerDetail, anchor_id, build_ticker_detail
+from watchlist.screening import WatchlistProposal, propose_watchlist_candidates
 from universe.models import UniverseReport
 from watchlist.models import WatchlistReport
 from watchlist.triggers import normalize_current_row
@@ -122,6 +123,7 @@ class ReportContext:
     engine_conflicts: tuple[str, ...] = ()
     ticker_details: tuple[TickerDetail, ...] = ()
     broad_screeners: tuple[BroadScreenerSummary, ...] = ()
+    watchlist_proposals: tuple[WatchlistProposal, ...] = ()
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
@@ -431,6 +433,22 @@ def build_report_context(
             )
         )
 
+    # --- sugestões para a watchlist (screener -> WL, por critério) --------
+    # Só PROPÕE (nunca grava): candidatos do screener já filtrados
+    # (confiança >= 70, sem deal breaker), fora da carteira e da watchlist,
+    # diversificados por setor, cada um com uma trigger_condition derivada do
+    # perfil. Ver watchlist/screening.py. Só faz sentido com ranking_report
+    # (modo --full).
+    watchlist_proposals: tuple[WatchlistProposal, ...] = ()
+    if ranking_report is not None:
+        watched_symbols = [row.symbol for row in watchlist_rows]
+        watchlist_proposals = propose_watchlist_candidates(
+            ranking_report,
+            analyzed_by_symbol=current_by_symbol,
+            watchlist_symbols=watched_symbols,
+            max_per_sector=2,
+        )
+
     average_coverage = (
         universe_report.average_data_coverage_pct
         if universe_report is not None
@@ -473,4 +491,5 @@ def build_report_context(
         engine_conflicts=extract_status_conflicts(status_md_text),
         ticker_details=tuple(ticker_details),
         broad_screeners=tuple(broad_screeners),
+        watchlist_proposals=watchlist_proposals,
     )
