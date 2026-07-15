@@ -1,9 +1,9 @@
 """
 Priority: classificação individual de prioridade de venda/compra.
 
-Camada de consulta read-only sobre dado já computado pelo ranking e pelo
-screener -- não recalcula score, decisão ou Deal Breakers, e não constrói
-carteira (sem peso, sem teto de setor). Disponível como comando
+Camada de consulta read-only sobre ações já computadas pelo rebalance e dados
+já computados pelo ranking/screener -- não recalcula score, decisão, regra ou
+Deal Breaker, e não constrói carteira (sem peso, sem teto de setor). Disponível como comando
 (`python -m priority.cli`), artefato (`output/priority_report.json`),
 recurso na API (`/priority`) e método no SDK.
 """

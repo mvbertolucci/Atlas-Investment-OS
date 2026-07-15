@@ -39,21 +39,39 @@ def build_priority_from_files(
     ranking_report_path: Path,
     research_ranking_report_path: Path,
     portfolio_path: Path,
+    portfolio_report_path: Path | None = None,
     exclude_held: bool = False,
     top_n: int | None = None,
     sector: str | None = None,
 ) -> PriorityReport:
     """
     Monta o PriorityReport lendo os artefatos já gerados em disco (não
-    recalcula scoring/ranking). A prioridade de compra fica None quando o
-    screener amplo ainda não foi rodado (python -m portfolio.model_portfolio).
+    recalcula scoring/ranking/rebalance). A venda copia exclusivamente as
+    ações de `portfolio_report.json`; a prioridade de compra fica None quando
+    o screener amplo ainda não foi rodado (python -m portfolio.model_portfolio).
     """
     held = _held_symbols(portfolio_path)
+    portfolio_report_path = portfolio_report_path or (
+        ranking_report_path.parent / "portfolio_report.json"
+    )
+    portfolio_data = _load_json(portfolio_report_path)
+    rebalance_actions = (
+        portfolio_data.get("rebalance", {}).get("actions", ())
+        if portfolio_data is not None
+        else ()
+    )
+    weights_by_symbol = (
+        portfolio_data.get("allocation", {}).get("by_symbol", {})
+        if portfolio_data is not None
+        else {}
+    )
 
     ranking_data = _load_json(ranking_report_path)
     sell = build_sell_priority(
         ranking_data["companies"] if ranking_data else (),
+        rebalance_actions=rebalance_actions,
         held_symbols=held,
+        weights_by_symbol=weights_by_symbol,
     )
 
     research_data = _load_json(research_ranking_report_path)
@@ -77,14 +95,14 @@ def _print_sell_table(report: PriorityReport) -> None:
         print("(nenhum holding classificado -- carteira/ranking ausente.)")
         return
 
-    print(f"{'#':>3} {'symbol':10} {'score':>6} {'acao':6}  deal_breakers")
+    print(f"{'#':>3} {'symbol':10} {'score':>6} {'acao':8}  justificativa")
 
     for index, item in enumerate(report.sell.items, start=1):
         score = item.investment_score or 0.0
-        reasons = ", ".join(item.deal_breakers) if item.deal_breakers else "-"
+        reasons = item.reason or ", ".join(item.triggered_rules) or "-"
         print(
             f"{index:>3} {item.symbol:10} {score:>6.1f} "
-            f"{item.action:6}  {reasons}"
+            f"{item.action:8}  {reasons}"
         )
 
 
@@ -137,6 +155,14 @@ def main() -> None:
         "--portfolio",
         default=str(ROOT / "config" / "portfolio.csv"),
     )
+    parser.add_argument(
+        "--portfolio-report",
+        default=str(ROOT / "output" / "dados" / "portfolio_report.json"),
+        help=(
+            "Relatório de carteira que contém as ações oficiais de rebalance. "
+            "Sem ele, a prioridade de venda fica vazia."
+        ),
+    )
     parser.add_argument("--top", type=int, default=None)
     parser.add_argument("--sector", default=None)
     parser.add_argument("--exclude-held", action="store_true")
@@ -156,6 +182,7 @@ def main() -> None:
         ranking_report_path=Path(args.ranking_report),
         research_ranking_report_path=Path(args.research_ranking_report),
         portfolio_path=Path(args.portfolio),
+        portfolio_report_path=Path(args.portfolio_report),
         exclude_held=args.exclude_held,
         top_n=args.top,
         sector=args.sector,

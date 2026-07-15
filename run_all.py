@@ -650,15 +650,20 @@ def generate_priority_report(
 
     weights_by_symbol: dict[str, float] = {}
     held_symbols: frozenset[str] | None = None
+    rebalance_actions: tuple = ()
 
     if portfolio_report is not None:
         weights_by_symbol = dict(
             portfolio_report.allocation.get("by_symbol", {})
         )
         held_symbols = frozenset(weights_by_symbol)
+        rebalance_actions = tuple(
+            portfolio_report.rebalance.get("actions", ())
+        )
 
     sell = build_sell_priority(
         ranking_report.to_dict()["companies"] if ranking_report else (),
+        rebalance_actions=rebalance_actions,
         held_symbols=held_symbols,
         weights_by_symbol=weights_by_symbol,
     )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Iterable
 
 from priority.models import (
@@ -13,47 +14,73 @@ from priority.models import (
 def build_sell_priority(
     ranked_companies: Iterable[dict[str, Any]],
     *,
+    rebalance_actions: Iterable[Mapping[str, Any] | Any] = (),
     held_symbols: frozenset[str] | None = None,
     weights_by_symbol: dict[str, float] | None = None,
 ) -> SellPriorityReport:
     """
-    Classifica os holdings da carteira atual por Investment Score
-    decrescente. Sinaliza SELL para quem tem ao menos um Deal Breaker ativo
-    (o mesmo critério do modo sell-only do rebalance); HOLD para o resto.
+    Ordena e apresenta as ações já decididas pelo rebalance oficial.
 
     `ranked_companies` é a lista já serializada de RankedCompany (o campo
     "companies" de um RankingReport.to_dict()) computada sobre o dataframe
-    da execução atual. Quando `held_symbols` é fornecido, filtra para
-    incluir apenas quem de fato está na carteira (protege contra a
-    watchlist conter nomes além dos holdings reais). Pura -- sem I/O, não
-    recalcula score nem decisão.
+    da execução atual e fornece apenas score/Deal Breakers explicativos.
+    `rebalance_actions` é a fonte exclusiva de `action`, justificativa e
+    prioridade. Sem ações de rebalance não há classificação de venda: esta
+    função nunca inventa SELL/HOLD a partir de Deal Breakers. Quando
+    `held_symbols` é fornecido, mantém apenas holdings reais. Pura -- sem I/O,
+    não recalcula score, regra ou decisão.
     """
+    companies_by_symbol = {
+        str(company.get("symbol", "")).strip().upper(): company
+        for company in ranked_companies
+        if str(company.get("symbol", "")).strip()
+    }
     items: list[SellPriorityItem] = []
 
-    for company in ranked_companies:
-        symbol = str(company.get("symbol", "")).strip().upper()
+    for raw_action in rebalance_actions:
+        action_data = (
+            raw_action
+            if isinstance(raw_action, Mapping)
+            else raw_action.to_dict()
+        )
+        symbol = str(action_data.get("symbol", "")).strip().upper()
         if not symbol:
             continue
         if held_symbols is not None and symbol not in held_symbols:
             continue
 
+        action = str(action_data.get("action", "")).strip().upper()
+        if action == "BUY":
+            continue
+        if action not in {"SELL", "TRIM", "HOLD", "REVISAR"}:
+            raise ValueError(
+                f"Ação de rebalance inválida para prioridade de venda: {action!r}."
+            )
+
+        company = companies_by_symbol.get(symbol, {})
         deal_breakers = tuple(company.get("deal_breakers") or ())
-        current_weight = (
-            (weights_by_symbol or {}).get(symbol)
+        current_weight = action_data.get(
+            "current_weight",
+            (weights_by_symbol or {}).get(symbol),
         )
 
         items.append(
             SellPriorityItem(
                 symbol=symbol,
                 investment_score=company.get("investment_score"),
-                action="SELL" if deal_breakers else "HOLD",
+                action=action,
                 deal_breakers=deal_breakers,
                 current_weight=current_weight,
+                reason=str(action_data.get("reason") or ""),
+                triggered_rules=tuple(action_data.get("triggered_rules") or ()),
+                missing_data=tuple(action_data.get("missing_data") or ()),
+                priority=int(action_data.get("priority", 100)),
             )
         )
 
     items.sort(
         key=lambda item: (
+            item.priority,
             item.investment_score is None,
             -(item.investment_score or 0.0),
             item.symbol,

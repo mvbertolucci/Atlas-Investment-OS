@@ -14,6 +14,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-008 | `config/features.yaml` is the authoritative feature registry | Accepted via PR-017.3; formal ADR recommended |
 | ADR-009 | Portfolio input is optional and must not break company analysis | Accepted via PR-018.1; formal ADR recommended |
 | ADR-010 | `AGENTS.md` is the canonical coding-agent entry instruction | Accepted in Codex transition foundation |
+| ADR-011 | Portfolio rebalance is the single sell voice | Accepted 2026-07-15 |
 
 ## Recording a new decision
 

@@ -1,11 +1,11 @@
 """
 Tests for the priority classification layer (sell/buy).
 
-Pure functions over already-computed ranking data -- no scoring, no
-portfolio-weight construction. Tests lock: sorting by quality, the
-SELL/HOLD split on Deal Breaker presence, buy-side safeguard filtering,
-held/exclude-held/sector/top_n filters, and that neither builder assigns
-any target weight.
+Pure functions over already-computed ranking/rebalance data -- no scoring,
+sell-rule evaluation or portfolio-weight construction. Tests lock: the
+rebalance as the single source of sell actions, sorting by official priority,
+buy-side safeguard filtering, held/exclude-held/sector/top_n filters, and that
+neither builder assigns any target weight.
 """
 from __future__ import annotations
 
@@ -27,36 +27,92 @@ def _ranked(symbol, score, deal_breakers=(), **kwargs):
     }
 
 
-def test_sell_priority_sorts_by_score_descending() -> None:
+def _action(symbol, action="HOLD", priority=50, **kwargs):
+    return {
+        "symbol": symbol,
+        "action": action,
+        "current_weight": kwargs.get("current_weight", 0.1),
+        "reason": kwargs.get("reason", f"Ação oficial: {action}"),
+        "priority": priority,
+        "triggered_rules": kwargs.get("triggered_rules", []),
+        "missing_data": kwargs.get("missing_data", []),
+    }
+
+
+def test_sell_priority_sorts_by_official_priority_then_score() -> None:
     companies = [
         _ranked("AAA", 40.0),
         _ranked("BBB", 80.0),
         _ranked("CCC", 60.0),
     ]
 
-    report = build_sell_priority(companies)
+    report = build_sell_priority(
+        companies,
+        rebalance_actions=[
+            _action("AAA", "HOLD", 50),
+            _action("BBB", "HOLD", 50),
+            _action("CCC", "TRIM", 10),
+        ],
+    )
 
     assert isinstance(report, SellPriorityReport)
-    assert [item.symbol for item in report.items] == ["BBB", "CCC", "AAA"]
+    assert [item.symbol for item in report.items] == ["CCC", "BBB", "AAA"]
 
 
-def test_sell_priority_flags_action_by_deal_breaker_presence() -> None:
+def test_sell_priority_copies_action_instead_of_deriving_from_deal_breakers() -> None:
     companies = [
         _ranked("CLEAN", 70.0),
         _ranked("RISKY", 30.0, deal_breakers=["Altman Z baixo"]),
     ]
 
-    report = build_sell_priority(companies)
+    report = build_sell_priority(
+        companies,
+        rebalance_actions=[
+            _action("CLEAN", "TRIM", 10, triggered_rules=["fundamental_decay"]),
+            _action("RISKY", "HOLD", 50),
+        ],
+    )
     by_symbol = {item.symbol: item for item in report.items}
 
-    assert by_symbol["CLEAN"].action == "HOLD"
-    assert by_symbol["RISKY"].action == "SELL"
+    assert by_symbol["CLEAN"].action == "TRIM"
+    assert by_symbol["CLEAN"].triggered_rules == ("fundamental_decay",)
+    assert by_symbol["RISKY"].action == "HOLD"
     assert by_symbol["RISKY"].deal_breakers == ("Altman Z baixo",)
+
+
+def test_sell_priority_preserves_blocked_engine_review_action() -> None:
+    report = build_sell_priority(
+        [_ranked("AAA", 50.0)],
+        rebalance_actions=[
+            _action(
+                "AAA",
+                "REVISAR",
+                20,
+                reason="Motor de venda bloqueado: tese ausente.",
+                missing_data=["thesis"],
+            )
+        ],
+    )
+
+    assert report.items[0].action == "REVISAR"
+    assert report.items[0].reason == "Motor de venda bloqueado: tese ausente."
+    assert report.items[0].missing_data == ("thesis",)
+
+
+def test_sell_priority_does_not_invent_action_without_rebalance() -> None:
+    report = build_sell_priority(
+        [_ranked("RISKY", 30.0, deal_breakers=["Altman Z baixo"])]
+    )
+
+    assert report.items == ()
 
 
 def test_sell_priority_assigns_no_target_weight() -> None:
     """This is a classification, not a portfolio construction."""
-    report = build_sell_priority([_ranked("AAA", 50.0)])
+    report = build_sell_priority(
+        [_ranked("AAA", 50.0)],
+        rebalance_actions=[_action("AAA")],
+    )
 
     assert not hasattr(report.items[0], "target_weight")
 
@@ -66,6 +122,7 @@ def test_sell_priority_filters_to_held_symbols() -> None:
 
     report = build_sell_priority(
         companies,
+        rebalance_actions=[_action("AAA"), _action("BBB")],
         held_symbols=frozenset({"AAA"}),
     )
 
@@ -75,6 +132,7 @@ def test_sell_priority_filters_to_held_symbols() -> None:
 def test_sell_priority_attaches_current_weight_when_given() -> None:
     report = build_sell_priority(
         [_ranked("AAA", 50.0)],
+        rebalance_actions=[_action("AAA", current_weight=0.123)],
         weights_by_symbol={"AAA": 0.123},
     )
 
@@ -87,7 +145,10 @@ def test_sell_priority_missing_score_sorts_last() -> None:
         {"symbol": "NOSCORE", "deal_breakers": []},
     ]
 
-    report = build_sell_priority(companies)
+    report = build_sell_priority(
+        companies,
+        rebalance_actions=[_action("NOSCORE"), _action("HASSCORE")],
+    )
 
     assert [item.symbol for item in report.items] == ["HASSCORE", "NOSCORE"]
 
@@ -178,13 +239,18 @@ def test_buy_priority_assigns_no_target_weight() -> None:
 
 
 def test_reports_are_serializable() -> None:
-    sell = build_sell_priority([_ranked("AAA", 50.0)])
+    sell = build_sell_priority(
+        [_ranked("AAA", 50.0)],
+        rebalance_actions=[_action("AAA", "SELL", 0)],
+    )
     buy = build_buy_priority([_ranked("BBB", 80.0, candidate_rank=1)])
 
     sell_data = sell.to_dict()
     buy_data = buy.to_dict()
 
     assert sell_data["items"][0]["symbol"] == "AAA"
+    assert sell_data["items"][0]["action"] == "SELL"
+    assert sell_data["items"][0]["reason"] == "Ação oficial: SELL"
     assert buy_data["items"][0]["symbol"] == "BBB"
     assert "target_weight" not in sell_data["items"][0]
     assert "target_weight" not in buy_data["items"][0]
