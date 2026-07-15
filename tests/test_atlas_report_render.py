@@ -346,29 +346,48 @@ def test_broad_screener_renders_top_candidates_and_no_stale_alert(tmp_path: Path
     assert 'class="alert"' not in html
 
 
-def test_watchlist_proposals_rendered_with_derived_trigger() -> None:
-    ranking = RankingReport(
-        RankingPolicy("Test"),
-        (
-            RankedCompany(
-                symbol="ZZZ", sector="Energy", universe_eligible=True,
-                safeguard_passed=True, safeguard_reasons=(), market_rank=1,
-                sector_rank=1, candidate_rank=1, investment_score=72.0,
-                opportunity_score=70.0, conviction_score=80.0,
-                confidence_score=95.0, deal_breakers=(), already_held=False,
-            ),
+def test_watchlist_proposals_rendered_with_derived_trigger(tmp_path: Path) -> None:
+    """
+    Fonte é o screener AMPLO (research_ranking_report_market.json), não o
+    ranking_report estreito do --full: comparar candidatos contra a própria
+    watchlist da qual eles vieram é tautológico e nunca produz sugestão
+    (achado rodando de verdade contra o screener real -- 39/39 candidatos
+    não-held do ranking_report estreito já estavam na watchlist.csv).
+    """
+    import json
+
+    report_path = tmp_path / "research_ranking_report_market.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-07-14T00:00:00",
+                "summary": {
+                    "total_count": 1,
+                    "universe_eligible_count": 1,
+                    "candidate_count": 1,
+                    "blocked_by_reason": {},
+                },
+                "companies": [
+                    {
+                        "symbol": "ZZZ",
+                        "name": "Zeta Corp",
+                        "sector": "Energy",
+                        "safeguard_passed": True,
+                        "candidate_rank": 1,
+                        "investment_score": 72.0,
+                        "confidence_score": 95.0,
+                        "already_held": False,
+                    }
+                ],
+            }
         ),
+        encoding="utf-8",
     )
-    df = _df()
-    df.loc[df.index[-1] + 1] = {
-        "symbol": "ZZZ", "name": "Zeta Corp", "sector": "Energy",
-        "Investment Score": 72.0, "Confidence Score": 95.0, "earnings_date": None,
-    }
     ctx = build_report_context(
         mode="full",
-        df=df,
+        df=_df(),
         snapshot_date="2026-07-14T00:00:00",
-        ranking_report=ranking,
+        broad_market_report_path=report_path,
     )
     html = render_report(ctx)
     assert ">Sugestões para a watchlist<" in html
@@ -378,12 +397,61 @@ def test_watchlist_proposals_rendered_with_derived_trigger() -> None:
     assert "score &gt; 80" in html or "score > 80" in html
 
 
-def test_watchlist_proposals_omitted_without_ranking() -> None:
+def test_watchlist_proposals_omitted_without_broad_screener() -> None:
     ctx = build_report_context(
         mode="portfolio", df=_df(), snapshot_date="2026-07-14T00:00:00"
     )
     html = render_report(ctx)
     assert "Sugestões para a watchlist não incluído neste run." in html
+
+
+def test_watchlist_proposals_exclude_held_and_watched(tmp_path: Path) -> None:
+    """
+    held_symbols vem de df["origin"]=="portfolio" (confiável mesmo com o
+    motor de venda bloqueado / portfolio_report ausente), não do campo
+    already_held do JSON amplo (sempre False lá).
+    """
+    import json
+
+    report_path = tmp_path / "research_ranking_report_market.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-07-14T00:00:00",
+                "summary": {},
+                "companies": [
+                    {
+                        "symbol": "HELD", "sector": "Tech", "safeguard_passed": True,
+                        "candidate_rank": 1, "investment_score": 80.0,
+                        "confidence_score": 100.0, "already_held": False,
+                    },
+                    {
+                        "symbol": "AAA", "sector": "Tech", "safeguard_passed": True,
+                        "candidate_rank": 2, "investment_score": 78.0,
+                        "confidence_score": 100.0, "already_held": False,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    df = _df()
+    df["symbol"] = ["HELD", "BBB"]
+    df["origin"] = ["portfolio", "watchlist"]
+    ctx = build_report_context(
+        mode="full",
+        df=df,
+        snapshot_date="2026-07-14T00:00:00",
+        broad_market_report_path=report_path,
+    )
+    html = render_report(ctx)
+    # HELD legitimamente aparece na tabela crua "Screeners amplos" (ranking
+    # sem filtro pessoal) -- restringe a checagem à seção de sugestões.
+    section_start = html.index(">Sugestões para a watchlist<")
+    section_end = html.index("<h2>Earnings</h2>")
+    section = html[section_start:section_end]
+    assert ">HELD<" not in section
+    assert "AAA" in section
 
 
 def test_broad_screener_flags_stale_collection(tmp_path: Path) -> None:
