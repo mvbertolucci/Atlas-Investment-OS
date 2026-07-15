@@ -11,9 +11,14 @@ import pandas as pd
 from portfolio.allocation import calculate_allocation
 from portfolio.concentration import analyze_allocation_concentration
 from portfolio.loader import load_portfolio_csv
-from portfolio.models import Holding, Portfolio
+from portfolio.metrics import holding_market_value
+from portfolio.models import Holding, Portfolio, RebalanceAction, RebalancePlan
 from portfolio.quality import calculate_allocation_quality
-from portfolio.rebalance import build_rebalance_plan, build_stateful_sell_plan
+from portfolio.rebalance import (
+    SellEngineBlockedError,
+    build_rebalance_plan,
+    build_stateful_sell_plan,
+)
 from portfolio.report import PortfolioReport, build_portfolio_report
 from portfolio.sell_rules import SellRulesPolicy, load_sell_rules_policy
 from reports.report_engine import build_company_reports
@@ -115,6 +120,47 @@ def enrich_portfolio_from_analysis(
 REBALANCE_MODES = ("sell_only", "auto")
 
 
+def _build_blocked_rebalance_plan(
+    portfolio: Portfolio,
+    missing_thesis_symbols: tuple[str, ...],
+) -> RebalancePlan:
+    """
+    Substitui o plano de venda quando `build_stateful_sell_plan` recusa
+    decidir (posição real sem tese). Preserva a garantia central do motor --
+    nenhuma decisão de venda (HOLD/TRIM/SELL) é computada -- mas evita
+    suprimir a seção Carteira inteira do relatório: cada posição real vira
+    REVISAR (mesma semântica de "precisa da sua atenção" já usada no gate de
+    confiança), nunca uma decisão de venda de verdade. Isso ainda deixa
+    visíveis score/qualidade/alocação, que são independentes da tese.
+    """
+    weighted = portfolio.with_calculated_weights()
+    actions = tuple(
+        RebalanceAction(
+            symbol=holding.symbol,
+            action="REVISAR",
+            current_weight=holding.portfolio_weight or 0.0,
+            target_weight=holding.portfolio_weight or 0.0,
+            target_value=holding_market_value(holding),
+            trade_value=0.0,
+            reason=(
+                "Motor de venda bloqueado: tese ausente "
+                "(config/portfolio.csv, coluna 'thesis')."
+            ),
+        )
+        for holding in weighted.holdings
+        if holding.quantity and holding.quantity > 0
+    )
+    return RebalancePlan(
+        actions=actions,
+        warnings=(
+            "Motor de venda bloqueado -- posição(ões) sem tese registrada: "
+            + ", ".join(missing_thesis_symbols)
+            + ". Nenhuma decisão de venda é computada; preencha a tese em "
+            "config/portfolio.csv para destravar.",
+        ),
+    )
+
+
 def build_portfolio_intelligence(
     portfolio_path: Path,
     analysis_df: pd.DataFrame,
@@ -169,16 +215,25 @@ def build_portfolio_intelligence(
         policy = sell_rules_policy or load_sell_rules_policy(
             DEFAULT_SELL_RULES_POLICY_PATH
         )
-        rebalance = build_stateful_sell_plan(
-            allocation.portfolio,
-            analysis_df,
-            sell_rules_policy=policy,
-            previous_by_symbol=previous_by_symbol,
-            baseline_status=baseline_status,
-            previous_run_at=previous_run_at,
-            current_run_at=current_run_at,
-            quality=quality,
-        )
+        try:
+            rebalance = build_stateful_sell_plan(
+                allocation.portfolio,
+                analysis_df,
+                sell_rules_policy=policy,
+                previous_by_symbol=previous_by_symbol,
+                baseline_status=baseline_status,
+                previous_run_at=previous_run_at,
+                current_run_at=current_run_at,
+                quality=quality,
+            )
+        except SellEngineBlockedError as exc:
+            # Só a decisão de venda fica indisponível (garantia do motor
+            # inalterada) -- score/qualidade/alocação continuam visíveis via
+            # o plano substituto (ver _build_blocked_rebalance_plan).
+            rebalance = _build_blocked_rebalance_plan(
+                allocation.portfolio,
+                exc.missing_thesis_symbols,
+            )
     else:
         rebalance = build_rebalance_plan(
             allocation.portfolio,

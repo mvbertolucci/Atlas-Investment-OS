@@ -14,7 +14,7 @@
 |---|---|---|---|
 | `decision/policy.py::evaluate_decision` (via `decision/engine.py::apply_decision`) | `Decision` (STRONG_BUY…AVOID) a partir de Opportunity+Conviction+Risk | `scoring/investment.py::score_dataframe` → `run_all.py::build_scores` (run_all.py:315-331), roda em `--full`, `--portfolio`, `--ticker` | **Sim** |
 | `models/investment_model.py::apply_recommendation` | `Score Band` — faixa **descritiva** do Investment Score (Elite/Alto/Bom/Médio/Baixo), sem estrela nem verbo de compra | mesma cadeia, logo após `Decision` | **Sim, mas NÃO é classificador de compra** — rebaixado de veredicto (`Recommendation` em estrelas) para rótulo descritivo; `Decision` é a voz única de compra (reconciliação do conflito #1) |
-| `portfolio/sell_rules.py::evaluate_sell_rules` | SELL/TRIM/HOLD/REVISAR por holding real, via 4 regras (distress, valuation_stretch, fundamental_decay, relative_decay) + confidence gate + escalonamento | `portfolio/rebalance.py:578-629` → `portfolio.pipeline.build_portfolio_intelligence` → `run_all.py::generate_portfolio_intelligence` (run_all.py:678-745) | **Sim** — único motor de venda para holdings reais (`config/portfolio.csv`) |
+| `portfolio/sell_rules.py::evaluate_sell_rules` | SELL/TRIM/HOLD/REVISAR por holding real, via 4 regras (distress, valuation_stretch, fundamental_decay, relative_decay) + confidence gate + escalonamento | `portfolio/rebalance.py:578-629` → `portfolio.pipeline.build_portfolio_intelligence` → `run_all.py::generate_portfolio_intelligence` (run_all.py:678-745) | **Sim** — único motor de venda para holdings reais (`config/portfolio.csv`). Quando `SellEngineBlockedError` dispara (posição sem tese), `build_portfolio_intelligence` substitui o plano por REVISAR/holding (`_build_blocked_rebalance_plan`) em vez de suprimir a seção Carteira inteira — score/qualidade/alocação continuam visíveis, só a decisão de venda fica indisponível |
 | `priority/pipeline.py::build_sell_priority` | SELL/HOLD **binário**: `"SELL" if Deal Breakers else "HOLD"` (priority/pipeline.py:49) | `run_all.py::generate_priority_report` (run_all.py:573-622), chamado incondicionalmente (`priority_enabled=True` por default) | **Sim** |
 | `watchlist/triggers.py::evaluate_watchlist_triggers` | trigger / no-trigger + cleanup-candidate por item da watchlist | `run_all.py::generate_watchlist_report` (run_all.py:748-832) | **Sim** |
 | `ranking/pipeline.py::rank_companies` | candidate_rank / safeguard_passed (não é buy/sell, é filtro de screener) | `run_all.py::generate_ranking_report`, só em `mode == "full"` | **Sim**, escopo restrito ao screener |
@@ -116,4 +116,4 @@
 
 ## Última atualização
 - **Data**: 2026-07-14
-- **Commit**: pendente (refactor(decision): Decision como voz única de compra; Recommendation → Score Band descritivo)
+- **Commit**: pendente (fix(portfolio): Carteira não é mais suprimida quando o motor de venda está bloqueado)

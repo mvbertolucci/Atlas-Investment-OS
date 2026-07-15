@@ -1,5 +1,36 @@
 # Changelog
 
+## Fix Carteira section suppressed entirely when the sell engine is blocked
+
+### Fixed
+
+- `SellEngineBlockedError` (a real holding with `quantity > 0` missing
+  `thesis` in `config/portfolio.csv`) used to make
+  `generate_portfolio_intelligence` return `None` entirely, discarding the
+  already-computed allocation/concentration/quality for every holding.
+  Verified against the real 18-holding portfolio: the "Carteira" section of
+  the Atlas Report rendered *only* the block warning, no table -- even
+  though every holding already had a valid `Investment Score`/`Decision`
+  in the snapshot DB. The engine's own docstring documented the intended
+  behavior ("só a seção de venda fica indisponível, nunca o run inteiro")
+  but the orchestration layer didn't honor it.
+- `portfolio/pipeline.py::build_portfolio_intelligence` now catches
+  `SellEngineBlockedError` internally (the low-level
+  `build_stateful_sell_plan` contract is unchanged and still raises it,
+  tested directly in `tests/test_stateful_sell_plan.py`) and substitutes a
+  `RebalancePlan` where every real holding gets `action="REVISAR"` with an
+  explicit "tese ausente" reason -- never a real sell decision (HOLD/TRIM/
+  SELL), preserving the engine's core guarantee, but no longer suppressing
+  score/quality/allocation visibility.
+- `run_all.py::generate_portfolio_intelligence` simplified accordingly: the
+  now-unreachable `except SellEngineBlockedError` branch removed: the
+  block warning already flows through `PortfolioReport.warnings` into both
+  the console summary line and the HTML report.
+- Verified end-to-end against the real portfolio (18 holdings, none with a
+  thesis yet): the Carteira table now shows every holding's name, score,
+  Δ, coverage, and a `REVISAR` pill with the block reason -- no sell
+  decision computed. 777 tests green (1 new regression test).
+
 ## Decision as the single buy voice (reconcile Decision vs Recommendation)
 
 ### Changed
