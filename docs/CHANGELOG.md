@@ -57,6 +57,36 @@
   `portfolio.sell_rules`, `factors.engine` and `analytics.history` already
   computed this run.
 
+## Performance-validation contract (salvaged and fixed)
+
+### Added
+
+- `analytics/performance_validation.py`: publishes a governed
+  `output/performance_validation.json` contract — score distribution
+  (count/avg/min/max for the 8 score columns), portfolio quality summary,
+  outcome hit-rate, and an `open_items` list of the realized-performance
+  metrics still to come (CAGR, Sharpe, drawdown, benchmark). Deliberately
+  conservative: it does **not** claim alpha/CAGR/Sharpe/drawdown unless
+  those are available from validated historical data; absent fields are
+  `None`/`False`, never invented.
+- Wired into `run_all.py::main` as `generate_performance_validation`
+  (governed by `performance_validation_enabled`, default on), printing
+  `Validation JSON` alongside the other artifacts. Read-only: changes no
+  score, decision, portfolio, ranking or outcome result.
+- `tests/test_performance_validation.py` (the original had none).
+
+### Fixed
+
+- Recovered from a broken direct-to-GitHub commit
+  (`pr-034-performance-validation`) that did not parse: a stray backtick at
+  end of `analytics/performance_validation.py` (SyntaxError) and dedented
+  blocks inside `run_all.py::main` (SyntaxError) — both would have broken
+  the entire entry point on merge.
+- Content bug in the same WIP: `portfolio_quality.total_positions` read
+  `summary["total_positions"]`, a key that does not exist, so it was always
+  `None`. Now reads `holdings_count`, the actual `PortfolioReport.summary`
+  key (verified end-to-end: 3 for the example portfolio).
+
 ## US-listed ADR advisory ranking run
 
 ### Completed
