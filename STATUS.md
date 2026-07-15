@@ -18,7 +18,8 @@
 | `priority/pipeline.py::build_sell_priority` | SELL/HOLD **binário**: `"SELL" if Deal Breakers else "HOLD"` (priority/pipeline.py:49) | `run_all.py::generate_priority_report` (run_all.py:573-622), chamado incondicionalmente (`priority_enabled=True` por default) | **Sim** |
 | `watchlist/triggers.py::evaluate_watchlist_triggers` | trigger / no-trigger + cleanup-candidate por item da watchlist | `run_all.py::generate_watchlist_report` (run_all.py:748-832) | **Sim** |
 | `ranking/pipeline.py::rank_companies` | candidate_rank / safeguard_passed (não é buy/sell, é filtro de screener) | `run_all.py::generate_ranking_report`, só em `mode == "full"` | **Sim**, escopo restrito ao screener |
-| `watchlist/promote.py::promote_to_watchlist` | promove símbolo para watchlist | só chamado pelo próprio CLI (`__main__`) e por testes | **Órfão da automação** — CLI manual, `run_all.py` nunca chama |
+| `watchlist/promote.py::promote_to_watchlist` | promove símbolo para watchlist (grava no CSV) | só chamado pelo próprio CLI (`__main__`) e por testes | **CLI manual** — `run_all.py` nunca grava; é o passo que o usuário roda para aplicar uma sugestão |
+| `watchlist/screening.py::propose_watchlist_candidates` + `derive_trigger_condition` | **propõe** (nunca grava) inclusões na watchlist a partir do screener, com `trigger_condition` derivada do perfil (cortes de `ranking.yaml`/`models/investment_model.py`, nenhum inventado) | `reports/atlas_report/context.py::build_report_context` → seção "Sugestões para a watchlist" do relatório, só em `mode == "full"` | **Sim** — read-only, alimenta a watchlist por critério estabelecido sem tocar no CSV curado |
 
 ### ⚠️ Conflitos sinalizados
 1. **`Decision` vs `Recommendation`** — dois classificadores de compra/hold rodando sobre a mesma linha, podem discordar (Decision pondera deal-breakers/risco via Opportunity+Conviction; Recommendation só olha `Investment Score`). Sem reconciliação, expostos lado a lado na tabela de console (run_all.py:856-868).
@@ -115,4 +116,4 @@
 
 ## Última atualização
 - **Data**: 2026-07-14
-- **Commit**: pendente (feat(reports): screeners de Mercado Amplo/ADR surfaceados no Atlas Report)
+- **Commit**: pendente (feat(watchlist): lógica de alimentação por critério — propostas + triggers derivados)
