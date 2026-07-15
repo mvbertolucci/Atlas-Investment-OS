@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from html import escape
 
+from reports.atlas_report.broad_screener import BroadScreenerSummary
 from reports.atlas_report.context import ReportContext
 from reports.atlas_report.ticker_detail import FeatureDetail, SellRuleDetail, TickerDetail
 
@@ -301,6 +302,64 @@ def render_screener(context: ReportContext) -> str:
 """
 
 
+def _broad_screener_html(summary: BroadScreenerSummary) -> str:
+    if not summary.included:
+        return f"<h3>{_e(summary.label)}</h3>" + _not_included(summary.label)
+
+    staleness_html = (
+        f'<p class="alert">⚠ Última coleta há {summary.age_days:.0f} dia(s) '
+        "-- considere rodar a coleta novamente (universe.collector).</p>"
+        if summary.stale
+        else ""
+    )
+    generated_html = (
+        f'<p class="meta">Coleta de {_e(summary.generated_at)} '
+        f"({summary.age_days:.1f} dia(s) atrás)</p>"
+        if summary.generated_at
+        else ""
+    )
+    blocked_html = "".join(
+        f"<li>{_e(reason)}: {count}</li>"
+        for reason, count in summary.blocked_by_reason.items()
+    )
+    top_rows = "\n".join(
+        "<tr>"
+        f"<td>{item['candidate_rank']}</td>"
+        f"<td>{_e(item['symbol'])}</td>"
+        f"<td>{_e(item['sector'])}</td>"
+        f"<td>{item['investment_score']:.1f}</td>"
+        f"<td>{item['confidence_score']:.1f}</td>"
+        "</tr>"
+        for item in summary.top_candidates
+    )
+    return f"""
+<h3>{_e(summary.label)}</h3>
+{generated_html}
+{staleness_html}
+<p>{summary.total_count} analisados · {summary.universe_eligible_count} elegíveis ·
+{summary.candidate_count} candidatos</p>
+<ul>{blocked_html}</ul>
+<div class="table-scroll">
+<table>
+<colgroup>
+<col style="width:12%"><col style="width:20%"><col style="width:28%">
+<col style="width:20%"><col style="width:20%">
+</colgroup>
+<thead><tr><th>Rank</th><th>Símbolo</th><th>Setor</th><th>Score</th>
+<th>Confiança</th></tr></thead>
+<tbody>{top_rows}</tbody>
+</table>
+</div>
+"""
+
+
+def render_broad_screeners(context: ReportContext) -> str:
+    if not context.broad_screeners:
+        return "<h2>Screeners amplos</h2>" + _not_included("Screeners amplos")
+    sections = "\n".join(_broad_screener_html(summary) for summary in context.broad_screeners)
+    return f"<h2>Screeners amplos</h2>\n{sections}"
+
+
 def _feature_detail_html(feature: FeatureDetail) -> str:
     inputs_html = "".join(
         f"<li>{_e(label)}: {_e(value)}</li>" for label, value in feature.inputs
@@ -478,6 +537,7 @@ def render_report(context: ReportContext) -> str:
             render_watchlist(context),
             render_earnings(context),
             render_screener(context),
+            render_broad_screeners(context),
             render_ticker_details(context),
             render_footer(context),
         )

@@ -295,3 +295,67 @@ def test_ticker_detail_no_external_resources_even_with_real_content() -> None:
 def test_ticker_detail_omitted_when_features_path_not_given() -> None:
     html = render_report(_full_context())
     assert "Detalhe por ativo não incluído neste run." in html
+
+
+def _write_broad_report(path: Path, *, generated_at: str) -> None:
+    import json
+
+    path.write_text(
+        json.dumps(
+            {
+                "generated_at": generated_at,
+                "summary": {
+                    "total_count": 7093,
+                    "universe_eligible_count": 2429,
+                    "candidate_count": 999,
+                    "blocked_by_reason": {"DEAL_BREAKER_TRIGGERED": 4002},
+                },
+                "companies": [
+                    {
+                        "symbol": "SSRM",
+                        "sector": "Basic Materials",
+                        "safeguard_passed": True,
+                        "candidate_rank": 1,
+                        "investment_score": 72.1,
+                        "confidence_score": 100.0,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_broad_screeners_omitted_when_no_path_given() -> None:
+    html = render_report(_full_context())
+    assert "Screeners amplos não incluído neste run." in html
+
+
+def test_broad_screener_renders_top_candidates_and_no_stale_alert(tmp_path: Path) -> None:
+    report_path = tmp_path / "research_ranking_report_market.json"
+    _write_broad_report(report_path, generated_at="2026-07-01T00:00:00")
+    ctx = build_report_context(
+        mode="full",
+        df=_df(),
+        snapshot_date="2026-07-14T00:00:00",
+        broad_market_report_path=report_path,
+    )
+    html = render_report(ctx)
+    assert ">Mercado Amplo<" in html
+    assert "SSRM" in html
+    assert 'class="alert"' not in html
+
+
+def test_broad_screener_flags_stale_collection(tmp_path: Path) -> None:
+    report_path = tmp_path / "research_ranking_report_adr.json"
+    _write_broad_report(report_path, generated_at="2026-01-01T00:00:00")
+    ctx = build_report_context(
+        mode="full",
+        df=_df(),
+        snapshot_date="2026-07-14T00:00:00",
+        adr_report_path=report_path,
+    )
+    html = render_report(ctx)
+    assert ">ADR<" in html
+    assert 'class="alert"' in html
+    assert "considere rodar a coleta novamente" in html

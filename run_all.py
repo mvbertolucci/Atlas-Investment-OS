@@ -1093,9 +1093,13 @@ def main() -> None:
                 settings,
                 universe_report,
             )
+            broad_market_report_path = OUTPUT / "research_ranking_report_market.json"
+            adr_report_path = OUTPUT / "research_ranking_report_adr.json"
         else:
             universe_report = None
             ranking_report = None
+            broad_market_report_path = None
+            adr_report_path = None
 
         # Contexto de histórico calculado ANTES de gravar o snapshot deste
         # run: "run anterior" precisa ser o run anterior de verdade, nunca
@@ -1255,6 +1259,8 @@ def main() -> None:
             score_history=score_history,
             features_path=CONFIG / "features.yaml",
             model_path=CONFIG / "model.yaml",
+            broad_market_report_path=broad_market_report_path,
+            adr_report_path=adr_report_path,
         )
         atlas_report_dated, atlas_report_latest = write_report(
             render_report(report_context),
