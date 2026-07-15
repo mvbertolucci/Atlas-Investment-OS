@@ -18,6 +18,10 @@ from analytics.history import load_history as load_score_history
 from analytics.history import previous_run_context
 from analytics.indicators import enrich_technicals
 from analytics.mapper import normalize_columns
+from analytics.performance_validation import (
+    build_performance_validation_report,
+    write_performance_validation_report,
+)
 from atlas_logger import get_logger
 from health.health_check import print_health_report, run_health_check
 from metrics.execution import (
@@ -102,6 +106,7 @@ PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
 OUTCOME_REPORT_FILE = OUTPUT / "outcome_report.json"
 DASHBOARD_REPORT_FILE = OUTPUT / "dashboard.json"
 PRIORITY_REPORT_FILE = OUTPUT / "priority_report.json"
+PERFORMANCE_VALIDATION_FILE = OUTPUT / "performance_validation.json"
 RESEARCH_RANKING_REPORT_FILE = OUTPUT / "research_ranking_report.json"
 UNIVERSE_REPORT_FILE = OUTPUT / "universe_report.json"
 RANKING_REPORT_FILE = OUTPUT / "ranking_report.json"
@@ -545,6 +550,46 @@ def generate_ranking_report(
         report.total_count,
     )
     return report
+
+
+def generate_performance_validation(
+    df: pd.DataFrame,
+    settings: dict,
+    *,
+    portfolio_report: PortfolioReport | None = None,
+    outcome_report: OutcomeAnalyticsReport | None = None,
+    snapshot_date: str | None = None,
+) -> Path | None:
+    """
+    Emite o contrato inicial de validação de performance
+    (output/performance_validation.json).
+
+    Esta etapa é somente publicação/validação. Não altera scores, decisões,
+    carteira, ranking ou outcome analytics -- só resume o que esses motores
+    já produziram nesta run.
+    """
+    if not settings.get("performance_validation_enabled", True):
+        logger.info("Performance Validation desabilitado.")
+        return None
+
+    report = build_performance_validation_report(
+        df,
+        portfolio_report=portfolio_report,
+        outcome_report=outcome_report,
+        snapshot_date=snapshot_date,
+    )
+
+    path = write_performance_validation_report(
+        report,
+        PERFORMANCE_VALIDATION_FILE,
+    )
+
+    logger.info(
+        "Performance Validation gerado em %s.",
+        path,
+    )
+
+    return path
 
 
 def generate_dashboard(
@@ -1294,6 +1339,14 @@ def main() -> None:
             else (None, None)
         )
 
+        performance_validation_file = generate_performance_validation(
+            df,
+            settings,
+            portfolio_report=portfolio_report,
+            outcome_report=outcome_analytics,
+            snapshot_date=snapshot_date,
+        )
+
         dashboard_file = generate_dashboard(
             df,
             settings,
@@ -1367,6 +1420,9 @@ def main() -> None:
 
         if priority_file is not None:
             print(f"Priority JSON   : {priority_file}")
+
+        if performance_validation_file is not None:
+            print(f"Validation JSON : {performance_validation_file}")
 
         if universe_report is not None:
             print(f"Universe JSON   : {UNIVERSE_REPORT_FILE}")

@@ -1,7 +1,42 @@
-symbol,name
-ADBE,Adobe
-FMC,FMC Corporation
-MSFT,Microsoft
-LMT,Lockheed Martin
-AMD,Advanced Micro Devices
-AKAM,Akamai Technologies
+symbol
+MSFT
+GOOGL
+AMZN
+META
+ADBE
+CRM
+ORCL
+NOW
+
+NVDA
+AMD
+AVGO
+QCOM
+TXN
+MU
+
+JPM
+GS
+MS
+BAC
+BLK
+
+LMT
+RTX
+NOC
+GD
+
+XOM
+CVX
+SLB
+
+UNH
+JNJ
+ABBV
+ISRG
+
+PG
+KO
+PEP
+COST
+WMT
