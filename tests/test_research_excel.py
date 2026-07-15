@@ -92,7 +92,8 @@ def _portfolio() -> dict:
 @pytest.fixture
 def fake_workspace(tmp_path: Path) -> Path:
     output_dir = tmp_path / "output"
-    output_dir.mkdir()
+    data_dir = output_dir / "dados"
+    data_dir.mkdir(parents=True)
     observations = {
         "AAA": _observation("AAA", "Alpha", roic=0.30),
         "BBB": _observation("BBB", "Beta", roic=0.05),
@@ -100,10 +101,10 @@ def fake_workspace(tmp_path: Path) -> Path:
     _write_collection(tmp_path / "collection.json", observations)
 
     ranking = _ranking([_company("AAA", 1, True), _company("BBB", 2, False)])
-    (output_dir / "research_ranking_report.json").write_text(
+    (data_dir / "research_ranking_report.json").write_text(
         json.dumps(ranking), encoding="utf-8"
     )
-    (output_dir / "model_portfolio_report.json").write_text(
+    (data_dir / "model_portfolio_report.json").write_text(
         json.dumps(_portfolio()), encoding="utf-8"
     )
     return tmp_path

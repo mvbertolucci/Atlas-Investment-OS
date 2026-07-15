@@ -212,14 +212,15 @@ def test_build_from_collection_defaults_match_sp500_screener(
     )
 
     assert len(report.positions) == 2
-    assert (output_dir / "research_universe_report.json").exists()
-    assert (output_dir / "research_ranking_report.json").exists()
-    assert (output_dir / "research_candidates.csv").exists()
-    assert (output_dir / "model_portfolio_report.json").exists()
-    assert (output_dir / "research_report.html").exists()
-    assert "S&amp;P 500" in (output_dir / "research_report.html").read_text(
-        encoding="utf-8"
-    )
+    # JSON (contrato interno) em dados/; CSV/HTML (para abrir) em relatorios/.
+    assert (output_dir / "dados" / "research_universe_report.json").exists()
+    assert (output_dir / "dados" / "research_ranking_report.json").exists()
+    assert (output_dir / "relatorios" / "research_candidates.csv").exists()
+    assert (output_dir / "dados" / "model_portfolio_report.json").exists()
+    assert (output_dir / "relatorios" / "research_report.html").exists()
+    assert "S&amp;P 500" in (
+        output_dir / "relatorios" / "research_report.html"
+    ).read_text(encoding="utf-8")
 
 
 def _observation(symbol: str, name: str) -> dict:
@@ -310,7 +311,9 @@ def test_exhausted_failure_accepted_and_recorded(tmp_path: Path) -> None:
     assert len(report.positions) == 2
     assert report.excluded_failures == (("CCC-W", "Sem histórico para CCC-W"),)
     payload = json.loads(
-        (output_dir / "model_portfolio_report_market.json").read_text(encoding="utf-8")
+        (output_dir / "dados" / "model_portfolio_report_market.json").read_text(
+            encoding="utf-8"
+        )
     )
     assert payload["source"]["excluded_failure_count"] == 1
     assert payload["source"]["excluded_failures"] == [
@@ -371,15 +374,15 @@ def test_build_from_collection_labels_output_for_another_screener(
     )
 
     assert len(report.positions) == 2
-    assert (output_dir / "research_universe_report_market.json").exists()
-    assert (output_dir / "research_ranking_report_market.json").exists()
-    assert (output_dir / "research_candidates_market.csv").exists()
-    assert (output_dir / "model_portfolio_report_market.json").exists()
-    assert (output_dir / "research_report_market.html").exists()
+    assert (output_dir / "dados" / "research_universe_report_market.json").exists()
+    assert (output_dir / "dados" / "research_ranking_report_market.json").exists()
+    assert (output_dir / "relatorios" / "research_candidates_market.csv").exists()
+    assert (output_dir / "dados" / "model_portfolio_report_market.json").exists()
+    assert (output_dir / "relatorios" / "research_report_market.html").exists()
     assert "Mercado Amplo" in (
-        output_dir / "research_report_market.html"
+        output_dir / "relatorios" / "research_report_market.html"
     ).read_text(encoding="utf-8")
     # Nenhum arquivo sem sufixo foi criado por essa chamada.
-    assert not (output_dir / "research_universe_report.json").exists()
-    assert not (output_dir / "research_candidates.csv").exists()
-    assert not (output_dir / "research_report.html").exists()
+    assert not (output_dir / "dados" / "research_universe_report.json").exists()
+    assert not (output_dir / "relatorios" / "research_candidates.csv").exists()
+    assert not (output_dir / "relatorios" / "research_report.html").exists()

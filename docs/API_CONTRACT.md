@@ -1,7 +1,7 @@
 # Dashboard API (read-only)
 
 A read-only HTTP layer over the dashboard contract (`docs/DASHBOARD_CONTRACT.md`).
-It serves the already-produced `output/dashboard.json` and its sub-resources; it
+It serves the already-produced `output/dados/dashboard.json` and its sub-resources; it
 never triggers a run, changes a decision or writes anything.
 
 ## Design
@@ -22,7 +22,7 @@ never triggers a run, changes a decision or writes anything.
 .\.venv\Scripts\python.exe -m api.server        # http://127.0.0.1:8000
 ```
 
-Requires a prior `run_all.py` (which emits `output/dashboard.json`). Before the
+Requires a prior `run_all.py` (which emits `output/dados/dashboard.json`). Before the
 first run, every resource returns `503`.
 
 ## Resources (GET only)

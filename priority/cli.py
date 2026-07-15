@@ -127,11 +127,11 @@ def main() -> None:
     )
     parser.add_argument(
         "--ranking-report",
-        default=str(ROOT / "output" / "ranking_report.json"),
+        default=str(ROOT / "output" / "dados" / "ranking_report.json"),
     )
     parser.add_argument(
         "--research-ranking-report",
-        default=str(ROOT / "output" / "research_ranking_report.json"),
+        default=str(ROOT / "output" / "dados" / "research_ranking_report.json"),
     )
     parser.add_argument(
         "--portfolio",

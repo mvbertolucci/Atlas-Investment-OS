@@ -53,7 +53,7 @@ configuration.
 
 `run_all.generate_dashboard(df, settings, portfolio_report, outcome_report)`
 assembles the view from the objects the run already produced and writes
-`output/dashboard.json` after the Excel and Morning Brief steps. It is:
+`output/dados/dashboard.json` after the Excel and Morning Brief steps. It is:
 
 - **guarded** by the `dashboard_enabled` runtime setting (default `true`);
 - **additive** — a new artifact that changes no existing output;

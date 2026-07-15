@@ -9,7 +9,7 @@ third-party dependency.
 - **`AtlasClient.for_url(base_url)`** — talks to a running API over HTTP
   (`api.server`). Use when the API is up.
 - **`AtlasClient.for_file(path=None)`** — resolves resources in-process from the
-  emitted `output/dashboard.json` (or a given path). Works offline, no server.
+  emitted `output/dados/dashboard.json` (or a given path). Works offline, no server.
 
 Both expose the same methods, so code is written once and the transport is a
 deployment choice.
@@ -20,7 +20,7 @@ deployment choice.
 from sdk import AtlasClient
 
 # Offline, straight from the artifact:
-atlas = AtlasClient.for_file()               # reads output/dashboard.json
+atlas = AtlasClient.for_file()               # reads output/dados/dashboard.json
 print(atlas.dashboard()["contract_version"])
 for company in atlas.companies():
     print(company["symbol"], company["decision"])

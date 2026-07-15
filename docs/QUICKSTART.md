@@ -29,8 +29,8 @@ python run_all.py
 ## 5. Review outputs
 
 ```text
-output/latest.xlsx
-output/morning_brief.md
+output/relatorios/latest.xlsx
+output/relatorios/morning_brief.md
 logs/atlas.log
 logs/execution_metrics.csv
 data/atlas_history.db

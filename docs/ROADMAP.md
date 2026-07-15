@@ -50,7 +50,7 @@
 
 ## v2.0 — Platform — In progress
 
-- [x] Dashboard (read-only contract + `output/dashboard.json`)
+- [x] Dashboard (read-only contract + `output/dados/dashboard.json`)
 - [x] REST API (read-only, stdlib; `api/`)
 - [x] SDK (read-only Python client; `sdk/`)
 - [x] Market-universe and analytical-method contract

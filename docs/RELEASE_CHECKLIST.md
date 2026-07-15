@@ -15,10 +15,10 @@
 
 ## Outputs
 
-- [ ] `output/latest.xlsx`
-- [ ] `output/morning_brief.md`
+- [ ] `output/relatorios/latest.xlsx`
+- [ ] `output/relatorios/morning_brief.md`
 - [ ] `output/outcome_report.json`
-- [ ] `output/portfolio_report.json` when a portfolio is configured
+- [ ] `output/dados/portfolio_report.json` when a portfolio is configured
 - [ ] `data/atlas_history.db`
 - [ ] `logs/atlas.log`
 - [ ] `logs/execution_metrics.csv`
