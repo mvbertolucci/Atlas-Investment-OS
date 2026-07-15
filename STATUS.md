@@ -19,7 +19,7 @@
 | `watchlist/triggers.py::evaluate_watchlist_triggers` | trigger / no-trigger + cleanup-candidate por item da watchlist | `run_all.py::generate_watchlist_report` (run_all.py:748-832) | **Sim** |
 | `ranking/pipeline.py::rank_companies` | candidate_rank / safeguard_passed (não é buy/sell, é filtro de screener) | `run_all.py::generate_ranking_report`, só em `mode == "full"` | **Sim**, escopo restrito ao screener |
 | `watchlist/promote.py::promote_to_watchlist` | promove símbolo para watchlist (grava no CSV) | só chamado pelo próprio CLI (`__main__`) e por testes | **CLI manual** — `run_all.py` nunca grava; é o passo que o usuário roda para aplicar uma sugestão |
-| `watchlist/screening.py::propose_watchlist_candidates` + `derive_trigger_condition` | **propõe** (nunca grava) inclusões na watchlist a partir do screener, com `trigger_condition` derivada do perfil (cortes de `ranking.yaml`/`models/investment_model.py`, nenhum inventado) | `reports/atlas_report/context.py::build_report_context` → seção "Sugestões para a watchlist" do relatório, só em `mode == "full"` | **Sim** — read-only, alimenta a watchlist por critério estabelecido sem tocar no CSV curado |
+| `watchlist/screening.py::propose_from_broad_reports` + `derive_trigger_condition` | **propõe** (nunca grava) inclusões na watchlist a partir dos screeners AMPLOS (Mercado Amplo/ADR), com `trigger_condition` derivada do perfil (cortes de `ranking.yaml`/`models/investment_model.py`, nenhum inventado) | `reports/atlas_report/context.py::build_report_context` → seção "Sugestões para a watchlist" do relatório, só quando `broad_market_report_path`/`adr_report_path` informados (`mode == "full"`) | **Sim** — read-only, alimenta a watchlist por critério estabelecido sem tocar no CSV curado. `propose_watchlist_candidates` (fonte = `ranking_report` estreito do próprio run) continua existindo mas não é mais chamada pelo relatório — comparar candidatos contra a watchlist da qual eles vieram é tautológico (achado rodando de verdade: 39/39 sempre já watched) |
 
 ### ⚠️ Conflitos sinalizados
 1. ~~**`Decision` vs `Recommendation`**~~ **RESOLVIDO (2026-07-14):** eram dois classificadores de compra em paralelo que discordavam em ~8,9% dos nomes analisados (medido em 503 empresas do S&P500: 45 casos, 100% `Decision=Comprar/Acumular` vs `Recommendation=Manter`, sempre nas top candidatas do screener — INTU/ADBE/TROW/NVDA/QCOM etc — porque tinham Investment Score 65–70 mas Opportunity/Conviction altos). Reconciliado tornando **`Decision` a voz única de compra** e rebaixando `Recommendation` → `Score Band` (faixa descritiva, sem estrela/verbo). Motivo raiz: `Recommendation` olhava só o Investment Score final; `Decision` pondera Opportunity+Conviction+risco+deal breakers.
@@ -115,5 +115,5 @@
 ---
 
 ## Última atualização
-- **Data**: 2026-07-14
-- **Commit**: pendente (fix(portfolio): Carteira não é mais suprimida quando o motor de venda está bloqueado)
+- **Data**: 2026-07-15
+- **Commit**: pendente (fix(portfolio): Carteira não é mais suprimida quando o motor de venda está bloqueado; inclui também fix(watchlist): fonte das propostas passa do ranking_report estreito para os screeners amplos)
