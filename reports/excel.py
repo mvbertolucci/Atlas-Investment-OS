@@ -413,7 +413,7 @@ def write_latest_and_history(
             "Timing Score",
             "Confidence Score",
             "Risk Penalty",
-            "Recommendation",
+            "Score Band",
         ]
         if column in df.columns
     ]

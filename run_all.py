@@ -923,7 +923,7 @@ def print_console_table(df: pd.DataFrame) -> None:
         "Timing Score",
         "Confidence Score",
         "Risk Penalty",
-        "Recommendation",
+        "Score Band",
     ]
 
     available_columns = [
