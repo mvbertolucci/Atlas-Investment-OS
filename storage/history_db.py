@@ -410,7 +410,12 @@ class HistoryDatabase:
                         else None
                     ),
 
-                    row.get("Recommendation"),
+                    # coluna de storage segue nomeada `recommendation` por
+                    # compat de schema; alimentada pela faixa descritiva
+                    # `Score Band` (o antigo rótulo de compra foi aposentado
+                    # em favor de `Decision`). `Recommendation` é fallback
+                    # para snapshots legados/df antigos.
+                    row.get("Score Band", row.get("Recommendation")),
                 )
             )
 

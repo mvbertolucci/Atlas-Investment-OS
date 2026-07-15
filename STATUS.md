@@ -13,7 +13,7 @@
 | Motor | O que decide | Onde é chamado | Ativo em produção? |
 |---|---|---|---|
 | `decision/policy.py::evaluate_decision` (via `decision/engine.py::apply_decision`) | `Decision` (STRONG_BUY…AVOID) a partir de Opportunity+Conviction+Risk | `scoring/investment.py::score_dataframe` → `run_all.py::build_scores` (run_all.py:315-331), roda em `--full`, `--portfolio`, `--ticker` | **Sim** |
-| `models/investment_model.py::apply_recommendation` | `Recommendation` (★★★★★…★) a partir só de `Investment Score`, buckets fixos | mesma cadeia, logo após `Decision` (comentário: "legacy, mantido por compatibilidade") | **Sim** — roda em paralelo ao `Decision` |
+| `models/investment_model.py::apply_recommendation` | `Score Band` — faixa **descritiva** do Investment Score (Elite/Alto/Bom/Médio/Baixo), sem estrela nem verbo de compra | mesma cadeia, logo após `Decision` | **Sim, mas NÃO é classificador de compra** — rebaixado de veredicto (`Recommendation` em estrelas) para rótulo descritivo; `Decision` é a voz única de compra (reconciliação do conflito #1) |
 | `portfolio/sell_rules.py::evaluate_sell_rules` | SELL/TRIM/HOLD/REVISAR por holding real, via 4 regras (distress, valuation_stretch, fundamental_decay, relative_decay) + confidence gate + escalonamento | `portfolio/rebalance.py:578-629` → `portfolio.pipeline.build_portfolio_intelligence` → `run_all.py::generate_portfolio_intelligence` (run_all.py:678-745) | **Sim** — único motor de venda para holdings reais (`config/portfolio.csv`) |
 | `priority/pipeline.py::build_sell_priority` | SELL/HOLD **binário**: `"SELL" if Deal Breakers else "HOLD"` (priority/pipeline.py:49) | `run_all.py::generate_priority_report` (run_all.py:573-622), chamado incondicionalmente (`priority_enabled=True` por default) | **Sim** |
 | `watchlist/triggers.py::evaluate_watchlist_triggers` | trigger / no-trigger + cleanup-candidate por item da watchlist | `run_all.py::generate_watchlist_report` (run_all.py:748-832) | **Sim** |
@@ -22,7 +22,7 @@
 | `watchlist/screening.py::propose_watchlist_candidates` + `derive_trigger_condition` | **propõe** (nunca grava) inclusões na watchlist a partir do screener, com `trigger_condition` derivada do perfil (cortes de `ranking.yaml`/`models/investment_model.py`, nenhum inventado) | `reports/atlas_report/context.py::build_report_context` → seção "Sugestões para a watchlist" do relatório, só em `mode == "full"` | **Sim** — read-only, alimenta a watchlist por critério estabelecido sem tocar no CSV curado |
 
 ### ⚠️ Conflitos sinalizados
-1. **`Decision` vs `Recommendation`** — dois classificadores de compra/hold rodando sobre a mesma linha, podem discordar (Decision pondera deal-breakers/risco via Opportunity+Conviction; Recommendation só olha `Investment Score`). Sem reconciliação, expostos lado a lado na tabela de console (run_all.py:856-868).
+1. ~~**`Decision` vs `Recommendation`**~~ **RESOLVIDO (2026-07-14):** eram dois classificadores de compra em paralelo que discordavam em ~8,9% dos nomes analisados (medido em 503 empresas do S&P500: 45 casos, 100% `Decision=Comprar/Acumular` vs `Recommendation=Manter`, sempre nas top candidatas do screener — INTU/ADBE/TROW/NVDA/QCOM etc — porque tinham Investment Score 65–70 mas Opportunity/Conviction altos). Reconciliado tornando **`Decision` a voz única de compra** e rebaixando `Recommendation` → `Score Band` (faixa descritiva, sem estrela/verbo). Motivo raiz: `Recommendation` olhava só o Investment Score final; `Decision` pondera Opportunity+Conviction+risco+deal breakers.
 2. **`priority.build_sell_priority` vs `portfolio.sell_rules.evaluate_sell_rules`** — para a mesma holding, no mesmo run, podem divergir: uma holding com `fundamental_decay` disparado mas sem Deal Breaker recebe `SELL`/`TRIM` do rebalance e `HOLD` do priority. O docstring de `priority/pipeline.py:20-21` afirma ser "o mesmo critério do modo sell-only do rebalance" — **isso é impreciso**: rebalance usa as 4 regras de `sell_rules.py`, priority usa só a presença de Deal Breakers. `docs/PRIORITY_REPORT.md:1-7` afirma que priority "não recalcula score, decisão ou Deal Breakers" — tecnicamente verdade (lê a coluna, não recalcula o Deal Breaker em si), mas **computa sua própria decisão SELL/HOLD** a partir dela, o que já é uma segunda lógica de decisão de venda não documentada como tal.
 
 ---
@@ -116,4 +116,4 @@
 
 ## Última atualização
 - **Data**: 2026-07-14
-- **Commit**: pendente (feat(watchlist): lógica de alimentação por critério — propostas + triggers derivados)
+- **Commit**: pendente (refactor(decision): Decision como voz única de compra; Recommendation → Score Band descritivo)

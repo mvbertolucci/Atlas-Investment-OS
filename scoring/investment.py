@@ -261,9 +261,9 @@ def score_dataframe(
     2. Deal Breakers
     3. Opportunity Engine
     4. Conviction Engine
-    5. Decision Engine
+    5. Decision Engine (voz única de compra)
     6. Investment Thesis Engine
-    7. Recommendation legada
+    7. Score Band (faixa descritiva do Investment Score, não é veredicto)
     8. Ordenação final
     """
 

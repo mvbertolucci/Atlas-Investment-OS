@@ -1,5 +1,35 @@
 # Changelog
 
+## Decision as the single buy voice (reconcile Decision vs Recommendation)
+
+### Changed
+
+- Retired `Recommendation` (the star-rated buy verdict from
+  `models/investment_model.py`) as a competing buy classifier. It is now
+  `Score Band` — a purely descriptive Investment-Score tier
+  (Elite/Alto/Bom/Médio/Baixo), no stars, no buy/hold verbs. `Decision`
+  (`decision/policy.py`, weighing Opportunity + Conviction + risk + deal
+  breakers) is the sole authoritative buy classifier.
+- Renamed the analyzed-frame column `Recommendation` → `Score Band` across
+  its only three consumers (console table, Excel "Decision Analysis" sheet,
+  snapshot writer). The SQLite `snapshots.recommendation` storage column
+  keeps its name (schema-stable) and is now fed the band value, with a
+  fallback to a legacy `Recommendation` column if present.
+
+### Rationale (measured)
+
+- The two engines disagreed on **8.9%** of names (45 of 503 S&P 500
+  companies), and the disagreement was **100% one-directional**:
+  `Decision = Comprar/Acumular` while `Recommendation = Manter`, always on
+  the screener's top candidates (INTU, ADBE, TROW, NVDA, QCOM, PYPL…). Those
+  names carry Investment Score 65–70 (below Recommendation's 70 "Acumular"
+  cut) but Opportunity/Conviction 77–95. Two star-rated verdicts side by side
+  contradicting each other on the exact names the tool surfaces as buys was
+  the core trust problem; now only `Decision` makes the call.
+- Behavior-preserving for `Decision`, scores and every other engine — only
+  the demoted signal's label/column changed.
+
+
 ## Criteria-driven watchlist logic (propose + derived triggers)
 
 ### Added
