@@ -8,11 +8,13 @@ from typing import Any
 @dataclass(frozen=True)
 class SellPriorityItem:
     """
-    Classificação individual de um holding da carteira atual.
+    Apresentação individual de uma ação do rebalance oficial da carteira.
 
-    `action` é SELL quando o holding tem ao menos um Deal Breaker ativo,
-    HOLD caso contrário. Não é uma sugestão de peso -- apenas prioridade.
-    `current_weight` é informativo (peso atual real), nunca um alvo.
+    `action`, `reason`, `triggered_rules` e `priority` são copiados do
+    `PortfolioReport.rebalance`; esta camada nunca deriva uma segunda decisão
+    de venda. `current_weight` é informativo (peso atual real), nunca um alvo.
+    `deal_breakers` preserva o diagnóstico do ranking para explicabilidade,
+    mas não determina a ação.
     """
 
     symbol: str
@@ -20,6 +22,10 @@ class SellPriorityItem:
     action: str
     deal_breakers: tuple[str, ...] = ()
     current_weight: float | None = None
+    reason: str = ""
+    triggered_rules: tuple[str, ...] = ()
+    missing_data: tuple[str, ...] = ()
+    priority: int = 100
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -28,6 +34,10 @@ class SellPriorityItem:
             "action": self.action,
             "deal_breakers": list(self.deal_breakers),
             "current_weight": self.current_weight,
+            "reason": self.reason,
+            "triggered_rules": list(self.triggered_rules),
+            "missing_data": list(self.missing_data),
+            "priority": self.priority,
         }
 
 
