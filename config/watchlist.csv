@@ -1,42 +1,41 @@
-symbol
-MSFT
-GOOGL
-AMZN
-META
-ADBE
-CRM
-ORCL
-NOW
-
-NVDA
-AMD
-AVGO
-QCOM
-TXN
-MU
-
-JPM
-GS
-MS
-BAC
-BLK
-
-LMT
-RTX
-NOC
-GD
-
-XOM
-CVX
-SLB
-
-UNH
-JNJ
-ABBV
-ISRG
-
-PG
-KO
-PEP
-COST
-WMT
+symbol,name,included_at,note,trigger_condition
+NEM,"Newmont Corporation",2026-07-14,"Screener S&P500 #1 - Basic Materials - Investment Score 79.8",
+FSLR,"First Solar, Inc.",2026-07-14,"Screener S&P500 #2 - Technology - Investment Score 76.6",
+MU,"Micron Technology, Inc.",2026-07-14,"Screener S&P500 #3 - Technology - Investment Score 76.5",
+DECK,"Deckers Outdoor Corporation",2026-07-14,"Screener S&P500 #4 - Consumer Cyclical - Investment Score 74.3",
+CF,"CF Industries Holdings, Inc.",2026-07-14,"Screener S&P500 #5 - Basic Materials - Investment Score 71.8",
+CTSH,"Cognizant Technology Solutions Corporation",2026-07-14,"Screener S&P500 #6 - Technology - Investment Score 70.9",
+EOG,"EOG Resources, Inc.",2026-07-14,"Screener S&P500 #7 - Energy - Investment Score 70.3",
+INTU,"Intuit Inc.",2026-07-14,"Screener S&P500 #8 - Technology - Investment Score 69.9",
+TROW,"T. Rowe Price Group, Inc.",2026-07-14,"Screener S&P500 #10 - Financial Services - Investment Score 68.2",
+INCY,"Incyte Corporation",2026-07-14,"Screener S&P500 #11 - Healthcare - Investment Score 68.2",
+PYPL,"PayPal Holdings, Inc.",2026-07-14,"Screener S&P500 #12 - Financial Services - Investment Score 68.0",
+PHM,"PulteGroup, Inc.",2026-07-14,"Screener S&P500 #14 - Consumer Cyclical - Investment Score 67.9",
+EXE,"Expand Energy Corporation",2026-07-14,"Screener S&P500 #15 - Energy - Investment Score 67.9",
+HIG,"The Hartford Insurance Group, Inc.",2026-07-14,"Screener S&P500 #16 - Financial Services - Investment Score 67.7",
+RMD,"ResMed Inc.",2026-07-14,"Screener S&P500 #18 - Healthcare - Investment Score 66.4",
+AOS,"A. O. Smith Corporation",2026-07-14,"Screener S&P500 #20 - Industrials - Investment Score 65.8",
+AMP,"Ameriprise Financial, Inc.",2026-07-14,"Screener S&P500 #21 - Financial Services - Investment Score 65.8",
+REGN,"Regeneron Pharmaceuticals, Inc.",2026-07-14,"Screener S&P500 #22 - Healthcare - Investment Score 65.7",
+GILD,"Gilead Sciences, Inc.",2026-07-14,"Screener S&P500 #23 - Healthcare - Investment Score 65.6",
+COP,"ConocoPhillips",2026-07-14,"Screener S&P500 #24 - Energy - Investment Score 65.3",
+GOOG,"Alphabet Inc.",2026-07-14,"Screener S&P500 #26 - Communication Services - Investment Score 64.9",
+CPRT,"Copart, Inc.",2026-07-14,"Screener S&P500 #27 - Industrials - Investment Score 64.9",
+GOOGL,"Alphabet Inc.",2026-07-14,"Screener S&P500 #28 - Communication Services - Investment Score 64.8",
+DVN,"Devon Energy Corporation",2026-07-14,"Screener S&P500 #30 - Energy - Investment Score 63.4",
+SNA,"Snap-on Incorporated",2026-07-14,"Screener S&P500 #32 - Industrials - Investment Score 62.9",
+META,"Meta Platforms, Inc.",2026-07-14,"Screener S&P500 #36 - Communication Services - Investment Score 62.0",
+EME,"EMCOR Group, Inc.",2026-07-14,"Screener S&P500 #37 - Industrials - Investment Score 62.0",
+DHI,"D.R. Horton, Inc.",2026-07-14,"Screener S&P500 #42 - Consumer Cyclical - Investment Score 61.4",
+BF-B,"Brown-Forman Corporation",2026-07-14,"Screener S&P500 #43 - Consumer Defensive - Investment Score 60.8",
+BKNG,"Booking Holdings Inc.",2026-07-14,"Screener S&P500 #44 - Consumer Cyclical - Investment Score 60.8",
+FOX,"Fox Corporation",2026-07-14,"Screener S&P500 #45 - Communication Services - Investment Score 60.7",
+FCX,"Freeport-McMoRan Inc.",2026-07-14,"Screener S&P500 #49 - Basic Materials - Investment Score 60.0",
+NUE,"Nucor Corporation",2026-07-14,"Screener S&P500 #61 - Basic Materials - Investment Score 58.8",
+HST,"Host Hotels & Resorts, Inc.",2026-07-14,"Screener S&P500 #69 - Real Estate - Investment Score 57.8",
+MNST,"Monster Beverage Corporation",2026-07-14,"Screener S&P500 #96 - Consumer Defensive - Investment Score 54.3",
+HRL,"Hormel Foods Corporation",2026-07-14,"Screener S&P500 #116 - Consumer Defensive - Investment Score 52.9",
+DLTR,"Dollar Tree, Inc.",2026-07-14,"Screener S&P500 #132 - Consumer Defensive - Investment Score 51.5",
+CEG,"Constellation Energy Corporation",2026-07-14,"Screener S&P500 #176 - Utilities - Investment Score 47.7",
+ATO,"Atmos Energy Corporation",2026-07-14,"Screener S&P500 #184 - Utilities - Investment Score 47.0",
+CSGP,"CoStar Group, Inc.",2026-07-14,"Screener S&P500 #192 - Real Estate - Investment Score 46.4",

@@ -9,6 +9,7 @@ import pandas as pd
 
 from analytics.history import earnings_between_runs
 from ranking.models import RankingReport
+from reports.atlas_report.broad_screener import BroadScreenerSummary, load_broad_screener_summary
 from reports.atlas_report.diagnostics import extract_status_conflicts
 from reports.atlas_report.ticker_detail import TickerDetail, anchor_id, build_ticker_detail
 from universe.models import UniverseReport
@@ -120,6 +121,7 @@ class ReportContext:
     data_quality: DataQualityFootnote
     engine_conflicts: tuple[str, ...] = ()
     ticker_details: tuple[TickerDetail, ...] = ()
+    broad_screeners: tuple[BroadScreenerSummary, ...] = ()
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
@@ -176,6 +178,8 @@ def build_report_context(
     score_history: pd.DataFrame | None = None,
     features_path: Path | None = None,
     model_path: Path | None = None,
+    broad_market_report_path: Path | None = None,
+    adr_report_path: Path | None = None,
 ) -> ReportContext:
     """
     Monta o contexto de apresentação a partir dos objetos que os motores já
@@ -409,6 +413,24 @@ def build_report_context(
     else:
         screener = ScreenerSummary(included=False)
 
+    # --- screeners de Mercado Amplo / ADR -- só lê o resultado da última
+    # coleta manual (universe.collector), nunca dispara coleta nova (leva
+    # horas, ver reports/atlas_report/broad_screener.py) -------------------
+    as_of_for_screeners = pd.Timestamp(snapshot_date)
+    broad_screeners: list[BroadScreenerSummary] = []
+    if broad_market_report_path is not None:
+        broad_screeners.append(
+            load_broad_screener_summary(
+                "Mercado Amplo", broad_market_report_path, as_of=as_of_for_screeners
+            )
+        )
+    if adr_report_path is not None:
+        broad_screeners.append(
+            load_broad_screener_summary(
+                "ADR", adr_report_path, as_of=as_of_for_screeners
+            )
+        )
+
     average_coverage = (
         universe_report.average_data_coverage_pct
         if universe_report is not None
@@ -450,4 +472,5 @@ def build_report_context(
         ),
         engine_conflicts=extract_status_conflicts(status_md_text),
         ticker_details=tuple(ticker_details),
+        broad_screeners=tuple(broad_screeners),
     )

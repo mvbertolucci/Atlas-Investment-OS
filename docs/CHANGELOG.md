@@ -1,5 +1,32 @@
 # Changelog
 
+## Broad-market/ADR screener results surfaced in the main Atlas Report
+
+### Added
+
+- `reports/atlas_report/broad_screener.py::load_broad_screener_summary` reads
+  the already-generated `output/research_ranking_report_market.json`/`_adr.json`
+  (same files `ranking/pipeline.py` persists for the 3 screeners and
+  `reports/research_html.py` already renders standalone) and surfaces a
+  "Screeners amplos" section in `run_all.py --full`: total/eligible/candidate
+  counts, blocked-by-reason breakdown, top 10 diversified candidates per
+  screener, collection age, and a staleness alert past 35 days.
+- Collection itself stays a separate manual step
+  (`python -m universe.collector --market`/`--adr`) — it takes hours over
+  thousands of symbols (measured ~0.4 companies/sec against the live
+  provider) and cannot run inline on every `--full` invocation. This only
+  reads the last completed snapshot; missing/corrupt files degrade to
+  "não incluído neste run", never an error.
+
+### Also in this change
+
+- Replaced `config/watchlist.csv` with a 40-symbol list, diversified across
+  all 11 sectors present in the fresh S&P 500 screener run (top 4 by
+  `sector_rank`, 2 sectors capped naturally at their size), each row
+  carrying `included_at`/`note` (screener rank, sector, Investment Score)
+  so `watchlist/aging.py` has a real starting point. `trigger_condition`
+  left blank — no threshold invented per symbol.
+
 ## Per-ticker decision detail embedded in the main Atlas Report
 
 ### Added
