@@ -6,7 +6,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DASHBOARD_PATH = ROOT / "output" / "dashboard.json"
+DEFAULT_DASHBOARD_PATH = ROOT / "output" / "dados" / "dashboard.json"
 
 
 class ResourceError(Exception):

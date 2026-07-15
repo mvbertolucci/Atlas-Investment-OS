@@ -103,13 +103,13 @@
 
 - [x] Define a read-only dashboard contract (`dashboard/`, see `docs/DASHBOARD_CONTRACT.md`)
 - [x] Expose company, portfolio and outcome views without changing decisions
-      (`run_all.py` emits `output/dashboard.json`, guarded by `dashboard_enabled`)
+      (`run_all.py` emits `output/dados/dashboard.json`, guarded by `dashboard_enabled`)
 - [x] Read-only REST API over the contract (`api/`, stdlib, no new dependency;
       see `docs/API_CONTRACT.md`). Optional later: FastAPI/OpenAPI, auth.
 - [x] Read-only Python SDK (`sdk/`, HTTP or offline file transport;
       see `docs/SDK.md`)
 - [x] Sell/buy priority classification, on demand (`priority/`, CLI +
-      `output/priority_report.json` + API `/priority` + SDK; no weight or
+      `output/dados/priority_report.json` + API `/priority` + SDK; no weight or
       sector construction -- see `docs/PRIORITY_REPORT.md`)
 
 ### Portfolio workflow
@@ -140,7 +140,7 @@
       - `ranking.RankedCompany.already_held` (and the existing
         `priority.BuyPriorityItem.already_held`) flag every portfolio-origin
         row, so a real holding is never presented as an ordinary fresh
-        candidate in `output/ranking_report.json` or the buy screener
+        candidate in `output/dados/ranking_report.json` or the buy screener
 
 ### Analytical-method priority
 

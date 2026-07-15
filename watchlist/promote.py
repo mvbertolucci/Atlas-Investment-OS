@@ -11,7 +11,7 @@ from typing import Any
 from watchlist.exceptions import WatchlistError
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_SOURCE_PATH = ROOT / "output" / "ranking_report.json"
+DEFAULT_SOURCE_PATH = ROOT / "output" / "dados" / "ranking_report.json"
 DEFAULT_WATCHLIST_PATH = ROOT / "config" / "watchlist.csv"
 
 

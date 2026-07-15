@@ -342,6 +342,7 @@ def write_latest_and_history(
     output_dir: Path,
     portfolio_report: PortfolioReport | None = None,
     outcome_report: OutcomeAnalyticsReport | None = None,
+    database_path: Path | None = None,
 ) -> tuple[Path, Path | None]:
     """
     Gera o arquivo Excel histórico da execução e atualiza latest.xlsx.
@@ -378,9 +379,6 @@ def write_latest_and_history(
         parents=True,
         exist_ok=True,
     )
-
-    root_dir = output_dir.parent
-    database_path = root_dir / "data" / "atlas_history.db"
 
     timestamp = datetime.now().strftime(
         "%Y-%m-%d_%H-%M-%S"
@@ -479,6 +477,8 @@ def write_latest_and_history(
 
     historical_trends_df, history_summary_df = (
         _build_historical_reports(database_path)
+        if database_path is not None
+        else (pd.DataFrame(), pd.DataFrame())
     )
 
     with pd.ExcelWriter(

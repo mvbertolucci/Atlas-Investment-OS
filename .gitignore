@@ -14,12 +14,20 @@ env/
 logs/*
 !logs/.gitkeep
 
-# Relatórios gerados
+# Relatórios gerados -- separados em relatorios/ (para o usuário: HTML,
+# Excel, Markdown, CSV) e dados/ (contrato JSON interno entre motor e
+# camada de relatório, não pensado para abrir direto).
 output/*
 !output/.gitkeep
-!output/history/
-output/history/*
-!output/history/.gitkeep
+!output/relatorios/
+output/relatorios/*
+!output/relatorios/.gitkeep
+!output/relatorios/history/
+output/relatorios/history/*
+!output/relatorios/history/.gitkeep
+!output/dados/
+output/dados/*
+!output/dados/.gitkeep
 
 # Banco local do usuário
 data/*.db

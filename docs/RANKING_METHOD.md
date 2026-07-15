@@ -55,7 +55,7 @@ Every block is explicit through one or more codes:
 
 ## Output
 
-When enabled, `run_all.py` writes `output/ranking_report.json`, containing the
+When enabled, `run_all.py` writes `output/dados/ranking_report.json`, containing the
 policy, summary, market/sector positions, candidate positions and safeguard
 reasons. This output is diagnostic and advisory. PR-030 will consume it under
 separate, explicit portfolio-construction constraints.
@@ -65,6 +65,6 @@ separate, explicit portfolio-construction constraints.
 The normal `run_all.py` ranking still covers only the configured personal
 watchlist. The explicit `python -m portfolio.model_portfolio` research command
 applies the same ranking contract to the completed, dated broad-universe
-checkpoint and writes `output/research_ranking_report.json`. Ranks always
+checkpoint and writes `output/dados/research_ranking_report.json`. Ranks always
 describe their stated input snapshot; neither scope claims point-in-time
 historical membership.

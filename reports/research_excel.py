@@ -374,6 +374,11 @@ def build_combined_workbook(
     features_path = model_path.parent / "features.yaml"
     bindings_by_factor = _factor_feature_bindings(features_path, model_path)
 
+    # research_ranking_report*.json/model_portfolio_report*.json são o
+    # contrato JSON interno (ver STATUS.md) -- portfolio.model_portfolio os
+    # grava em <output_dir>/dados/, não em <output_dir> diretamente.
+    data_dir = Path(output_dir) / "dados"
+
     summary_rows: list[dict[str, Any]] = []
     position_frames: list[pd.DataFrame] = []
     detail_rows: list[dict[str, Any]] = []
@@ -381,10 +386,10 @@ def build_combined_workbook(
     scored_cache: dict[str, pd.DataFrame] = {}
 
     for label, screener_name, collection_relpath in screeners:
-        ranking = _load_json(_labeled_path(output_dir, "research_ranking_report.json", label))
+        ranking = _load_json(_labeled_path(data_dir, "research_ranking_report.json", label))
         if ranking is None:
             continue
-        portfolio = _load_json(_labeled_path(output_dir, "model_portfolio_report.json", label))
+        portfolio = _load_json(_labeled_path(data_dir, "model_portfolio_report.json", label))
 
         summary_rows.append(_summary_row(screener_name, ranking, portfolio))
         if portfolio is not None:
@@ -404,7 +409,7 @@ def build_combined_workbook(
     if not summary_rows:
         raise FileNotFoundError(
             "Nenhum research_ranking_report*.json encontrado em "
-            f"{output_dir} -- rode portfolio.model_portfolio primeiro."
+            f"{data_dir} -- rode portfolio.model_portfolio primeiro."
         )
 
     summary_df = pd.DataFrame(summary_rows)
@@ -439,18 +444,23 @@ def main() -> None:
     )
     parser.add_argument(
         "--output-dir", default=str(ROOT / "output"),
-        help="Diretório onde estão os research_ranking_report*.json.",
+        help=(
+            "Diretório raiz de output (contém dados/, onde estão os "
+            "research_ranking_report*.json)."
+        ),
     )
     parser.add_argument(
         "--output", default=None,
         help="Caminho do arquivo Excel de saída. Default: "
-        "<output-dir>/research_screeners_combined.xlsx.",
+        "<output-dir>/relatorios/research_screeners_combined.xlsx.",
     )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
     output_path = (
-        Path(args.output) if args.output else output_dir / "research_screeners_combined.xlsx"
+        Path(args.output)
+        if args.output
+        else output_dir / "relatorios" / "research_screeners_combined.xlsx"
     )
     result = build_combined_workbook(DEFAULT_SCREENERS, output_dir, output_path)
     print(f"Excel combinado gerado em {result}")

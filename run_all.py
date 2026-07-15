@@ -95,21 +95,27 @@ from watchlist import (
 ROOT = Path(__file__).resolve().parent
 CONFIG = ROOT / "config"
 OUTPUT = ROOT / "output"
+# Separação "para você" vs "não é para você" (ver STATUS.md): relatorios/ só
+# tem artefatos pensados para leitura humana (HTML, Excel, Markdown);
+# dados/ só tem os contratos JSON internos entre motor e camada de
+# relatório -- nunca pensados para abrir direto.
+OUTPUT_REPORTS = OUTPUT / "relatorios"
+OUTPUT_DATA = OUTPUT / "dados"
 DATA = ROOT / "data"
 LOGS = ROOT / "logs"
 
 HISTORY_DATABASE = DATA / "atlas_history.db"
-MORNING_BRIEF_FILE = OUTPUT / "morning_brief.md"
+MORNING_BRIEF_FILE = OUTPUT_REPORTS / "morning_brief.md"
 EXECUTION_METRICS_FILE = LOGS / "execution_metrics.csv"
-PORTFOLIO_REPORT_FILE = OUTPUT / "portfolio_report.json"
-OUTCOME_REPORT_FILE = OUTPUT / "outcome_report.json"
-DASHBOARD_REPORT_FILE = OUTPUT / "dashboard.json"
-PRIORITY_REPORT_FILE = OUTPUT / "priority_report.json"
-PERFORMANCE_VALIDATION_FILE = OUTPUT / "performance_validation.json"
-RESEARCH_RANKING_REPORT_FILE = OUTPUT / "research_ranking_report.json"
-UNIVERSE_REPORT_FILE = OUTPUT / "universe_report.json"
-RANKING_REPORT_FILE = OUTPUT / "ranking_report.json"
-WATCHLIST_REPORT_FILE = OUTPUT / "watchlist_report.json"
+PORTFOLIO_REPORT_FILE = OUTPUT_DATA / "portfolio_report.json"
+OUTCOME_REPORT_FILE = OUTPUT_DATA / "outcome_report.json"
+DASHBOARD_REPORT_FILE = OUTPUT_DATA / "dashboard.json"
+PRIORITY_REPORT_FILE = OUTPUT_DATA / "priority_report.json"
+PERFORMANCE_VALIDATION_FILE = OUTPUT_DATA / "performance_validation.json"
+RESEARCH_RANKING_REPORT_FILE = OUTPUT_DATA / "research_ranking_report.json"
+UNIVERSE_REPORT_FILE = OUTPUT_DATA / "universe_report.json"
+RANKING_REPORT_FILE = OUTPUT_DATA / "ranking_report.json"
+WATCHLIST_REPORT_FILE = OUTPUT_DATA / "watchlist_report.json"
 
 logger = get_logger("run_all")
 
@@ -688,9 +694,10 @@ def generate_excel_reports(
 
     history_file, latest_file = write_latest_and_history(
         df,
-        OUTPUT,
+        OUTPUT_REPORTS,
         portfolio_report=portfolio_report,
         outcome_report=outcome_report,
+        database_path=HISTORY_DATABASE,
     )
 
     logger.info(
@@ -1031,7 +1038,7 @@ def run_ticker_mode(symbol: str, settings: dict) -> Path:
     html = page_shell(f"Atlas One-Pager — {symbol}", body)
 
     date_stamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
-    path = write_one_pager(html, OUTPUT, symbol, date_stamp)
+    path = write_one_pager(html, OUTPUT_REPORTS, symbol, date_stamp)
     print(f"One-pager de {symbol} gerado em {path}")
     logger.info("One-pager de %s gerado em %s.", symbol, path)
     return path
@@ -1129,8 +1136,8 @@ def main() -> None:
                 settings,
                 universe_report,
             )
-            broad_market_report_path = OUTPUT / "research_ranking_report_market.json"
-            adr_report_path = OUTPUT / "research_ranking_report_adr.json"
+            broad_market_report_path = OUTPUT_DATA / "research_ranking_report_market.json"
+            adr_report_path = OUTPUT_DATA / "research_ranking_report_adr.json"
         else:
             universe_report = None
             ranking_report = None
@@ -1294,7 +1301,7 @@ def main() -> None:
         )
         atlas_report_dated, atlas_report_latest = write_report(
             render_report(report_context),
-            OUTPUT,
+            OUTPUT_REPORTS,
             run_at.strftime("%Y-%m-%d"),
         )
 

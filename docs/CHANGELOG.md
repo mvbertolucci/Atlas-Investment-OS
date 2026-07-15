@@ -1,5 +1,54 @@
 # Changelog
 
+## Separate output/relatorios (for you) from output/dados (internal contract)
+
+### Changed
+
+- The user's complaint: `output/*.json` files aren't meant to be opened
+  directly (some reach 3-4MB) -- only HTML/Excel/Markdown/CSV are. `output/`
+  now has two fixed subdirectories:
+  - `output/relatorios/` -- atlas_report_*.html, atlas_report_latest.html,
+    per-ticker one-pagers, morning_brief.md, latest.xlsx + history/
+    snapshots, research_report*.html, research_screeners_combined*.xlsx,
+    research_candidates*.csv.
+  - `output/dados/` -- every JSON contract between an engine and the
+    report layer: portfolio/outcome/dashboard/priority/performance
+    validation/universe/ranking/watchlist reports, plus the broad-screener
+    research_universe/research_ranking/model_portfolio JSON files.
+- `run_all.py` gained `OUTPUT_REPORTS`/`OUTPUT_DATA` constants; every
+  existing file-path constant now points into one or the other.
+  `portfolio/model_portfolio.py::build_from_collection` routes its own
+  writes the same way (`dados/` for JSON, `relatorios/` for CSV/HTML)
+  without any signature change -- `output_dir` still means "the root",
+  just split internally.
+- Read-only consumers updated to the new `dados/` location:
+  `watchlist/promote.py::DEFAULT_SOURCE_PATH`, `priority/cli.py` defaults,
+  `api/resources.py::DEFAULT_DASHBOARD_PATH`.
+  `reports/research_excel.py::build_combined_workbook` now reads from
+  `<output_dir>/dados/` and its CLI defaults the combined workbook to
+  `<output_dir>/relatorios/`.
+
+### Fixed
+
+- `reports/excel.py::write_latest_and_history` derived the historical
+  database path via `output_dir.parent` -- a latent bug that assumed
+  `output_dir` was always a direct child of the project root. Moving the
+  Excel output to `output/relatorios/` would have silently pointed it at
+  `output/data/atlas_history.db` (wrong) instead of `data/atlas_history.db`
+  (correct). Fixed by accepting `database_path` as an explicit parameter;
+  `run_all.py` now passes `HISTORY_DATABASE` directly, decoupling the
+  historical-lookup from wherever the output directory happens to live.
+
+### Validation
+
+- Existing `output/` contents migrated in place into the new structure
+  (no data lost, just moved).
+- Full suite green (6 pre-existing tests updated to assert the new nested
+  paths instead of the old flat ones).
+- `.gitignore` extended with the same negate-then-reignore pattern already
+  used for `output/history/`, applied to both new subdirectories plus the
+  relocated `output/relatorios/history/`.
+
 ## Fix Carteira section suppressed entirely when the sell engine is blocked
 
 ### Fixed

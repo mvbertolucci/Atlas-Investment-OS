@@ -59,7 +59,7 @@ The analytical track now defines a versioned U.S. liquid-equity research
 universe. The Market Mapper publishes `output/universe_report.json` and the
 Dashboard market view without filtering the existing scoring pipeline.
 Eligible companies are ranked using existing Atlas scores and absolute
-Deal-Breaker safeguards in `output/ranking_report.json`.
+Deal-Breaker safeguards in `output/dados/ranking_report.json`.
 The broad research snapshot has a resumable batch collector; normal
 `run_all.py` executions still use the smaller personal watchlist.
 The point-in-time contract feeds a deterministic walk-forward replay mechanism.

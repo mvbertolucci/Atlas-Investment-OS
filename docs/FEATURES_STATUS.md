@@ -32,7 +32,7 @@
 
 With `config/portfolio.csv`, Atlas creates:
 
-- `output/portfolio_report.json`;
+- `output/dados/portfolio_report.json`;
 - `Portfolio Summary` worksheet;
 - `Portfolio Allocation` worksheet;
 - `Portfolio Concentration` worksheet;

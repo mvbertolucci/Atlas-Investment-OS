@@ -85,7 +85,7 @@
 
 **Cadência não é agendada por código** — nenhum cron/scheduler encontrado; `docs/UNIVERSE_COLLECTION.md:64` e `docs/ROADMAP.md:69`/`docs/BACKLOG.md:336` confirmam: "Scheduling (deferred until analytical validation)". `run_all.py` não tem flag `--universe`; screeners broad/ADR/S&P500 rodam via módulos separados (`universe.collector`, `universe.sources`).
 
-**Resultado de Mercado Amplo/ADR surfaceado (não re-coletado) no Atlas Report** — a coleta em si continua manual/separada (milhares de símbolos, ~horas de runtime, ver acima); `reports/atlas_report/broad_screener.py::load_broad_screener_summary` só LÊ `output/research_ranking_report_market.json`/`_adr.json` (o mesmo arquivo que `ranking/pipeline.py` já persiste para os 3 screeners, consumido também por `reports/research_html.py`) e resume idade da coleta + top candidatos diversificados por setor. `run_all.py::main` passa esses paths para `build_report_context` só em `mode == "full"`. Alerta de "coleta desatualizada" quando `age_days > 35` (folga sobre a cadência mensal pretendida). Arquivo ausente/ilegível vira seção "não incluído", nunca erro.
+**Resultado de Mercado Amplo/ADR surfaceado (não re-coletado) no Atlas Report** — a coleta em si continua manual/separada (milhares de símbolos, ~horas de runtime, ver acima); `reports/atlas_report/broad_screener.py::load_broad_screener_summary` só LÊ `output/dados/research_ranking_report_market.json`/`_adr.json` (o mesmo arquivo que `ranking/pipeline.py` já persiste para os 3 screeners, consumido também por `reports/research_html.py`) e resume idade da coleta + top candidatos diversificados por setor. `run_all.py::main` passa esses paths para `build_report_context` só em `mode == "full"`. Alerta de "coleta desatualizada" quando `age_days > 35` (folga sobre a cadência mensal pretendida). Arquivo ausente/ilegível vira seção "não incluído", nunca erro.
 
 ---
 
@@ -107,13 +107,40 @@
 | Módulos | `reports/atlas_report/context.py` (monta `ReportContext` só lendo o que os motores já produziram), `render.py` (HTML self-contido, CSS inline, zero dependência externa), `write.py` (grava arquivo), `one_pager.py` (relatório por ticker, `--ticker`), `diagnostics.py` (extrai alertas de conflito do próprio STATUS.md), `ticker_detail.py`+`formulas.py`+`svg.py` (seção de detalhe por ticker embutida no relatório principal, ver abaixo) |
 | Regra central | O relatório não calcula nem decide nada — `Decision`/`action`/scores vêm prontos dos motores; ausência de razão textual cai em fallback `"razão: motor pendente"`, nunca inventado |
 | Wiring | `run_all.py::main` chama `build_report_context`+`render_report`+`write_report` para os modos `--full` e `--portfolio`; `--ticker` usa `one_pager.py` à parte |
-| Saída | `output/atlas_report_AAAA-MM-DD.html` + `output/atlas_report_latest.html` (formato de nome mudou de timestamp completo para data nesta sessão) |
+| Saída | `output/relatorios/atlas_report_AAAA-MM-DD.html` + `output/relatorios/atlas_report_latest.html` |
 | Seção Diagnóstico | Lê o texto de STATUS.md em runtime (`run_all.py::_read_status_md`) e conta marcadores que o próprio documento já usa (`### ⚠️ Conflitos sinalizados`, `CONFLITO A RESOLVER` em linhas de tabela) — exibe alerta "N conflito(s) sinalizado(s) em STATUS.md", nunca reinterpreta o conteúdo |
 | Seção Detalhe por ativo | Cada símbolo de carteira/watchlist ganha uma seção ancorada (`ticker-SYMBOL`) com: decomposição do score (mesma função `compute_symbol_contributions` do one-pager) + fórmula/inputs brutos/interpretação por threshold já em produção (`formulas.py`, sincronizado a mão com a seção 2 deste arquivo); status de cada regra de venda (`rule_results` do `sell_rules.py`, só quando a posição é holding real); sparkline por métrica só para colunas de fato persistidas em `snapshots` (seção 4); tese da posição com idade e alerta quando `fundamental_decay` disparou. Símbolos nas tabelas de Carteira/Watchlist linkam para a âncora. **Sem link externo** (Yahoo Finance foi cogitado e removido antes do merge — quebrava o contrato de zero dependência externa) |
 | Testes | `tests/test_atlas_report_*.py` — fixture renderiza todas as seções, seção sem dado mostra "não incluído neste run", teste de contrato (pill exibido == `action` do motor), teste que falha se houver `http://`/`https://` em `src`/`href` (agora com uma fixture que de fato popula `ticker_details`, senão o teste nunca exercitava a seção), teste de fallback "motor pendente", teste de alerta de conflito |
 
 ---
 
+## 8. Separação `output/relatorios/` vs `output/dados/`
+
+O usuário observou que os JSONs em `output/` (contrato interno entre motor e
+camada de relatório, alguns chegando a 3-4MB) não são pensados para abrir
+direto — só o HTML/Excel/Markdown/CSV são. `output/` passou a ter dois
+subdiretórios fixos:
+
+| Diretório | Conteúdo | Quem grava |
+|---|---|---|
+| `output/relatorios/` | **Para o usuário abrir**: `atlas_report_*.html`, `atlas_report_latest.html`, `atlas_report_{SYMBOL}_*.html` (one-pager), `morning_brief.md`, `latest.xlsx` + `history/atlas_snapshot_*.xlsx`, `research_report*.html`, `research_screeners_combined*.xlsx`, `research_candidates*.csv` | `run_all.py` (`OUTPUT_REPORTS`) e `portfolio/model_portfolio.py` (`reports_dir`) |
+| `output/dados/` | **Contrato interno, não pensado para leitura direta**: `portfolio_report.json`, `outcome_report.json`, `dashboard.json`, `priority_report.json`, `performance_validation.json`, `universe_report.json`, `ranking_report.json`, `watchlist_report.json`, `research_universe_report*.json`, `research_ranking_report*.json`, `model_portfolio_report*.json` | `run_all.py` (`OUTPUT_DATA`) e `portfolio/model_portfolio.py` (`data_dir`) |
+
+Consumidores read-only atualizados para o novo local em `output/dados/`:
+`watchlist/promote.py::DEFAULT_SOURCE_PATH`, `priority/cli.py` (2 defaults),
+`api/resources.py::DEFAULT_DASHBOARD_PATH`. `reports/research_excel.py`
+(combina os 3 screeners) lê de `<output_dir>/dados/` e escreve o Excel
+combinado em `<output_dir>/relatorios/`.
+
+Efeito colateral corrigido: `reports/excel.py::write_latest_and_history`
+derivava o caminho do `atlas_history.db` via `output_dir.parent` (assumia
+que `output_dir` era filho direto do ROOT do projeto) — quebraria
+silenciosamente ao mover o Excel para `output/relatorios/`. Agora recebe
+`database_path` como parâmetro explícito (`run_all.py` passa
+`HISTORY_DATABASE`), decoplado da localização do diretório de saída.
+
+---
+
 ## Última atualização
 - **Data**: 2026-07-15
-- **Commit**: pendente (fix(portfolio): Carteira não é mais suprimida quando o motor de venda está bloqueado; inclui também fix(watchlist): fonte das propostas passa do ranking_report estreito para os screeners amplos)
+- **Commit**: pendente (`refactor(output): separate output/relatorios (para o usuário) de output/dados (contrato interno)`)

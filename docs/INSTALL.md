@@ -35,9 +35,9 @@ Atlas creates local runtime files:
 data/atlas_history.db
 logs/atlas.log
 logs/execution_metrics.csv
-output/latest.xlsx
-output/morning_brief.md
-output/history/
+output/relatorios/latest.xlsx
+output/relatorios/morning_brief.md
+output/relatorios/history/
 ```
 
 They are intentionally ignored by Git.

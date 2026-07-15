@@ -456,23 +456,29 @@ def build_from_collection(
         collection_updated_at=state.updated_at,
         excluded_failures=excluded_failures,
     )
+    # Mesma separação "para você" vs "não é para você" de run_all.py (ver
+    # STATUS.md): JSON crus (research_universe/ranking/model_portfolio) são
+    # contrato interno entre coleta e camada de relatório, ilegíveis crus
+    # (chegam a 3-4MB); CSV/HTML são os artefatos pensados para abrir.
     outputs = Path(output_dir)
+    data_dir = outputs / "dados"
+    reports_dir = outputs / "relatorios"
     write_universe_report(
         universe_report,
-        outputs / _labeled_filename("research_universe_report.json", output_label),
+        data_dir / _labeled_filename("research_universe_report.json", output_label),
     )
     write_ranking_report(
         ranking_report,
-        outputs / _labeled_filename("research_ranking_report.json", output_label),
+        data_dir / _labeled_filename("research_ranking_report.json", output_label),
     )
     write_candidate_ranking_csv(
         ranking_report,
-        outputs / _labeled_filename("research_candidates.csv", output_label),
+        reports_dir / _labeled_filename("research_candidates.csv", output_label),
         metadata=metadata,
     )
     write_model_portfolio_report(
         report,
-        outputs / _labeled_filename("model_portfolio_report.json", output_label),
+        data_dir / _labeled_filename("model_portfolio_report.json", output_label),
     )
 
     screener_display_name = {
@@ -486,7 +492,7 @@ def build_from_collection(
             report.to_dict(),
             label=screener_display_name,
         ),
-        outputs / _labeled_filename("research_report.html", output_label),
+        reports_dir / _labeled_filename("research_report.html", output_label),
     )
     return report
 

@@ -64,7 +64,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 
 - `config/portfolio.csv` is optional.
 - When absent, the company pipeline continues normally.
-- When present and valid, Atlas builds `output/portfolio_report.json`.
+- When present and valid, Atlas builds `output/dados/portfolio_report.json`.
 - Excel includes six conditional portfolio worksheets.
 - Morning Brief includes portfolio allocation, concentration, position
   highlights, warnings and advisory rebalance actions.
@@ -148,7 +148,7 @@ scoring documented with a `watchlist_drift` safeguard — see
 read-only Platform increments, each its own merged PR:
 
 - Dashboard contract — `dashboard/` (`docs/DASHBOARD_CONTRACT.md`).
-- Expose views — `run_all.py` emits `output/dashboard.json` (guarded by
+- Expose views — `run_all.py` emits `output/dados/dashboard.json` (guarded by
   `dashboard_enabled`).
 - REST API — `api/`, stdlib only, read-only (`docs/API_CONTRACT.md`).
 - Python SDK — `sdk/`, HTTP or offline-file transport (`docs/SDK.md`).
@@ -157,7 +157,7 @@ Every increment is additive/read-only: no score, decision or existing output
 changed. The analytical-method track now has priority: PR-027 defines the
 market-universe contract; PR-028 integrates provider metadata, publishes
 `output/universe_report.json` and exposes it in Dashboard `market`. PR-029 is
-complete: it publishes `output/ranking_report.json`, with market/sector ranks
+complete: it publishes `output/dados/ranking_report.json`, with market/sector ranks
 and governed candidate safeguards. PR-030A adds the required broad source:
 503 dated S&P 500 share classes in a separate research snapshot. PR-030B adds
 checkpointed batch collection. PR-031 constructs a constrained, advisory model
@@ -191,7 +191,7 @@ track (none of it changes governed scoring):
   holdings, ranked by Investment Score, SELL/HOLD by Deal Breaker presence)
   and buy priority (screener candidates, ranked by `candidate_rank`) --
   pure classification, no target weight, no sector cap. CLI
-  (`python -m priority.cli`), `output/priority_report.json`, API
+  (`python -m priority.cli`), `output/dados/priority_report.json`, API
   (`/priority`), SDK. See `docs/PRIORITY_REPORT.md`.
 - **Two more screeners**: the broad US-market screener
   (`config/universe_market.yaml`, NASDAQ Trader source, USD 300 million

@@ -15,14 +15,14 @@ The command is explicit and remains separate from `run_all.py`:
 It writes four ignored runtime artifacts:
 
 - `output/research_universe_report.json` — eligibility of all observations;
-- `output/research_ranking_report.json` — broad market and sector ranking;
-- `output/research_candidates.csv` — the full candidate group (every company
+- `output/dados/research_ranking_report.json` — broad market and sector ranking;
+- `output/relatorios/research_candidates.csv` — the full candidate group (every company
   that passed the ranking safeguards), one row each, ordered by
   `candidate_rank` (the model's suggested purchase order), enriched with name,
   sector, industry, the four scores, market/sector rank, price and market cap.
   This goes beyond the 20 selected positions: it is the complete ranked
   shortlist to buy from.
-- `output/model_portfolio_report.json` — constrained advisory selection.
+- `output/dados/model_portfolio_report.json` — constrained advisory selection.
 
 ## Running over a different screener
 

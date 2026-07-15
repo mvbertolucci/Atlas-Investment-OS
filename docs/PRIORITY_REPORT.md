@@ -24,7 +24,7 @@ esses artefatos já computados.
   sem Deal Breaker, confiança mínima). `already_held` sinaliza quando o
   candidato já está na carteira atual (via `held_symbols`, derivado do
   `PortfolioReport` real). `RankedCompany.already_held` (a mesma flag, na
-  origem, em `output/ranking_report.json`) usa a mesma ideia mas a coluna
+  origem, em `output/dados/ranking_report.json`) usa a mesma ideia mas a coluna
   `origin` diretamente -- ver `docs/RANKING_METHOD.md#universe-provenance`.
 
 ## Como consultar
@@ -40,12 +40,12 @@ python -m priority.cli --json                # imprime o relatório completo em 
 python -m priority.cli --output out.json     # também grava em arquivo
 ```
 
-Lê `output/ranking_report.json` (venda), `output/research_ranking_report.json`
+Lê `output/dados/ranking_report.json` (venda), `output/dados/research_ranking_report.json`
 (compra, opcional -- ausente se o screener amplo ainda não rodou) e
 `config/portfolio.csv` (para saber o que já está na carteira). Todos os
 caminhos podem ser sobrescritos por flag.
 
-**Artefato**: `output/priority_report.json`, emitido a cada `run_all.py`
+**Artefato**: `output/dados/priority_report.json`, emitido a cada `run_all.py`
 (guardado por `priority_enabled`, default `true`).
 
 **API**: `/priority`, `/priority/sell`, `/priority/buy` (read-only, GET).
