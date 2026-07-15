@@ -82,6 +82,51 @@ def test_enrich_portfolio_links_reports_and_missing_market_data(
     assert bbb.company_report is not None
 
 
+def _portfolio_file_without_thesis(tmp_path: Path) -> Path:
+    path = tmp_path / "portfolio_no_thesis.csv"
+    pd.DataFrame(
+        {
+            "symbol": ["AAA", "BBB"],
+            "quantity": [10, 5],
+            "average_price": [10, 20],
+            "current_price": [None, 24],
+            "currency": ["USD", "BRL"],
+            "sector": ["", "Financials"],
+            "country": ["", "Brazil"],
+            "thesis": ["", ""],
+        }
+    ).to_csv(path, index=False)
+    return path
+
+
+def test_missing_thesis_still_shows_scores_read_only_via_revisar(
+    tmp_path: Path,
+) -> None:
+    """
+    Regressão: SellEngineBlockedError (posição real sem tese) não pode mais
+    suprimir a seção Carteira inteira -- só a decisão de venda fica
+    indisponível. build_portfolio_intelligence nunca propaga a exceção;
+    troca o plano por REVISAR/holding, preservando score/qualidade/alocação
+    visíveis no relatório.
+    """
+    report = build_portfolio_intelligence(
+        _portfolio_file_without_thesis(tmp_path),
+        _analysis_frame(),
+        portfolio_name="Test Portfolio",
+    )
+
+    assert report.summary["holdings_count"] == 2
+    assert report.summary["quality_score"] is not None
+    actions = report.rebalance["actions"]
+    assert len(actions) == 2
+    assert {a["action"] for a in actions} == {"REVISAR"}
+    assert all("tese ausente" in a["reason"] for a in actions)
+    assert any(
+        w.startswith("Motor de venda bloqueado")
+        for w in report.warnings
+    )
+
+
 def test_build_portfolio_intelligence_runs_all_engines(
     tmp_path: Path,
 ) -> None:

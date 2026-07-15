@@ -47,7 +47,6 @@ from portfolio.pipeline import (
     build_portfolio_intelligence,
     write_portfolio_report,
 )
-from portfolio.rebalance import SellEngineBlockedError
 from portfolio.report import PortfolioReport
 from portfolio.sell_rules import SellRulesPolicy, load_sell_rules_policy
 from providers.yahoo import fetch_watchlist
@@ -760,36 +759,28 @@ def generate_portfolio_intelligence(
         portfolio_path,
     )
 
-    try:
-        report = build_portfolio_intelligence(
-            portfolio_path,
-            df,
-            portfolio_name=settings.get("portfolio_name"),
-            cash=float(settings.get("portfolio_cash", 0.0)),
-            currency=settings.get("portfolio_currency", "BRL"),
-            rebalance_mode=settings.get(
-                "portfolio_rebalance_mode", "sell_only"
-            ),
-            sell_rules_policy=sell_rules_policy,
-            previous_by_symbol=previous_by_symbol,
-            baseline_status=baseline_status,
-            previous_run_at=previous_run_at,
-            current_run_at=current_run_at,
-        )
-    except SellEngineBlockedError as exc:
-        pending = ", ".join(exc.missing_thesis_symbols)
-        logger.warning(
-            "Motor de venda bloqueado -- posição(ões) sem tese registrada: "
-            "%s. Screener/watchlist não são afetados; preencha "
-            "config/portfolio.csv (coluna 'thesis') para destravar.",
-            pending,
-        )
-        print()
-        print(
-            "AVISO: motor de venda bloqueado -- posição(ões) sem tese "
-            f"registrada: {pending}"
-        )
-        return None
+    # Nota: build_portfolio_intelligence nunca mais propaga
+    # SellEngineBlockedError -- quando o motor de venda recusa decidir (tese
+    # ausente), ele mesmo substitui o plano por REVISAR por holding, sem
+    # suprimir score/qualidade/alocação (ver portfolio.pipeline
+    # ::_build_blocked_rebalance_plan). O aviso do bloqueio já chega ao
+    # usuário via PortfolioReport.warnings (linha "Portfolio" no resumo do
+    # console + seção Carteira do relatório HTML).
+    report = build_portfolio_intelligence(
+        portfolio_path,
+        df,
+        portfolio_name=settings.get("portfolio_name"),
+        cash=float(settings.get("portfolio_cash", 0.0)),
+        currency=settings.get("portfolio_currency", "BRL"),
+        rebalance_mode=settings.get(
+            "portfolio_rebalance_mode", "sell_only"
+        ),
+        sell_rules_policy=sell_rules_policy,
+        previous_by_symbol=previous_by_symbol,
+        baseline_status=baseline_status,
+        previous_run_at=previous_run_at,
+        current_run_at=current_run_at,
+    )
 
     report_path = write_portfolio_report(
         report,
@@ -1262,16 +1253,11 @@ def main() -> None:
             else None
         )
 
-        portfolio_blocked_reason = None
-        if (
-            portfolio_result is None
-            and portfolio_path_for_snapshot.exists()
-        ):
-            portfolio_blocked_reason = (
-                "Motor de venda bloqueado -- posição(ões) sem tese "
-                "registrada (ver aviso acima)."
-            )
-
+        # portfolio_result só é None quando config/portfolio.csv não existe
+        # -- o bloqueio do motor de venda (tese ausente) não passa mais por
+        # aqui: build_portfolio_intelligence sempre retorna um relatório
+        # (score/qualidade visíveis), com o aviso do bloqueio em
+        # PortfolioReport.warnings. Ver generate_portfolio_intelligence.
         report_context = build_report_context(
             mode=mode,
             df=df,
@@ -1284,7 +1270,6 @@ def main() -> None:
                 if portfolio_report is not None
                 else None
             ),
-            portfolio_blocked_reason=portfolio_blocked_reason,
             portfolio_warnings=(
                 portfolio_report.warnings
                 if portfolio_report is not None
@@ -1455,13 +1440,14 @@ def main() -> None:
                 f"{portfolio_report.summary.get('quality_score')} "
                 f"({portfolio_report.summary.get('quality_rating')})"
             )
-        elif (
-            ROOT / settings.get("portfolio_path", "config/portfolio.csv")
-        ).exists():
-            print(
-                "Portfolio       : motor de venda bloqueado -- posição(ões) "
-                "sem tese (ver aviso acima)"
-            )
+            if any(
+                warning.startswith("Motor de venda bloqueado")
+                for warning in portfolio_report.warnings
+            ):
+                print(
+                    "Portfolio       : motor de venda bloqueado -- "
+                    "posição(ões) sem tese (ver aviso acima)"
+                )
         else:
             print(
                 "Portfolio       : não executado "
