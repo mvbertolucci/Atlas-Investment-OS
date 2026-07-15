@@ -1,5 +1,27 @@
 # Changelog
 
+## Fix watchlist proposal source (broad screener, not the narrow in-run ranking)
+
+### Fixed
+
+- `watchlist/screening.py::propose_watchlist_candidates` (PR #29) sourced
+  proposals from the `--full` run's own `ranking_report`, which only covers
+  the already-merged watchlist+portfolio universe. Every non-held candidate
+  in that universe is, by construction, already on the watchlist -- that's
+  how it got analyzed in the first place. Comparing candidates against their
+  own origin is tautological: verified against the real run, 39/39 non-held
+  candidates were already in `config/watchlist.csv`, so the "Sugestões para a
+  watchlist" section always rendered empty.
+- New `propose_from_broad_reports`: reads `research_ranking_report_market/
+  adr.json` directly (the actual "not yet on my radar" pool, already used by
+  the "Screeners amplos" section) instead of the narrow `ranking_report`.
+  `held_symbols` is now sourced from `df["origin"] == "portfolio"` rather
+  than the JSON's own `already_held` field, which is always `False` there
+  (the broad screeners run without portfolio knowledge).
+- Verified end-to-end against the real Mercado Amplo/ADR collections: 22
+  proposals, correctly excluding held and already-watched symbols. 778 tests
+  green.
+
 ## Decision as the single buy voice (reconcile Decision vs Recommendation)
 
 ### Changed

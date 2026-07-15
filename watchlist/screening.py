@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from watchlist.triggers import normalize_current_row
@@ -171,5 +173,82 @@ def propose_watchlist_candidates(
         )
         if limit is not None and len(proposals) >= limit:
             break
+
+    return tuple(proposals)
+
+
+def propose_from_broad_reports(
+    report_paths: Iterable[Path | None],
+    *,
+    watchlist_symbols: Iterable[str],
+    held_symbols: Iterable[str] = (),
+    max_per_sector: int = 2,
+    limit: int | None = None,
+) -> tuple[WatchlistProposal, ...]:
+    """
+    Mesma proposta de `propose_watchlist_candidates`, mas lendo direto dos
+    screeners AMPLOS (`research_ranking_report_market/adr.json`) em vez do
+    `ranking_report` estreito do `--full` -- que só cobre o universo
+    watchlist+carteira já analisado neste run. Comparar candidatos contra a
+    própria watchlist da qual eles vieram é tautológico e nunca produz
+    sugestão (achado rodando de verdade: 39/39 candidatos do ranking_report
+    estreito já estavam na watchlist.csv). O pool que realmente importa para
+    "ainda não está no meu radar" é o screener amplo.
+
+    `held_symbols` precisa vir de fora (ex.: `df.loc[df.origin=="portfolio",
+    "symbol"]`) -- o campo `already_held` dentro do JSON amplo é sempre
+    `False`, porque aquele screener roda sem conhecimento da carteira.
+    Arquivo ausente/ilegível é ignorado, nunca erro (coleta ampla é manual e
+    opcional, mesmo tratamento de `reports/atlas_report/broad_screener.py`).
+    """
+    watched = {str(symbol).strip().upper() for symbol in watchlist_symbols}
+    held = {str(symbol).strip().upper() for symbol in held_symbols}
+    seen: set[str] = set()
+    per_sector: dict[str, int] = {}
+    proposals: list[WatchlistProposal] = []
+
+    for path in report_paths:
+        if path is None or not Path(path).exists():
+            continue
+        try:
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        candidates = sorted(
+            (
+                company
+                for company in data.get("companies", ())
+                if company.get("safeguard_passed")
+                and company.get("candidate_rank") is not None
+            ),
+            key=lambda company: company.get("candidate_rank") or 10**9,
+        )
+
+        for company in candidates:
+            symbol = str(company.get("symbol", "")).strip().upper()
+            if not symbol or symbol in watched or symbol in held or symbol in seen:
+                continue
+            sector = str(company.get("sector") or "").strip() or "—"
+            if per_sector.get(sector, 0) >= max_per_sector:
+                continue
+            per_sector[sector] = per_sector.get(sector, 0) + 1
+            seen.add(symbol)
+
+            derived = derive_trigger_condition(company)
+            proposals.append(
+                WatchlistProposal(
+                    symbol=symbol,
+                    name=str(company.get("name", "") or "").strip() or symbol,
+                    sector=sector,
+                    candidate_rank=int(company.get("candidate_rank")),
+                    investment_score=company.get("investment_score"),
+                    confidence_score=company.get("confidence_score"),
+                    suggested_condition=derived.condition,
+                    condition_rationale=derived.rationale,
+                )
+            )
+            if limit is not None and len(proposals) >= limit:
+                return tuple(proposals)
 
     return tuple(proposals)

@@ -12,7 +12,10 @@ from ranking.models import RankingReport
 from reports.atlas_report.broad_screener import BroadScreenerSummary, load_broad_screener_summary
 from reports.atlas_report.diagnostics import extract_status_conflicts
 from reports.atlas_report.ticker_detail import TickerDetail, anchor_id, build_ticker_detail
-from watchlist.screening import WatchlistProposal, propose_watchlist_candidates
+from watchlist.screening import (
+    WatchlistProposal,
+    propose_from_broad_reports,
+)
 from universe.models import UniverseReport
 from watchlist.models import WatchlistReport
 from watchlist.triggers import normalize_current_row
@@ -433,19 +436,32 @@ def build_report_context(
             )
         )
 
-    # --- sugestões para a watchlist (screener -> WL, por critério) --------
-    # Só PROPÕE (nunca grava): candidatos do screener já filtrados
-    # (confiança >= 70, sem deal breaker), fora da carteira e da watchlist,
-    # diversificados por setor, cada um com uma trigger_condition derivada do
-    # perfil. Ver watchlist/screening.py. Só faz sentido com ranking_report
-    # (modo --full).
+    # --- sugestões para a watchlist (screener amplo -> WL, por critério) ---
+    # Só PROPÕE (nunca grava): candidatos do screener AMPLO (Mercado
+    # Amplo/ADR) já filtrados (confiança >= 70, sem deal breaker), fora da
+    # carteira e da watchlist, diversificados por setor, cada um com uma
+    # trigger_condition derivada do perfil. Ver watchlist/screening.py.
+    #
+    # Fonte é o screener amplo, NÃO o `ranking_report` estreito do --full: o
+    # `ranking_report` só cobre o universo já mesclado watchlist+carteira, e
+    # todo candidato não-held nele por definição já está na watchlist (foi
+    # assim que entrou na análise) -- comparar contra a própria origem é
+    # tautológico e nunca produz sugestão (achado rodando de verdade).
+    # `held_symbols` vem de `origin` na df analisada, não de
+    # `already_held` do JSON amplo (sempre False lá, calculado sem
+    # conhecimento da carteira).
     watchlist_proposals: tuple[WatchlistProposal, ...] = ()
-    if ranking_report is not None:
+    if broad_market_report_path is not None or adr_report_path is not None:
         watched_symbols = [row.symbol for row in watchlist_rows]
-        watchlist_proposals = propose_watchlist_candidates(
-            ranking_report,
-            analyzed_by_symbol=current_by_symbol,
+        held_symbols = (
+            df.loc[df["origin"] == "portfolio", "symbol"].tolist()
+            if "origin" in df.columns
+            else []
+        )
+        watchlist_proposals = propose_from_broad_reports(
+            (broad_market_report_path, adr_report_path),
             watchlist_symbols=watched_symbols,
+            held_symbols=held_symbols,
             max_per_sector=2,
         )
 
