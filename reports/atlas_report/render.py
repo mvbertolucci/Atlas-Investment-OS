@@ -3,6 +3,7 @@ from __future__ import annotations
 from html import escape
 
 from reports.atlas_report.context import ReportContext
+from reports.atlas_report.ticker_detail import FeatureDetail, SellRuleDetail, TickerDetail
 
 _STYLE = """
 :root {
@@ -57,6 +58,13 @@ th { color: var(--muted); font-weight: 600; }
 .card .engine { color: var(--muted); font-size: 0.75rem; }
 .footer { margin-top: 2rem; color: var(--muted); font-size: 0.78rem; }
 .alert { color: var(--sell); background: var(--sell-bg); border-radius: 0.4rem; padding: 0.4rem 0.6rem; margin: 0.25rem 0; font-size: 0.82rem; }
+.symbol-link { color: inherit; text-decoration: underline; text-decoration-style: dotted; }
+.ticker-detail { border-top: 2px solid var(--border); padding-top: 0.75rem; margin-top: 1.5rem; }
+.ticker-detail h3 { margin: 0 0 0.15rem; }
+.ticker-detail .card > summary { cursor: pointer; font-weight: 600; }
+.ticker-detail .card { margin-bottom: 0.4rem; }
+.history-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.history-grid .card { flex: 1 1 220px; }
 """
 
 _PILL_CLASS = {
@@ -132,7 +140,7 @@ def render_portfolio(context: ReportContext) -> str:
 
     rows_html = "\n".join(
         "<tr>"
-        f"<td>{_e(row.symbol)}</td>"
+        f'<td><a class="symbol-link" href="#{_e(row.anchor_id)}">{_e(row.symbol)}</a></td>'
         f"<td>{_e(row.name)}</td>"
         f"<td>{row.score:.1f}" + ("</td>" if row.score is not None else "—</td>")
         + f"<td>{_delta_html(row.score_delta)}</td>"
@@ -183,7 +191,7 @@ def render_watchlist(context: ReportContext) -> str:
 
     rows_html = "\n".join(
         "<tr>"
-        f"<td>{_e(row.symbol)}</td>"
+        f'<td><a class="symbol-link" href="#{_e(row.anchor_id)}">{_e(row.symbol)}</a></td>'
         f"<td>{_e(row.name)}</td>"
         f"<td>{_e(row.trigger_condition) or 'acompanhamento passivo'}</td>"
         + (f"<td>{row.score:.1f}</td>" if row.score is not None else "<td>—</td>")
@@ -293,6 +301,130 @@ def render_screener(context: ReportContext) -> str:
 """
 
 
+def _feature_detail_html(feature: FeatureDetail) -> str:
+    inputs_html = "".join(
+        f"<li>{_e(label)}: {_e(value)}</li>" for label, value in feature.inputs
+    )
+    interpretation_html = (
+        f'<p class="meta">{_e(feature.interpretation)}</p>'
+        if feature.interpretation
+        else ""
+    )
+    return f"""
+<details class="card">
+<summary>{_e(feature.label)} <span class="meta">({_e(feature.factor)})</span> —
+percentil {feature.percentile:.0f} · contribuição {feature.contribution:+.1f}pt</summary>
+<p>{_e(feature.formula)}</p>
+{f'<ul>{inputs_html}</ul>' if inputs_html else ''}
+{interpretation_html}
+</details>
+"""
+
+
+def _sell_rules_html(detail: TickerDetail) -> str:
+    if not detail.sell_rules_available:
+        return _not_included("Regras de venda")
+    if not detail.sell_rules:
+        return '<p class="section-empty">Nenhuma regra avaliada.</p>'
+    rows: list[str] = []
+    for rule in detail.sell_rules:
+        css_class = "pill-sell" if rule.status == "triggered" else "pill-hold"
+        rows.append(
+            f'<div class="card"><strong>{_e(rule.name)}</strong> '
+            f'<span class="pill {css_class}">{_e(rule.status_label)}</span>'
+            f"<br>{_e(rule.message)}"
+            f'<br><span class="meta">{_e(rule.definition)}</span></div>'
+        )
+    return "\n".join(rows)
+
+
+def _histories_html(detail: TickerDetail) -> str:
+    cards = "\n".join(
+        f'<div class="card"><strong>{_e(history.label)}</strong><br>'
+        + (
+            history.sparkline
+            if history.available
+            else '<p class="section-empty">Histórico pendente: schema de snapshot.</p>'
+        )
+        + "</div>"
+        for history in detail.histories
+    )
+    return f'<div class="history-grid">{cards}</div>' if cards else ""
+
+
+def _thesis_html(detail: TickerDetail) -> str:
+    if detail.thesis is None:
+        return '<p class="section-empty">Sem tese registrada (não é uma posição real ou tese pendente).</p>'
+    thesis = detail.thesis
+    meta_bits = []
+    if thesis.entry_date:
+        meta_bits.append(f"entrada: {_e(thesis.entry_date)}")
+    if thesis.thesis_updated_at:
+        meta_bits.append(f"atualizada: {_e(thesis.thesis_updated_at)}")
+    if thesis.age_months is not None:
+        meta_bits.append(f"{thesis.age_months:.1f} meses")
+    attention_html = (
+        f'<div class="alert">⚠ Tese pode estar desatualizada: {_e(thesis.attention)}</div>'
+        if thesis.attention
+        else ""
+    )
+    meta_html = f'<p class="meta">{" · ".join(meta_bits)}</p>' if meta_bits else ""
+    return (
+        f'<div class="card">{_e(thesis.text)}</div>{meta_html}{attention_html}'
+    )
+
+
+def _ticker_detail_html(detail: TickerDetail) -> str:
+    price_bits = []
+    if detail.average_price is not None:
+        price_bits.append(f"PM {detail.average_price:.2f}")
+    if detail.current_price is not None:
+        price_bits.append(f"atual {detail.current_price:.2f}")
+    if detail.unrealized_return is not None:
+        price_bits.append(f"retorno {detail.unrealized_return:+.1f}%")
+    price_html = f'<p class="meta">{" · ".join(price_bits)}</p>' if price_bits else ""
+
+    positive_html = "".join(_feature_detail_html(item) for item in detail.positive_features)
+    negative_html = "".join(_feature_detail_html(item) for item in detail.negative_features)
+
+    return f"""
+<section class="ticker-detail" id="{_e(detail.anchor_id)}">
+<h3>{_e(detail.symbol)} — {_e(detail.name)} <span class="meta">{_e(detail.sector)}</span></h3>
+<p class="meta">
+origem: {_e(detail.origin)} ·
+{_pill(detail.action)} <span class="engine">[{_e(detail.action_engine)}]</span> ·
+score {f'{detail.score:.1f}' if detail.score is not None else '—'}
+{_delta_html(detail.score_delta) if detail.score_delta is not None else ''} ·
+coverage {f'{detail.coverage:.1f}%' if detail.coverage is not None else '—'}
+</p>
+<p>{_e(detail.action_reason)}</p>
+{price_html}
+
+<h4>Maiores contribuições positivas</h4>
+{positive_html or '<p class="section-empty">Nenhuma.</p>'}
+
+<h4>Maiores contribuições negativas</h4>
+{negative_html or '<p class="section-empty">Nenhuma.</p>'}
+
+<h4>Regras de venda</h4>
+{_sell_rules_html(detail)}
+
+<h4>Histórico</h4>
+{_histories_html(detail) or '<p class="section-empty">Histórico insuficiente.</p>'}
+
+<h4>Tese</h4>
+{_thesis_html(detail)}
+</section>
+"""
+
+
+def render_ticker_details(context: ReportContext) -> str:
+    if not context.ticker_details:
+        return "<h2>Detalhe por ativo</h2>" + _not_included("Detalhe por ativo")
+    sections = "\n".join(_ticker_detail_html(detail) for detail in context.ticker_details)
+    return f"<h2>Detalhe por ativo</h2>\n{sections}"
+
+
 def render_footer(context: ReportContext) -> str:
     quality = context.data_quality
     failures_html = (
@@ -346,6 +478,7 @@ def render_report(context: ReportContext) -> str:
             render_watchlist(context),
             render_earnings(context),
             render_screener(context),
+            render_ticker_details(context),
             render_footer(context),
         )
     )

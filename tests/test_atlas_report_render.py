@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -212,3 +213,85 @@ def test_engine_conflict_alerts_rendered_in_diagnostico() -> None:
 def test_no_conflict_alerts_when_status_md_not_supplied() -> None:
     html = render_report(_full_context())
     assert 'class="alert"' not in html
+
+
+def _df_with_features() -> pd.DataFrame:
+    df = _df()
+    df["gross_margin"] = [60, 20]
+    df["roic"] = [0.25, 0.05]
+    df["pe"] = [15, 40]
+    df["debt_to_equity"] = [0.3, 2.0]
+    df["rsi_14"] = [80, 50]
+    return df
+
+
+def _full_context_with_ticker_details():
+    plan = RebalancePlan(
+        actions=(
+            RebalanceAction(
+                symbol="AAA", action="HOLD", current_weight=0.1, target_weight=0.1,
+                target_value=100, trade_value=0, reason="ok",
+                rule_results=({"name": "distress", "status": "clear", "message": "sem risco de distress."},),
+            ),
+            RebalanceAction(
+                symbol="BBB", action="SELL", current_weight=0.1, target_weight=0.0,
+                target_value=0, trade_value=-100, reason="distress disparou",
+                triggered_rules=("distress",),
+                rule_results=({"name": "distress", "status": "triggered", "message": "Altman Z abaixo do piso."},),
+            ),
+        ),
+    )
+    return build_report_context(
+        mode="full",
+        df=_df_with_features(),
+        snapshot_date="2026-07-14T00:00:00",
+        rebalance=plan.to_dict(),
+        holdings=(
+            {
+                "symbol": "AAA",
+                "thesis": "Tese de longo prazo em software.",
+                "average_price": 100.0,
+                "current_price": 120.0,
+                "unrealized_return": 20.0,
+            },
+        ),
+        score_history=pd.DataFrame(
+            {
+                "snapshot_date": ["2026-06-01"],
+                "symbol": ["AAA"],
+                "investment_score": [70.0],
+            }
+        ),
+        features_path=Path("config/features.yaml"),
+        model_path=Path("config/model.yaml"),
+    )
+
+
+def test_ticker_detail_section_rendered_and_anchored() -> None:
+    context = _full_context_with_ticker_details()
+    html = render_report(context)
+    assert ">Detalhe por ativo<" in html
+    assert 'id="ticker-AAA"' in html
+    assert 'id="ticker-BBB"' in html
+    # AAA é HOLD sem mudança de estado -- colapsada no resumo da tabela de
+    # carteira (comportamento existente), então só BBB (SELL) tem link
+    # âncora na tabela; o anchor id de AAA continua existindo na seção de
+    # detalhe (verificado acima), só não referenciado por essa tabela.
+    assert 'href="#ticker-BBB"' in html
+    assert "Tese de longo prazo em software." in html
+
+
+def test_ticker_detail_no_external_resources_even_with_real_content() -> None:
+    """
+    Reforça test_no_external_resources_in_generated_html com um contexto
+    que de fato popula ticker_details (features_path informado) -- sem
+    isso o teste original nunca exercita esta seção.
+    """
+    html = render_report(_full_context_with_ticker_details())
+    matches = _EXTERNAL_RESOURCE_PATTERN.findall(html)
+    assert matches == []
+
+
+def test_ticker_detail_omitted_when_features_path_not_given() -> None:
+    html = render_report(_full_context())
+    assert "Detalhe por ativo não incluído neste run." in html
