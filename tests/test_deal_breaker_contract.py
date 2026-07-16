@@ -150,6 +150,59 @@ def test_current_liquidity_exempt_for_software() -> None:
     assert "Liquidez" in hardware["Deal Breakers"].iloc[0]
 
 
+def test_net_debt_ebitda_exempt_for_biotechnology() -> None:
+    """
+    Biotecnologia pré-receita/P&D com alavancagem alta (EBITDA não
+    representa a empresa) NAO e punida; industrial com o mesmo indice e
+    punido. Reconciliado com portfolio/sell_rules.py::DEFAULT_SOLVENCY-
+    equivalent -- mesma isencao no motor de venda (config/sell_rules.yaml).
+    """
+
+    biotech = _score({"net_debt_ebitda": 10.0, "sector": "Healthcare", "industry": "Biotechnology"})
+    assert "Net Debt" not in biotech["Deal Breakers"].iloc[0]
+
+    industrial = _score({"net_debt_ebitda": 10.0, "sector": "Industrials", "industry": "Railroads"})
+    assert "Net Debt" in industrial["Deal Breakers"].iloc[0]
+
+
+def test_f_score_exempt_for_biotechnology() -> None:
+    """
+    Biotecnologia pré-receita com Piotroski F-Score baixo (a maioria dos 9
+    criterios pressupoe receita/lucro operacional recorrente) NAO e punida;
+    industrial com o mesmo F-Score e punido.
+    """
+
+    biotech = _score({"f_score_annual": 1.0, "sector": "Healthcare", "industry": "Biotechnology"})
+    assert "Piotroski" not in biotech["Deal Breakers"].iloc[0]
+
+    industrial = _score({"f_score_annual": 1.0, "sector": "Industrials", "industry": "Railroads"})
+    assert "Piotroski" in industrial["Deal Breakers"].iloc[0]
+
+
+def test_current_liquidity_exempt_for_tobacco() -> None:
+    """
+    Tobacco (alta conversao de caixa, capital de giro estruturalmente
+    negativo) com current ratio < 1 NAO e punido; industrial com o mesmo
+    indice e punido.
+    """
+
+    tobacco = _score({"current_liquidity": 0.7, "sector": "Consumer Defensive", "industry": "Tobacco"})
+    assert "Liquidez" not in tobacco["Deal Breakers"].iloc[0]
+
+    industrial = _score({"current_liquidity": 0.7, "sector": "Industrials", "industry": "Railroads"})
+    assert "Liquidez" in industrial["Deal Breakers"].iloc[0]
+
+
+def test_altman_z_exempt_for_biotechnology() -> None:
+    """
+    Biotecnologia com Altman Z baixo (formula classica pressupoe receita
+    operacional estavel) NAO e punida -- mesma isencao do motor de venda.
+    """
+
+    biotech = _score({"altman_z": 0.5, "sector": "Healthcare", "industry": "Biotechnology"})
+    assert "Altman Z" not in biotech["Deal Breakers"].iloc[0]
+
+
 def test_exemption_matches_sector_or_industry() -> None:
     """A isencao casa tanto contra sector quanto contra industry (substring)."""
 

@@ -153,6 +153,10 @@ def apply_deal_breakers(
     current_liquidity_exempt = exemption_mask(
         rules.get("current_liquidity_exempt_sectors")
     )
+    net_debt_ebitda_exempt = exemption_mask(
+        rules.get("net_debt_ebitda_exempt_sectors")
+    )
+    f_score_exempt = exemption_mask(rules.get("f_score_exempt_sectors"))
 
     max_short_float = rules.get(
         "short_float_max",
@@ -169,7 +173,7 @@ def apply_deal_breakers(
         )
 
         add_penalty(
-            values > float(max_net_debt_ebitda),
+            (values > float(max_net_debt_ebitda)) & ~net_debt_ebitda_exempt,
             15,
             "Net Debt/EBITDA alto",
         )
@@ -200,7 +204,7 @@ def apply_deal_breakers(
         )
 
         add_penalty(
-            values < float(min_f_score),
+            (values < float(min_f_score)) & ~f_score_exempt,
             15,
             "Piotroski baixo",
         )

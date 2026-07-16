@@ -7,7 +7,7 @@
   "portfolio_path": "config/portfolio.csv",
   "portfolio_name": "Atlas Portfolio",
   "portfolio_cash": 0.0,
-  "portfolio_currency": "BRL",
+  "portfolio_currency": "USD",
   "portfolio_rebalance_mode": "sell_only",
   "universe_enabled": true,
   "universe_policy_path": "config/universe.yaml",

@@ -73,16 +73,27 @@ def test_canonical_sell_rules_policy_is_pinned(policy: SellRulesPolicy) -> None:
         "Financial Services",
         "Banks",
         "Insurance",
+        "Biotechnology",
     ]
     assert policy.distress["interest_coverage_threshold"] == 2.5
     assert policy.distress["net_debt_ebitda_threshold"] == 4.0
+    assert policy.distress["net_debt_ebitda_exempt_sectors"] == [
+        "Biotechnology"
+    ]
     assert policy.distress["current_ratio_threshold"] == 1.0
-    assert policy.distress["current_ratio_exempt_sectors"] == ["Software"]
+    assert policy.distress["current_ratio_exempt_sectors"] == [
+        "Software",
+        "Tobacco",
+    ]
     assert policy.distress["short_float_threshold"] == 20.0
     assert policy.distress["f_score_floor"] == 4
+    assert policy.distress["f_score_exempt_sectors"] == ["Biotechnology"]
     assert policy.trim_at == 1
     assert policy.sell_at == 2
+    assert policy.distress_review_at == 1
+    assert policy.distress_sell_at == 2
     assert policy.distress_overrides_escalation is True
+    assert policy.relative_decay_review_only is True
 
 
 # --- distress: as 6 condições, cada uma isolada com epsilon no limite -----
@@ -209,6 +220,37 @@ def test_distress_software_exempt_only_from_liquidity(
         policy,
     )
     assert _evaluation(still_triggers, "distress").triggered is True
+
+
+def test_distress_biotechnology_exempts_non_meaningful_profit_metrics(
+    policy: SellRulesPolicy,
+) -> None:
+    result = evaluate_sell_rules(
+        _ctx(
+            sector="Healthcare",
+            industry="Biotechnology",
+            altman_z=-5.0,
+            interest_coverage=-20.0,
+            net_debt_ebitda=50.0,
+            f_score_annual=1,
+        ),
+        policy,
+    )
+    assert _evaluation(result, "distress").triggered is False
+
+
+def test_distress_tobacco_exempt_from_current_ratio_only(
+    policy: SellRulesPolicy,
+) -> None:
+    result = evaluate_sell_rules(
+        _ctx(
+            sector="Consumer Defensive",
+            industry="Tobacco",
+            current_liquidity=0.5,
+        ),
+        policy,
+    )
+    assert _evaluation(result, "distress").triggered is False
 
 
 def test_distress_not_evaluated_when_all_exempt_or_missing(
@@ -355,13 +397,15 @@ def test_relative_decay_not_evaluated_without_percentile(
 # --- escalação HOLD -> TRIM -> SELL --------------------------------------
 
 
-def test_escalation_two_non_distress_rules_sell(policy: SellRulesPolicy) -> None:
+def test_escalation_two_actionable_non_distress_rules_sell(
+    policy: SellRulesPolicy,
+) -> None:
     result = evaluate_sell_rules(
         _ctx(
             target_upside=-15.0,
-            score_percentile=10.0,
-            universe_size=50,
-            universe_scope="broad",
+            baseline_status="comparable",
+            f_score_annual=5,
+            previous={"f_score_annual": 8},
         ),
         policy,
     )
@@ -378,13 +422,39 @@ def test_escalation_one_non_distress_rule_trims(policy: SellRulesPolicy) -> None
     assert result.action == "TRIM"
 
 
-def test_distress_alone_sells_when_override_enabled(policy: SellRulesPolicy) -> None:
+def test_distress_single_evidence_requires_review(
+    policy: SellRulesPolicy,
+) -> None:
     result = evaluate_sell_rules(_ctx(altman_z=0.5), policy)
     assert result.triggered_rules == ("distress",)
+    assert _evaluation(result, "distress").evidence_count == 1
+    assert result.action == "REVISAR"
+
+
+def test_distress_two_independent_evidence_groups_sell(
+    policy: SellRulesPolicy,
+) -> None:
+    result = evaluate_sell_rules(
+        _ctx(altman_z=0.5, net_debt_ebitda=5.0),
+        policy,
+    )
+    assert result.triggered_rules == ("distress",)
+    assert _evaluation(result, "distress").evidence_count == 2
     assert result.action == "SELL"
 
 
-def test_distress_alone_trims_when_override_disabled(
+def test_distress_correlated_solvency_metrics_count_once(
+    policy: SellRulesPolicy,
+) -> None:
+    result = evaluate_sell_rules(
+        _ctx(altman_z=0.5, interest_coverage=1.0),
+        policy,
+    )
+    assert _evaluation(result, "distress").evidence_count == 1
+    assert result.action == "REVISAR"
+
+
+def test_distress_review_remains_conservative_when_override_disabled(
     policy: SellRulesPolicy,
 ) -> None:
     no_override = SellRulesPolicy(
@@ -397,6 +467,33 @@ def test_distress_alone_trims_when_override_disabled(
     )
     result = evaluate_sell_rules(_ctx(altman_z=0.5), no_override)
     assert result.triggered_rules == ("distress",)
+    assert result.action == "REVISAR"
+
+
+def test_relative_decay_alone_requires_review_without_reduction(
+    policy: SellRulesPolicy,
+) -> None:
+    result = evaluate_sell_rules(
+        _ctx(score_percentile=10.0, universe_size=50, universe_scope="reduced"),
+        policy,
+    )
+    assert result.triggered_rules == ("relative_decay",)
+    assert result.action == "REVISAR"
+
+
+def test_relative_decay_does_not_escalate_an_actionable_rule(
+    policy: SellRulesPolicy,
+) -> None:
+    result = evaluate_sell_rules(
+        _ctx(
+            target_upside=-15.0,
+            score_percentile=10.0,
+            universe_size=50,
+            universe_scope="reduced",
+        ),
+        policy,
+    )
+    assert result.triggered_rules == ("valuation_stretch", "relative_decay")
     assert result.action == "TRIM"
 
 

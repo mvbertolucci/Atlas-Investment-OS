@@ -87,6 +87,13 @@ class SellRulesPolicy:
             raise ValueError("percentile_threshold deve estar entre 0 e 100.")
         if self.trim_at < 0 or self.sell_at < self.trim_at:
             raise ValueError("Escalação exige 0 <= trim_at <= sell_at.")
+        if (
+            self.distress_review_at < 1
+            or self.distress_sell_at < self.distress_review_at
+        ):
+            raise ValueError(
+                "Distress exige 1 <= distress_review_at <= distress_sell_at."
+            )
         if not 0 < self.trim_fraction < 1:
             raise ValueError("trim_fraction deve estar entre 0 e 1.")
 
@@ -115,8 +122,20 @@ class SellRulesPolicy:
         return float(self.escalation.get("trim_fraction", 0.50))
 
     @property
+    def distress_review_at(self) -> int:
+        return int(self.escalation.get("distress_review_at", 1))
+
+    @property
+    def distress_sell_at(self) -> int:
+        return int(self.escalation.get("distress_sell_at", 2))
+
+    @property
     def distress_overrides_escalation(self) -> bool:
         return bool(self.escalation.get("distress_overrides_escalation", True))
+
+    @property
+    def relative_decay_review_only(self) -> bool:
+        return bool(self.relative_decay.get("review_only", True))
 
 
 def load_sell_rules_policy(path: str | Path) -> SellRulesPolicy:
@@ -142,12 +161,21 @@ class RuleEvaluation:
     name: str
     status: str
     message: str
+    evidence_count: int | None = None
 
     def __post_init__(self) -> None:
         if self.name not in RULE_NAMES:
             raise ValueError(f"Regra desconhecida: {self.name}.")
         if self.status not in {"triggered", "clear", "not_evaluated", "disabled"}:
             raise ValueError(f"Status de regra inválido: {self.status}.")
+        if self.evidence_count is None:
+            object.__setattr__(
+                self,
+                "evidence_count",
+                1 if self.status == "triggered" else 0,
+            )
+        elif self.evidence_count < 0:
+            raise ValueError("evidence_count não pode ser negativo.")
 
     @property
     def triggered(self) -> bool:
@@ -159,6 +187,7 @@ class RuleEvaluation:
             "status": self.status,
             "triggered": self.triggered,
             "message": self.message,
+            "evidence_count": self.evidence_count,
         }
 
 
@@ -208,6 +237,7 @@ def _distress(context: SellRuleContext, policy: SellRulesPolicy) -> RuleEvaluati
         return _disabled(name)
 
     reasons: list[str] = []
+    evidence_groups: set[str] = set()
     evaluated_any = False
 
     altman_exempt = _sector_matches(
@@ -222,6 +252,7 @@ def _distress(context: SellRuleContext, policy: SellRulesPolicy) -> RuleEvaluati
             threshold = float(config.get("altman_z_threshold", 1.8))
             if altman < threshold:
                 reasons.append(f"altman_z {altman:.2f} < {threshold:.2f}")
+                evidence_groups.add("solvency")
 
     coverage_exempt = _sector_matches(
         context.sector,
@@ -239,15 +270,23 @@ def _distress(context: SellRuleContext, policy: SellRulesPolicy) -> RuleEvaluati
                 reasons.append(
                     f"interest_coverage {coverage:.2f} < {threshold:.2f}x"
                 )
+                evidence_groups.add("solvency")
 
-    net_debt_ebitda = _number(context.current.get("net_debt_ebitda"))
-    if net_debt_ebitda is not None:
-        evaluated_any = True
-        threshold = float(config.get("net_debt_ebitda_threshold", 4.0))
-        if net_debt_ebitda > threshold:
-            reasons.append(
-                f"net_debt_ebitda {net_debt_ebitda:.2f} > {threshold:.2f}"
-            )
+    leverage_exempt = _sector_matches(
+        context.sector,
+        context.industry,
+        config.get("net_debt_ebitda_exempt_sectors", ()),
+    )
+    if not leverage_exempt:
+        net_debt_ebitda = _number(context.current.get("net_debt_ebitda"))
+        if net_debt_ebitda is not None:
+            evaluated_any = True
+            threshold = float(config.get("net_debt_ebitda_threshold", 4.0))
+            if net_debt_ebitda > threshold:
+                reasons.append(
+                    f"net_debt_ebitda {net_debt_ebitda:.2f} > {threshold:.2f}"
+                )
+                evidence_groups.add("leverage")
 
     liquidity_exempt = _sector_matches(
         context.sector,
@@ -267,6 +306,7 @@ def _distress(context: SellRuleContext, policy: SellRulesPolicy) -> RuleEvaluati
                 reasons.append(
                     f"current_ratio {current_ratio:.2f} < {threshold:.2f}"
                 )
+                evidence_groups.add("liquidity")
 
     short_float = _number(context.current.get("short_float"))
     if short_float is not None:
@@ -274,18 +314,35 @@ def _distress(context: SellRuleContext, policy: SellRulesPolicy) -> RuleEvaluati
         threshold = float(config.get("short_float_threshold", 20.0))
         if short_float > threshold:
             reasons.append(f"short_float {short_float:.1f}% > {threshold:.1f}%")
+            evidence_groups.add("market_stress")
 
-    f_score = _number(
-        context.current.get("f_score_annual", context.current.get("piotroski_f"))
+    f_score_exempt = _sector_matches(
+        context.sector,
+        context.industry,
+        config.get("f_score_exempt_sectors", ()),
     )
-    if f_score is not None:
-        evaluated_any = True
-        floor = float(config.get("f_score_floor", 4))
-        if f_score < floor:
-            reasons.append(f"f_score_annual {f_score:.0f} < piso {floor:.0f}")
+    if not f_score_exempt:
+        f_score = _number(
+            context.current.get(
+                "f_score_annual", context.current.get("piotroski_f")
+            )
+        )
+        if f_score is not None:
+            evaluated_any = True
+            floor = float(config.get("f_score_floor", 4))
+            if f_score < floor:
+                reasons.append(f"f_score_annual {f_score:.0f} < piso {floor:.0f}")
+                evidence_groups.add("operating_quality")
 
     if reasons:
-        return RuleEvaluation(name, "triggered", "distress: " + "; ".join(reasons))
+        return RuleEvaluation(
+            name,
+            "triggered",
+            "distress: "
+            + "; ".join(reasons)
+            + f"; evidências independentes={len(evidence_groups)}",
+            evidence_count=len(evidence_groups),
+        )
     if not evaluated_any:
         return RuleEvaluation(
             name,
@@ -444,6 +501,20 @@ def evaluate_sell_rules(
         _relative_decay(context, policy),
     )
     triggered = tuple(item.name for item in evaluations if item.triggered)
+    distress_evaluation = evaluations[0]
+    distress_evidence = (
+        int(distress_evaluation.evidence_count or 0)
+        if distress_evaluation.triggered
+        else 0
+    )
+    review_only_rules = (
+        {"relative_decay"} if policy.relative_decay_review_only else set()
+    )
+    actionable_non_distress = tuple(
+        name
+        for name in triggered
+        if name != "distress" and name not in review_only_rules
+    )
 
     if gated:
         missing = list(context.missing_data)
@@ -458,17 +529,38 @@ def evaluate_sell_rules(
             f"insuficiente: {details}."
         )
     elif (
-        "distress" in triggered
+        distress_evidence >= policy.distress_sell_at
         and policy.distress_overrides_escalation
     ):
         action = "SELL"
-        reason = "distress disparou e sobrepõe a escalação configurada."
-    elif len(triggered) >= policy.sell_at:
+        reason = (
+            f"distress confirmado por {distress_evidence} evidências "
+            "independentes e sobrepõe a escalação configurada."
+        )
+    elif len(actionable_non_distress) >= policy.sell_at:
         action = "SELL"
-        reason = f"{len(triggered)} regras dispararam: {', '.join(triggered)}."
-    elif len(triggered) >= policy.trim_at:
+        reason = (
+            f"{len(actionable_non_distress)} regras acionáveis dispararam: "
+            f"{', '.join(actionable_non_distress)}."
+        )
+    elif distress_evidence >= policy.distress_review_at:
+        action = "REVISAR"
+        reason = (
+            f"Distress preliminar com {distress_evidence} evidência(s) "
+            "independente(s); requer confirmação antes de reduzir ou vender."
+        )
+    elif len(actionable_non_distress) >= policy.trim_at:
         action = "TRIM"
-        reason = f"{len(triggered)} regra disparou: {', '.join(triggered)}."
+        reason = (
+            f"{len(actionable_non_distress)} regra acionável disparou: "
+            f"{', '.join(actionable_non_distress)}."
+        )
+    elif triggered:
+        action = "REVISAR"
+        reason = (
+            "Sinal exclusivamente relativo/informativo; revisar sem redução "
+            "automática da posição."
+        )
     else:
         action = "HOLD"
         reason = "Nenhuma regra de venda disparou nesta execução."
