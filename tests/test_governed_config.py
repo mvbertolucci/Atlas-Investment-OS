@@ -46,6 +46,15 @@ def test_model_yaml_factor_weights_are_pinned() -> None:
 
 
 def test_deal_breakers_thresholds_are_pinned() -> None:
+    """
+    Isenções setoriais reconciliadas com config/sell_rules.yaml (motor de
+    venda): mesmas listas de setor nos dois motores, para uma holding não
+    receber Risk Penalty no score e ficar isenta de distress no motor de
+    venda por critérios que deveriam ser o mesmo julgamento de risco.
+    Biotechnology (P&D pré-receita: EBITDA/F-Score não representam a
+    empresa) e Tobacco (conversão de caixa alta, capital de giro negativo
+    estrutural) foram adicionados aos dois motores na mesma sessão.
+    """
     rules = _load_json("deal_breakers.json")
 
     assert rules["f_score_annual_min"] == 4
@@ -58,8 +67,11 @@ def test_deal_breakers_thresholds_are_pinned() -> None:
         "Financial Services",
         "Banks",
         "Insurance",
+        "Biotechnology",
     ]
-    assert rules["current_liquidity_exempt_sectors"] == ["Software"]
+    assert rules["current_liquidity_exempt_sectors"] == ["Software", "Tobacco"]
+    assert rules["net_debt_ebitda_exempt_sectors"] == ["Biotechnology"]
+    assert rules["f_score_exempt_sectors"] == ["Biotechnology"]
 
 
 def test_feature_store_factor_weight_blocks_sum_to_one() -> None:
