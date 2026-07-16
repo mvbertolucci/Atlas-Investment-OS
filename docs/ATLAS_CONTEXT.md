@@ -188,9 +188,11 @@ track (none of it changes governed scoring):
   Portfolio built incorrectly from a non-portfolio symbol would have acted
   on it silently). See `docs/BACKLOG.md`'s "Portfolio workflow".
 - **On-demand priority classification** (`priority/`): sell priority (current
-  holdings, ranked by Investment Score, SELL/HOLD by Deal Breaker presence)
-  and buy priority (screener candidates, ranked by `candidate_rank`) --
-  pure classification, no target weight, no sector cap. CLI
+  holdings, `action`/`reason`/`triggered_rules`/`priority` copied verbatim
+  from the official `portfolio.sell_rules` rebalance -- never a second
+  SELL/HOLD derived from Deal Breaker presence, per ADR-011) and buy
+  priority (screener candidates, ranked by `candidate_rank`) -- pure
+  presentation, no target weight, no sector cap. CLI
   (`python -m priority.cli`), `output/dados/priority_report.json`, API
   (`/priority`), SDK. See `docs/PRIORITY_REPORT.md`.
 - **Two more screeners**: the broad US-market screener
