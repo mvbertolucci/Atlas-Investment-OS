@@ -64,9 +64,14 @@ def derive_point_in_time_ratios(frame: pd.DataFrame) -> pd.DataFrame:
     sobrescreve uma já fornecida.
 
     Aproximações documentadas (não escondidas):
-    - `debt_to_equity`/`roic` usam apenas `long_term_debt` (não há tag
-      nativa separada para a parcela circulante da dívida neste mapeamento
-      ainda).
+    - `debt_to_equity`/`roic` usam dívida total (`long_term_debt` +
+      `long_term_debt_current` + `short_term_debt`, cada componente ausente
+      no filing tratado como zero, não como dado faltante -- a maioria das
+      empresas não carrega uma das duas linhas). Medido contra dado real
+      (3 empresas): antes de incluir `long_term_debt_current`/
+      `short_term_debt`, o ROIC point-in-time saía sistematicamente 2-4 p.p.
+      acima do ao vivo (capital investido subestimado); ver STATUS.md
+      seção 2 para o registro da medição antes/depois.
     - `interest_coverage`/`roic` usam `operating_income`
       (`us-gaap:OperatingIncomeLoss`) como proxy de EBIT -- a mesma decisão
       já documentada em `sec_edgar.py`.
@@ -98,6 +103,15 @@ def derive_point_in_time_ratios(frame: pd.DataFrame) -> pd.DataFrame:
     net_income = _numeric(result, "net_income")
     operating_income = _numeric(result, "operating_income")
     long_term_debt = _numeric(result, "long_term_debt")
+    # Componentes ausentes no filing (não apenas não mapeados) viram zero --
+    # a maioria das empresas de fato não carrega uma das duas linhas. Só
+    # `long_term_debt` em si permanece NaN quando ausente (dado central,
+    # nunca inventado); as duas linhas abaixo são refinamento aditivo.
+    long_term_debt_current = _numeric(
+        result, "long_term_debt_current"
+    ).fillna(0)
+    short_term_debt = _numeric(result, "short_term_debt").fillna(0)
+    total_debt = long_term_debt + long_term_debt_current + short_term_debt
     interest_expense = _numeric(result, "interest_expense").abs()
     pretax_income = _numeric(result, "pretax_income").replace(0, pd.NA)
     tax_provision = _numeric(result, "tax_provision")
@@ -126,7 +140,7 @@ def derive_point_in_time_ratios(frame: pd.DataFrame) -> pd.DataFrame:
     equity_denominator = total_equity.replace(0, pd.NA)
 
     _assign_if_absent(
-        result, "debt_to_equity", long_term_debt / equity_denominator
+        result, "debt_to_equity", total_debt / equity_denominator
     )
     _assign_if_absent(
         result,
@@ -138,7 +152,7 @@ def derive_point_in_time_ratios(frame: pd.DataFrame) -> pd.DataFrame:
     tax_rate = tax_provision / pretax_income
     tax_rate = tax_rate.where((tax_rate >= 0) & (tax_rate <= 1), 0.21)
     nopat = operating_income * (1 - tax_rate)
-    invested_capital = (long_term_debt + total_equity - cash).replace(
+    invested_capital = (total_debt + total_equity - cash).replace(
         0, pd.NA
     )
     _assign_if_absent(result, "roic", nopat / invested_capital)

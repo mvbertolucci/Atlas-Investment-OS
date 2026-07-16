@@ -1,5 +1,56 @@
 # Changelog
 
+## Align point-in-time invested_capital with total debt (measured ROIC divergence)
+
+### Measured
+
+- STATUS.md flagged ROIC/Interest Coverage live-vs-backtest as "documented
+  intentional approximation, no equivalence test." Measured it for real:
+  fetched live Yahoo data and SEC EDGAR point-in-time data for the same
+  real portfolio holdings (MSFT, JNJ, GD, META; CVX inconclusive -- probe
+  script tag lookup gap, not a code issue) and compared ROIC/Interest
+  Coverage side by side.
+- Found a **systematic, one-directional** bias: point-in-time ROIC came out
+  2-4 percentage points *above* live for every company with clean data --
+  not noise. Root cause: `invested_capital` in
+  `backtesting/point_in_time_fundamentals.py` used only `long_term_debt`,
+  while Yahoo's own "Invested Capital" figure (used by the live engine)
+  reflects total debt across all maturities -- understating the
+  denominator inflates ROIC.
+- Interest Coverage showed no consistent direction, but can diverge wildly
+  in *absolute magnitude* for low-debt companies: META measured 74.76x live
+  vs 186.72x point-in-time (Δ -111.96). Not fixed in code -- both figures
+  stay far above the `interest_coverage_threshold: 2.5x` used by
+  `sell_rules.yaml`/`deal_breakers.json`, so this doesn't change any real
+  distress classification today; documented as a known sensitivity instead
+  of a speculative confidence flag with no evidence behind it.
+
+### Fixed
+
+- `backtesting/sec_edgar.py::FIELD_TAG_CANDIDATES` gained
+  `long_term_debt_current` (`LongTermDebtCurrent`) and `short_term_debt`
+  (`ShortTermBorrowings`/`DebtCurrent`).
+- `backtesting/point_in_time_fundamentals.py::derive_point_in_time_ratios`:
+  `debt_to_equity`/`invested_capital`/`roic` now use `total_debt =
+  long_term_debt + long_term_debt_current + short_term_debt`. The two new
+  components default to zero when absent from a filing (most companies
+  genuinely don't carry one of the two lines) -- only the core
+  `long_term_debt` field still propagates NaN when missing, never
+  invented.
+- Re-measured after the fix: MSFT's gap narrowed from -3.11pp to -2.86pp,
+  JNJ's from -3.93pp to -2.68pp. META unchanged (-2.20pp) because it
+  genuinely doesn't report either new line item in its 10-K -- an additive
+  refinement, not a regression, when the data simply isn't there. Residual
+  gap after the fix comes from the still-approximated EBIT proxy
+  (`operating_income`) in NOPAT, not from invested capital anymore.
+
+### Validation
+
+- 21 tests in `tests/test_point_in_time_fundamentals.py` (3 new: total debt
+  incorporated when present, absent new fields default to zero not
+  missing, missing core `long_term_debt` still propagates NaN). Full suite
+  green.
+
 ## Separate output/relatorios (for you) from output/dados (internal contract)
 
 ### Changed

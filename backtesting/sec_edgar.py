@@ -45,6 +45,22 @@ FIELD_TAG_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
         ("us-gaap", "LongTermDebtNoncurrent"),
         ("us-gaap", "LongTermDebt"),
     ),
+    # Parcela circulante da dívida de longo prazo + empréstimos/notas de
+    # curto prazo -- ausentes até aqui, faziam invested_capital/
+    # debt_to_equity do point-in-time subestimarem a dívida total frente ao
+    # "Invested Capital"/"Total Debt" que o Yahoo já reporta prontos (medido:
+    # ROIC point-in-time saía sistematicamente 2-4 p.p. ACIMA do ao vivo em
+    # 3 empresas reais, mesma direção nas 3 -- capital investido menor no
+    # denominador). Ausente no filing (não apenas não mapeado) é tratado
+    # como zero em derive_point_in_time_ratios, não como dado faltante --
+    # a maioria das empresas de fato não carrega uma das duas linhas.
+    "long_term_debt_current": (
+        ("us-gaap", "LongTermDebtCurrent"),
+    ),
+    "short_term_debt": (
+        ("us-gaap", "ShortTermBorrowings"),
+        ("us-gaap", "DebtCurrent"),
+    ),
     "retained_earnings": (
         ("us-gaap", "RetainedEarningsAccumulatedDeficit"),
     ),
