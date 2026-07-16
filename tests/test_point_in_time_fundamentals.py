@@ -73,6 +73,63 @@ def test_equity_derived_ratios_match_hand_computed_values() -> None:
     assert _approx(row["roe"], 150.0 / 1200.0)
 
 
+def test_debt_to_equity_and_roic_include_current_and_short_term_debt() -> None:
+    """
+    debt_to_equity/invested_capital usam divida TOTAL (long_term_debt +
+    long_term_debt_current + short_term_debt), nao so a de longo prazo --
+    medido contra dado real (STATUS.md): sem isso, o ROIC point-in-time
+    saia sistematicamente acima do ao vivo (capital investido subestimado).
+    """
+    frame = pd.DataFrame(
+        [_row(long_term_debt_current=50.0, short_term_debt=25.0)]
+    )
+    result = derive_point_in_time_ratios(frame)
+    row = result.iloc[0]
+
+    # total_debt = 300 + 50 + 25 = 375; total_equity = 1200 (inalterado)
+    assert _approx(row["debt_to_equity"], 375.0 / 1200.0)
+    # invested_capital = 375 + 1200 - 100 = 1475
+    # tax_rate = 30/180 = 0.16667; nopat = 200*(1-0.16667) = 166.667
+    assert _approx(row["roic"], 166.6667 / 1475.0, tol=1e-3)
+
+
+def test_absent_current_and_short_term_debt_defaults_to_zero_not_missing() -> None:
+    """
+    Empresa que so reporta long_term_debt (a maioria) nao fica com
+    debt_to_equity/roic ausentes so porque as duas linhas novas nao
+    existem no filing -- tratadas como zero, comportamento identico ao
+    de antes desta mudanca (ver os testes de hand-computed acima).
+    """
+    frame = pd.DataFrame([_row()])  # sem long_term_debt_current/short_term_debt
+    result = derive_point_in_time_ratios(frame)
+    row = result.iloc[0]
+
+    assert _approx(row["debt_to_equity"], 300.0 / 1200.0)
+    assert not pd.isna(row["roic"])
+
+
+def test_missing_long_term_debt_itself_still_leaves_ratios_missing() -> None:
+    """
+    Diferente das duas linhas novas (aditivas, default zero): a ausencia do
+    dado CENTRAL long_term_debt continua propagando NaN, nunca inventado --
+    mesmo com long_term_debt_current/short_term_debt presentes.
+    """
+    frame = pd.DataFrame(
+        [
+            _row(
+                long_term_debt=None,
+                long_term_debt_current=50.0,
+                short_term_debt=25.0,
+            )
+        ]
+    )
+    result = derive_point_in_time_ratios(frame)
+    row = result.iloc[0]
+
+    assert pd.isna(row["debt_to_equity"])
+    assert pd.isna(row["roic"])
+
+
 def test_roic_uses_effective_tax_rate_when_plausible() -> None:
     frame = pd.DataFrame([_row()])
     result = derive_point_in_time_ratios(frame)
