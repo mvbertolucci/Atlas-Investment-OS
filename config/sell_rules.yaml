@@ -10,19 +10,26 @@ distress:
   # inclui componente de valor de mercado); 1.8 é o limite de zona de
   # distress dessa fórmula, não da variante Z''.
   altman_z_threshold: 1.8
-  altman_z_exempt_sectors: ["Utilities", "Financial Services", "Banks", "Insurance"]
+  altman_z_exempt_sectors: ["Utilities", "Financial Services", "Banks", "Insurance", "Biotechnology"]
   # interest_coverage não existia no deal-breaker antigo; tratado com a
   # mesma isenção do altman_z por ser a mesma família de solvência.
   interest_coverage_threshold: 2.5
-  interest_coverage_exempt_sectors: ["Utilities", "Financial Services", "Banks", "Insurance"]
+  interest_coverage_exempt_sectors: ["Utilities", "Financial Services", "Banks", "Insurance", "Biotechnology"]
   net_debt_ebitda_threshold: 4.0
+  # EBITDA e F-Score não representam adequadamente biotecnologias ainda em
+  # fase de P&D/comercialização. Nelas, liquidez e estresse de mercado seguem
+  # avaliados, mas essas métricas não podem fabricar um SELL.
+  net_debt_ebitda_exempt_sectors: ["Biotechnology"]
   current_ratio_threshold: 1.0
-  current_ratio_exempt_sectors: ["Software"]
+  # Capital de giro negativo pode ser estrutural em software recorrente e
+  # tabaco de alta conversão de caixa; current ratio isolado não é distress.
+  current_ratio_exempt_sectors: ["Software", "Tobacco"]
   short_float_threshold: 20.0
   # Piso absoluto, independente do delta de fundamental_decay -- uma
   # posição travada num F-Score ruim nunca dispara o delta (nunca cai),
   # mas não deveria passar despercebida.
   f_score_floor: 4
+  f_score_exempt_sectors: ["Biotechnology"]
 
 valuation_stretch:
   enabled: true
@@ -36,9 +43,16 @@ fundamental_decay:
 relative_decay:
   enabled: true
   percentile_threshold: 40.0
+  # Comparação relativa é atenção, não deterioração da empresa. Pode gerar
+  # REVISAR, mas nunca TRIM/SELL sozinha nem compor a contagem de escalação.
+  review_only: true
 
 escalation:
   trim_at: 1
   sell_at: 2
   trim_fraction: 0.50
+  # Distress é agregado por famílias independentes: solvência, alavancagem,
+  # liquidez, estresse de mercado e qualidade operacional.
+  distress_review_at: 1
+  distress_sell_at: 2
   distress_overrides_escalation: true
