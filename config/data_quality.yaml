@@ -1,0 +1,21 @@
+version: "1"
+
+# Pontua a confiabilidade da proveniência declarada, sem inferir qualidade
+# quando a fonte está ausente ou desconhecida.
+source_quality:
+  missing_score: 0
+  unknown_score: 50
+  patterns:
+    SEC EDGAR: 95
+    Yahoo Finance: 80
+    yahoo: 80
+
+# A coleta ampla é mensal. Dados com até 7 dias são frescos; até 35 dias
+# continuam aceitáveis, mas explicitamente abaixo do estado fresco.
+freshness:
+  fresh_days: 7
+  acceptable_days: 35
+  fresh_score: 100
+  acceptable_score: 70
+  stale_score: 0
+

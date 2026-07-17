@@ -14,6 +14,10 @@ class RankingPolicy:
         "Conviction Score",
     )
     min_confidence_score: float = 70.0
+    min_data_coverage_score: float = 0.0
+    min_source_quality_score: float = 0.0
+    min_data_freshness_score: float = 0.0
+    require_required_features: bool = False
     require_no_deal_breakers: bool = True
 
     def __post_init__(self) -> None:
@@ -23,9 +27,18 @@ class RankingPolicy:
             raise ValueError("RankingPolicy exige primary_score.")
         if not self.tie_breakers:
             raise ValueError("RankingPolicy exige tie_breakers.")
-        confidence = float(self.min_confidence_score)
-        if not 0 <= confidence <= 100:
-            raise ValueError("min_confidence_score deve estar entre 0 e 100.")
+        score_fields = (
+            "min_confidence_score",
+            "min_data_coverage_score",
+            "min_source_quality_score",
+            "min_data_freshness_score",
+        )
+        scores: dict[str, float] = {}
+        for field_name in score_fields:
+            score = float(getattr(self, field_name))
+            if not 0 <= score <= 100:
+                raise ValueError(f"{field_name} deve estar entre 0 e 100.")
+            scores[field_name] = score
         object.__setattr__(self, "name", str(self.name).strip())
         object.__setattr__(self, "primary_score", str(self.primary_score).strip())
         object.__setattr__(
@@ -33,7 +46,8 @@ class RankingPolicy:
             "tie_breakers",
             tuple(str(value).strip() for value in self.tie_breakers),
         )
-        object.__setattr__(self, "min_confidence_score", confidence)
+        for field_name, score in scores.items():
+            object.__setattr__(self, field_name, score)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "RankingPolicy":
@@ -47,6 +61,10 @@ class RankingPolicy:
             "primary_score": self.primary_score,
             "tie_breakers": list(self.tie_breakers),
             "min_confidence_score": self.min_confidence_score,
+            "min_data_coverage_score": self.min_data_coverage_score,
+            "min_source_quality_score": self.min_source_quality_score,
+            "min_data_freshness_score": self.min_data_freshness_score,
+            "require_required_features": self.require_required_features,
             "require_no_deal_breakers": self.require_no_deal_breakers,
         }
 
@@ -67,6 +85,10 @@ class RankedCompany:
     confidence_score: float | None
     deal_breakers: tuple[str, ...]
     already_held: bool = False
+    data_coverage_score: float | None = None
+    source_quality_score: float | None = None
+    data_freshness_score: float | None = None
+    missing_required_features: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -84,6 +106,10 @@ class RankedCompany:
             "confidence_score": self.confidence_score,
             "deal_breakers": list(self.deal_breakers),
             "already_held": self.already_held,
+            "data_coverage_score": self.data_coverage_score,
+            "source_quality_score": self.source_quality_score,
+            "data_freshness_score": self.data_freshness_score,
+            "missing_required_features": list(self.missing_required_features),
         }
 
 

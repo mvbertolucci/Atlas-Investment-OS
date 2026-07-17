@@ -43,6 +43,30 @@ def test_model_yaml_factor_weights_are_pinned() -> None:
         "timing": 0.20,
     }
     assert sum(weights.values()) == pytest.approx(1.0)
+    assert model["confidence"] == {"missing_required_cap": 59}
+
+
+def test_data_quality_policy_is_pinned() -> None:
+    policy = _load_yaml("data_quality.yaml")
+    assert policy == {
+        "version": "1",
+        "source_quality": {
+            "missing_score": 0,
+            "unknown_score": 50,
+            "patterns": {
+                "SEC EDGAR": 95,
+                "Yahoo Finance": 80,
+                "yahoo": 80,
+            },
+        },
+        "freshness": {
+            "fresh_days": 7,
+            "acceptable_days": 35,
+            "fresh_score": 100,
+            "acceptable_score": 70,
+            "stale_score": 0,
+        },
+    }
 
 
 def test_deal_breakers_thresholds_are_pinned() -> None:

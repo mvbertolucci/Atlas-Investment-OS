@@ -6,3 +6,5 @@ factor_weights:
   valuation: 0.30
   financial: 0.15
   timing: 0.20
+confidence:
+  missing_required_cap: 59

@@ -13,12 +13,14 @@ Confidence Score e que ele independe de qualquer valor pre-existente.
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
 
 from analytics.mapper import normalize_columns
 from scoring.investment import score_dataframe
+from factors.engine import score_all_factors
 
 
 CONFIG = Path(__file__).resolve().parent.parent / "config"
@@ -73,3 +75,64 @@ def test_confidence_score_ignores_preexisting_value() -> None:
         polluted.sort_values("symbol")["Confidence Score"].to_numpy(),
     )
     assert not (polluted["Confidence Score"] == 12.34).any()
+
+
+def test_data_coverage_uses_effective_factor_contribution(
+    tmp_path: Path,
+) -> None:
+    features = tmp_path / "features.yaml"
+    features.write_text(
+        "business:\n"
+        "  roe: {weight: 1.0, higher_is_better: true, required: false}\n"
+        "timing:\n"
+        "  momentum_3m: {weight: 1.0, higher_is_better: true, required: true}\n",
+        encoding="utf-8",
+    )
+    model = tmp_path / "model.yaml"
+    model.write_text(
+        "factor_weights: {business: 0.75, timing: 0.25}\n"
+        "confidence: {missing_required_cap: 59}\n",
+        encoding="utf-8",
+    )
+    scored = score_all_factors(
+        pd.DataFrame([{"symbol": "AAA", "roe": 20.0}]),
+        features,
+        model,
+    )
+
+    assert scored.loc[0, "Data Coverage"] == 75.0
+    assert scored.loc[0, "Score Coverage"] == 75.0
+    assert scored.loc[0, "Missing Required Features"] == "timing:momentum_3m"
+    assert scored.loc[0, "Required Features Complete"] == False  # noqa: E712
+    assert scored.loc[0, "Model Confidence"] == 59.0
+    assert scored.loc[0, "Confidence Score"] == 59.0
+
+
+def test_source_quality_and_freshness_are_independent_metrics() -> None:
+    frame = _frame().iloc[:3].copy()
+    frame["source"] = ["Yahoo Finance", "Unknown Vendor", None]
+    frame["as_of"] = [
+        "2026-07-16T00:00:00Z",
+        "2026-06-25T00:00:00Z",
+        None,
+    ]
+    scored = score_dataframe(
+        frame,
+        CONFIG / "model.yaml",
+        CONFIG / "deal_breakers.json",
+        quality_at=datetime(2026, 7, 17, tzinfo=timezone.utc),
+    )
+
+    by_symbol = scored.set_index("symbol")
+    assert by_symbol["Source Quality"].to_dict() == {
+        "S0": 80.0,
+        "S1": 50.0,
+        "S2": 0.0,
+    }
+    assert by_symbol["Data Freshness"].to_dict() == {
+        "S0": 100.0,
+        "S1": 70.0,
+        "S2": 0.0,
+    }
+    assert not scored["Source Quality"].equals(scored["Data Coverage"])
+    assert not scored["Data Freshness"].equals(scored["Model Confidence"])

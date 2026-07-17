@@ -39,6 +39,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
 - Two-fiscal-year point-in-time Piotroski F-Score with governed Deal Breaker
 - Versioned eligible-U.S.-market percentile reference shared by watchlist,
   portfolio and single-ticker analysis, with governed sector-relative features
+- Weighted data coverage, enforced critical features, source/freshness quality
+  gates and explicit uncertainty penalties for missing risk evidence
 
 ## Current integration status
 

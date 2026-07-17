@@ -4,4 +4,8 @@ tie_breakers:
   - Opportunity Score
   - Conviction Score
 min_confidence_score: 70
+min_data_coverage_score: 70
+min_source_quality_score: 70
+min_data_freshness_score: 70
+require_required_features: true
 require_no_deal_breakers: true

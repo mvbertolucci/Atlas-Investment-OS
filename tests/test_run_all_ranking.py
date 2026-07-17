@@ -18,6 +18,8 @@ def _frame() -> pd.DataFrame:
             "market_cap": 10_000_000_000.0, "volume": 1_000_000.0,
             "Investment Score": 80.0, "Opportunity Score": 90.0,
             "Conviction Score": 85.0, "Confidence Score": 100.0,
+            "Data Coverage": 100.0, "Source Quality": 80.0,
+            "Data Freshness": 100.0, "Missing Required Features": "Nenhum",
             "Deal Breakers": "Nenhum",
         }])
 

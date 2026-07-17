@@ -237,14 +237,23 @@ def reconstruct_snapshot_frame(snapshot: AsOfSnapshot) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for symbol in snapshot.members:
         row: dict[str, Any] = {"symbol": symbol}
+        symbol_observations: list[HistoricalObservation] = []
         for field_name in field_names:
             try:
                 observation = snapshot.observation(symbol, field_name)
+                symbol_observations.append(observation)
                 row[field_name] = observation.value
                 row[f"{field_name}__observed_on"] = observation.observed_on
             except KeyError:
                 row[field_name] = None
                 row[f"{field_name}__observed_on"] = None
+        if symbol_observations:
+            row["source"] = " | ".join(
+                sorted({item.source for item in symbol_observations})
+            )
+            row["as_of"] = max(
+                item.available_at for item in symbol_observations
+            ).isoformat()
         shares_observed_on = row.get("shares_outstanding__observed_on")
         price_observed_on = row.get("price__observed_on")
         if shares_observed_on is not None and price_observed_on is not None:
@@ -258,6 +267,8 @@ def reconstruct_snapshot_frame(snapshot: AsOfSnapshot) -> pd.DataFrame:
             row["shares_outstanding_split_factor"] = factor
         rows.append(row)
     columns = ["symbol", *field_names, *metadata_names]
+    if snapshot.observations:
+        columns.extend(["source", "as_of"])
     if any("shares_outstanding_split_factor" in row for row in rows):
         columns.append("shares_outstanding_split_factor")
     return pd.DataFrame(rows, columns=columns)
@@ -345,7 +356,12 @@ def score_snapshot_batch(
     # visível no corte, não uma única linha -- por isso recebem snapshot.history
     # e snapshot.splits diretamente, no mesmo padrão de derive_point_in_time_f_scores.
     eligible = derive_point_in_time_timing(eligible, snapshot.history, snapshot.splits)
-    scored = score_dataframe(eligible, Path(model_path), Path(deal_breakers_path))
+    scored = score_dataframe(
+        eligible,
+        Path(model_path),
+        Path(deal_breakers_path),
+        quality_at=snapshot.decision_at,
+    )
     return scored, tuple(incomplete)
 
 

@@ -60,6 +60,7 @@ conditional Excel sheets and the Morning Brief.
 - `analytics/mapper.py`
 - `analytics/fundamentals.py`
 - `analytics/indicators.py`
+- `analytics/data_quality.py` (source provenance and cutoff-relative freshness)
 
 ### Feature and scoring layer
 
@@ -67,6 +68,12 @@ conditional Excel sheets and the Morning Brief.
 - `scoring/`
 - `models/`
 - `config/features.yaml`
+- `config/model.yaml`, `config/data_quality.yaml`, `config/deal_breakers.json`
+
+The scoring layer emits weighted Data Coverage, required-feature completeness,
+Model Confidence, Source Quality and Data Freshness as separate contracts.
+Observed risk and missing-risk uncertainty are also separate before being
+combined into the downstream `Risk Penalty`; see ADR-013.
 
 ### Decision layer
 

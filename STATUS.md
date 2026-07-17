@@ -45,11 +45,12 @@
 
 | Config | Lido em (produção) | Valores-chave |
 |---|---|---|
-| `config/model.yaml` | `run_all.py::build_scores` (L320-324); `model_version` gravado no snapshot (L1092-1096) | `model_version: "0.3"`; pesos business 0.35 / valuation 0.30 / financial 0.15 / timing 0.20 |
+| `config/model.yaml` | `run_all.py::build_scores` (L320-324); `model_version` gravado no snapshot (L1092-1096) | `model_version: "0.3"`; pesos business 0.35 / valuation 0.30 / financial 0.15 / timing 0.20; confiança limitada a 59 quando falta feature `required` |
 | `config/features.yaml` | `factors/engine.py::score_all_factors` via `scoring/investment.py` (L274); `run_all.py::audit_feature_coverage` (L344) | pesos/`required` por métrica, fonte de verdade desde PR-017.3 |
-| `config/deal_breakers.json` | `scoring/investment.py::apply_deal_breakers` (via `build_scores`, L323) | `f_score_annual_min:4`, `altman_z_min:1.8` (isenta Utilities/Financial Services/Banks/Insurance), `net_debt_ebitda_max:4.0`, `current_liquidity_min:1.0` (isenta Software), `short_float_max:20.0` |
+| `config/data_quality.yaml` | `scoring/investment.py::score_dataframe` e `analytics/data_quality.py` | qualidade por fonte; frescor 100 até 7 dias, 70 até 35, 0 depois disso ou sem data |
+| `config/deal_breakers.json` | `scoring/investment.py::apply_deal_breakers` (via `build_scores`, L323) | limites observados por risco e penalidade de incerteza de 3 por evidência ausente, limitada a 10 |
 | `config/sell_rules.yaml` | `portfolio.sell_rules.load_sell_rules_policy`, chamado em `run_all.py:1105-1106` e default em `portfolio/pipeline.py:22` | `confidence_gate` (score_coverage≥60, confidence≥60); `distress`, `valuation_stretch` (target_upside<-10%), `fundamental_decay` (f_score_drop≥2, roic_drop≥20%), `relative_decay` (percentil<40); `escalation` (trim@1, sell@2 gatilhos, trim_fraction 50%) |
-| `config/ranking.yaml` | `run_all.py::generate_ranking_report` (L522-527) | `min_confidence_score: 70`, `require_no_deal_breakers: true` |
+| `config/ranking.yaml` | `run_all.py::generate_ranking_report` (L522-527) | mínimos 70 para confiança, cobertura, qualidade da fonte e frescor; requer features críticas completas e ausência de deal breaker |
 | `config/universe.yaml` | `run_all.py::generate_universe_report` (L490-495) | min market cap $1B, min price $5, min volume 100k, EQUITY/USD/US |
 | `config/settings.json` | `run_all.py` L114 — raiz de todos os paths/flags | — |
 | `config/model_portfolio.yaml` | **só** `portfolio/model_portfolio.py` (CLI standalone), **`run_all.py` não chama** | target_positions 20, max_position_weight 5%, max_sector_weight 20% |
@@ -64,7 +65,7 @@
 
 | Item | Status | Evidência |
 |---|---|---|
-| `score_coverage`/`confidence` | **Existe** | `factors/engine.py::score_all_factors` (L177-196) — `Model Confidence` = média das confidences por fator, aliasado `Confidence Score` e duplicado como `Score Coverage`. Única fonte desde PR-017.6 (implementação antiga em `analytics/validator.py` removida por duplicidade — ver `tests/test_confidence_score.py`). Consumido em `portfolio/sell_rules.py:81-99,425-438` e `ranking/pipeline.py:97-108` |
+| cobertura/qualidade/confiança | **Separadas** | `Data Coverage` pondera a contribuição real de cada feature; `Model Confidence` aplica teto 59 se faltar `required`; `Source Quality` e `Data Freshness` são sinais governados independentes. Aliases legados: `Score Coverage` e `Confidence Score`. O ranking canônico exige os quatro gates; ver ADR-013. |
 | `model_version` no snapshot | **Existe** | `storage/history_db.py` tabela `snapshots`, coluna `model_version TEXT NOT NULL DEFAULT 'legacy'` (L50/149), populada em `run_all.py:1092-1096` a partir de `model.yaml` |
 | Snapshot grava features individuais? | **Sim, não só o score** | Tabela `snapshots` (`storage/history_db.py:36-69`): `business_score, valuation_score, financial_score, timing_score, investment_score, opportunity_score, confidence_score, model_version, altman_z, interest_coverage, target_upside, f_score_annual, roic, score_coverage, earnings_date, quantity, is_candidate, recommendation`. Tabela `outcome_snapshots` (L98-124) espelha estrutura similar |
 | Gating setorial | **Existe, mas duplicado em 2 lugares** | `portfolio/sell_rules.py::_distress` (L197-260): `altman_z_exempt_sectors`/`interest_coverage_exempt_sectors` = Utilities/Financial Services/Banks/Insurance (`DEFAULT_SOLVENCY_EXEMPT_SECTORS`); `current_ratio_exempt_sectors` = Software. Replicado independentemente em `scoring/investment.py::apply_deal_breakers`. Não há gating setorial em `decision/` |

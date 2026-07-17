@@ -15,8 +15,29 @@ Deal Breakers / Decision / Thesis
 ```
 
 The four factor scores are Business, Valuation, Financial and Timing.
-`Confidence Score` is the model-coverage confidence produced by the active
-factor engine; it is not the obsolete pre-scoring confidence calculation.
+`Confidence Score` is the compatibility alias of `Model Confidence`; it is not
+coverage. `Score Coverage` is the compatibility alias of `Data Coverage`.
+
+## Evidence and confidence contract
+
+- `Data Coverage` weights each available feature by its real contribution:
+  feature weight inside its factor multiplied by factor weight inside the
+  Investment Score.
+- `Model Confidence` starts from that coverage and is capped at 59 whenever a
+  feature declared `required: true` is absent.
+- `Source Quality` is a separate provenance score. SEC EDGAR is governed at 95,
+  Yahoo Finance at 80, unknown declared sources at 50 and missing sources at 0.
+- `Data Freshness` is separate from provenance and coverage: 100 through seven
+  days, 70 through 35 days and 0 thereafter.
+
+The canonical candidate policy requires Model Confidence and Data Coverage of
+at least 70, Source Quality of at least 70, Data Freshness of at least 70 and no
+missing required feature. These thresholds are governed, not inferred.
+
+Missing evidence for a Deal Breaker is not a safe observation. Atlas preserves
+the evidence-based penalty in `Observed Risk Penalty` and adds a separately
+reported `Risk Uncertainty Penalty` of three points per unassessable rule,
+capped at ten. `Risk Penalty` is their sum. See ADR-013.
 
 ## Official live-scoring reference
 

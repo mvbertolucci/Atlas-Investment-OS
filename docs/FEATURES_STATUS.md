@@ -2,7 +2,7 @@
 
 **Release:** v1.2.0
 **Baseline:** PR-033 + point-in-time acquisition/derivation (including `timing` and extended `valuation`) + deterministic PR-034 target/execution-evidence/total-return-evidence/execution/validation cores
-**Test baseline:** 802 passing / 87.79% production coverage
+**Test baseline:** 809 passing / 87.97% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
@@ -22,7 +22,7 @@
 | Market-universe eligibility | Yes | Yes | No | No | Diagnostic JSON and Dashboard market view operational |
 | Broad research-universe collection | Yes | No | No | No | Resumable checkpoints; exhausted provider failures remain visible without blocking later batches |
 | Analytical market/sector ranking | Yes | Yes | No | No | Diagnostic JSON; no new score or decision |
-| Advisory model portfolio | Yes | No | No | No | Market: 2,429/1,042 after official-reference migration; ADR historical run: 501/219 eligible/candidates; each yields 20 capped positions |
+| Advisory model portfolio | Yes | No | No | No | Market: 2,429/794 after evidence-quality gates; ADR historical run: 501/219 eligible/candidates; each yields 20 capped positions |
 | Point-in-time data contract | Yes | No | No | No | Executable observations, constituents, splits and delistings |
 | Walk-forward replay | Yes | No | No | No | Ratios, two-year F-Score and partial valuation; coverage incomplete |
 | Portfolio return/risk validation | Partial | No | No | No | Targets, execution evidence/next-open and metrics ready; broad real data still open |

@@ -75,7 +75,11 @@ def test_every_config_key_is_covered() -> None:
 
     # Chaves de isencao setorial (PR-017.5) modificam regras existentes, nao
     # sao regras proprias: sufixo _exempt_sectors.
-    keys = {k for k in _config_keys() if not k.endswith("_exempt_sectors")}
+    keys = {
+        k
+        for k in _config_keys()
+        if not k.endswith("_exempt_sectors") and k != "missing_data"
+    }
     unknown = keys - set(RULES)
     assert not unknown, (
         f"Chaves em deal_breakers.json sem contrato/bloco conhecido: {sorted(unknown)}. "
@@ -95,9 +99,42 @@ def test_rule_column_is_producible(rule_key: str) -> None:
 
 
 def _score(row: dict) -> pd.DataFrame:
-    df = pd.DataFrame([{"Investment Score": 80.0, **row}])
+    safe_evidence = {
+        "net_debt_ebitda": 1.0,
+        "current_liquidity": 2.0,
+        "f_score_annual": 8.0,
+        "altman_z": 5.0,
+        "short_float": 0.02,
+    }
+    df = pd.DataFrame([{"Investment Score": 80.0, **safe_evidence, **row}])
     df = normalize_columns(df)
     return apply_deal_breakers(df, DEAL_BREAKERS_PATH)
+
+
+def test_missing_risk_evidence_has_explicit_capped_uncertainty_penalty() -> None:
+    result = apply_deal_breakers(
+        pd.DataFrame([{"Investment Score": 80.0}]),
+        DEAL_BREAKERS_PATH,
+    )
+    assert result.loc[0, "Observed Risk Penalty"] == 0.0
+    assert result.loc[0, "Risk Uncertainty Penalty"] == 10.0
+    assert result.loc[0, "Risk Penalty"] == 10.0
+    assert result.loc[0, "Investment Score"] == 70.0
+    assert result.loc[0, "Risk Assessment Complete"] == False  # noqa: E712
+    assert set(result.loc[0, "Risk Evidence Missing"].split("; ")) == {
+        "net_debt_ebitda",
+        "current_ratio",
+        "f_score_annual",
+        "altman_z",
+        "short_float",
+    }
+
+
+def test_missing_data_policy_is_pinned() -> None:
+    policy = json.loads(DEAL_BREAKERS_PATH.read_text(encoding="utf-8"))[
+        "missing_data"
+    ]
+    assert policy == {"penalty_each": 3.0, "penalty_cap": 10.0}
 
 
 @pytest.mark.parametrize("rule_key", list(RULES))

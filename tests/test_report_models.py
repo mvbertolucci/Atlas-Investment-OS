@@ -70,12 +70,26 @@ def test_company_report_to_dict_is_serializable() -> None:
         symbol="AAA",
         decision_drivers=("Alta convicção",),
         strengths=("Business forte",),
+        data_coverage=88,
+        source_quality=80,
+        data_freshness=100,
+        missing_required_features="valuation:pe",
+        risk_evidence_missing=("short_float",),
+        observed_risk_penalty=4,
+        risk_uncertainty_penalty=3,
     )
 
     data = report.to_dict()
 
     assert data["symbol"] == "AAA"
     assert data["decision_drivers"] == ["Alta convicção"]
+    assert data["data_coverage"] == 88.0
+    assert data["source_quality"] == 80.0
+    assert data["data_freshness"] == 100.0
+    assert data["missing_required_features"] == ["valuation:pe"]
+    assert data["risk_evidence_missing"] == ["short_float"]
+    assert data["observed_risk_penalty"] == 4.0
+    assert data["risk_uncertainty_penalty"] == 3.0
     assert isinstance(data["generated_at"], str)
 
 

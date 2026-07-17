@@ -65,7 +65,18 @@ def _company_reports_dataframe(
                 "Financial Score": report.financial_score,
                 "Timing Score": report.timing_score,
                 "Confidence Score": report.confidence_score,
+                "Data Coverage": report.data_coverage,
+                "Source Quality": report.source_quality,
+                "Data Freshness": report.data_freshness,
                 "Risk Penalty": report.risk_penalty,
+                "Observed Risk Penalty": report.observed_risk_penalty,
+                "Risk Uncertainty Penalty": report.risk_uncertainty_penalty,
+                "Missing Required Features": "; ".join(
+                    report.missing_required_features
+                ),
+                "Risk Evidence Missing": "; ".join(
+                    report.risk_evidence_missing
+                ),
                 "Reference Universe": report.reference_universe,
                 "Reference Date": report.reference_date,
                 "Reference Count": report.reference_count,

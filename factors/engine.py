@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime
 from typing import Any
 
 import pandas as pd
 import yaml
 
+from analytics.data_quality import freshness_scores, source_quality_scores
 from factors.valuation import score_valuation
 from scoring.reference import ScoringReference, percentile_rank
 
@@ -141,6 +143,8 @@ def score_all_factors(
     features_path: Path,
     model_path: Path | None = None,
     reference: ScoringReference | None = None,
+    quality_policy: dict[str, Any] | None = None,
+    quality_at: datetime | None = None,
 ) -> pd.DataFrame:
     result = df.copy()
 
@@ -150,7 +154,7 @@ def score_all_factors(
     factor_weights = model.get("factor_weights", DEFAULT_FACTORS)
 
     factor_scores: dict[str, pd.Series] = {}
-    confidence_parts: list[pd.Series] = []
+    factor_confidences: dict[str, pd.Series] = {}
 
     for factor, weight in factor_weights.items():
         factor = str(factor).lower()
@@ -173,7 +177,7 @@ def score_all_factors(
         result = pd.concat([result, details], axis=1)
 
         factor_scores[factor] = score
-        confidence_parts.append(confidence)
+        factor_confidences[factor] = confidence
 
     total_weight = sum(float(w) for w in factor_weights.values()) or 1.0
     investment = pd.Series(0.0, index=result.index)
@@ -184,19 +188,64 @@ def score_all_factors(
 
     result["Investment Score"] = (investment / total_weight).round(1)
 
-    if confidence_parts:
-        result["Model Confidence"] = (
-            pd.concat(confidence_parts, axis=1)
-            .mean(axis=1)
-            .round(1)
-        )
-    else:
-        result["Model Confidence"] = 0.0
+    weighted_coverage = pd.Series(0.0, index=result.index, dtype="float64")
+    for factor, weight in factor_weights.items():
+        factor_name = str(factor).lower()
+        weighted_coverage += factor_confidences.get(
+            factor_name,
+            pd.Series(0.0, index=result.index),
+        ) * float(weight)
+    result["Data Coverage"] = (weighted_coverage / total_weight).round(1)
 
-    # Cobertura efetiva do score: o mesmo percentual de peso de features
-    # observado pelo motor de fatores. Nome explícito para gating operacional;
-    # não altera score, pesos ou semântica de Confidence Score.
-    result["Score Coverage"] = result["Model Confidence"].round(1)
+    missing_required: list[list[str]] = [[] for _ in range(len(result))]
+    required_count = 0
+    for factor in factor_weights:
+        factor_name = str(factor).lower()
+        selected = get_factor_features(features, factor_name)
+        for feature_name, cfg in selected.items():
+            if not isinstance(cfg, dict) or not bool(cfg.get("required", False)):
+                continue
+            required_count += 1
+            column = str(cfg.get("column") or feature_name)
+            available = metric_available(result, column).tolist()
+            for position, present in enumerate(available):
+                if not present:
+                    missing_required[position].append(
+                        f"{factor_name}:{feature_name}"
+                    )
+
+    result["Required Feature Count"] = required_count
+    result["Missing Required Feature Count"] = [
+        len(items) for items in missing_required
+    ]
+    result["Missing Required Features"] = [
+        "; ".join(items) if items else "Nenhum"
+        for items in missing_required
+    ]
+    result["Required Features Complete"] = [
+        not items for items in missing_required
+    ]
+
+    confidence_cfg = model.get("confidence") or {}
+    missing_required_cap = float(
+        confidence_cfg.get("missing_required_cap", 59.0)
+    )
+    model_confidence = result["Data Coverage"].copy()
+    incomplete_required = ~result["Required Features Complete"]
+    model_confidence = model_confidence.mask(
+        incomplete_required,
+        model_confidence.clip(upper=missing_required_cap),
+    )
+    result["Model Confidence"] = model_confidence.round(1)
+    result["Source Quality"] = source_quality_scores(result, quality_policy)
+    result["Data Freshness"] = freshness_scores(
+        result,
+        quality_policy,
+        evaluated_at=quality_at,
+    )
+
+    # Alias legado mantido para sell rules, histórico e relatórios antigos.
+    result["Score Coverage"] = result["Data Coverage"].round(1)
 
     aliases = {
         "Business Factor": "Business Score",

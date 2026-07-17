@@ -17,7 +17,17 @@ def build_diagnostics(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     other_cols = [
-        c for c in ["Risk Penalty", "Deal Breakers"]
+        c
+        for c in [
+            "Source Quality",
+            "Data Freshness",
+            "Missing Required Features",
+            "Observed Risk Penalty",
+            "Risk Uncertainty Penalty",
+            "Risk Penalty",
+            "Risk Evidence Missing",
+            "Deal Breakers",
+        ]
         if c in df.columns
     ]
 
@@ -30,7 +40,11 @@ def build_diagnostics(df: pd.DataFrame) -> pd.DataFrame:
 
         result["Available Metrics"] = available_count
         result["Missing Metrics"] = missing_count
-        result["Data Coverage %"] = (available_count / total_count * 100).round(1)
+        result["Data Coverage %"] = (
+            pd.to_numeric(df["Data Coverage"], errors="coerce").round(1)
+            if "Data Coverage" in df.columns
+            else (available_count / total_count * 100).round(1)
+        )
 
     for col in confidence_cols + other_cols:
         result[col] = df[col]

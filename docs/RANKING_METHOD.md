@@ -25,7 +25,9 @@ A company receives a `candidate_rank` only when all safeguards pass:
 
 - eligible under `config/universe.yaml`;
 - primary Investment Score available;
-- Confidence Score at or above the configured minimum (70 by default);
+- Model Confidence and weighted Data Coverage at or above 70;
+- Source Quality and Data Freshness at or above 70;
+- no governed `required` feature missing;
 - no active Deal Breaker when `require_no_deal_breakers` is enabled.
 
 Deal Breakers reuse the governed absolute thresholds in

@@ -193,6 +193,13 @@ def test_history_persists_score_reference_metadata(tmp_path: Path) -> None:
                 "reference_date": "2026-07-13",
                 "reference_count": 2429,
                 "reference_version": "1",
+                "Data Coverage": 88.0,
+                "Source Quality": 80.0,
+                "Data Freshness": 100.0,
+                "Missing Required Features": "valuation:pe",
+                "Risk Evidence Missing": "short_float",
+                "Observed Risk Penalty": 4.0,
+                "Risk Uncertainty Penalty": 3.0,
             }
         ]
     )
@@ -204,3 +211,10 @@ def test_history_persists_score_reference_metadata(tmp_path: Path) -> None:
     assert row["reference_date"] == "2026-07-13"
     assert row["reference_count"] == 2429
     assert row["reference_version"] == "1"
+    assert row["score_coverage"] == 88.0
+    assert row["source_quality"] == 80.0
+    assert row["data_freshness"] == 100.0
+    assert row["missing_required_features"] == "valuation:pe"
+    assert row["risk_evidence_missing"] == "short_float"
+    assert row["observed_risk_penalty"] == 4.0
+    assert row["risk_uncertainty_penalty"] == 3.0

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -57,7 +58,7 @@ def apply_deal_breakers(
         errors="coerce",
     ).fillna(50.0)
 
-    penalties = pd.Series(
+    observed_penalties = pd.Series(
         0.0,
         index=result.index,
         dtype="float64",
@@ -74,11 +75,11 @@ def apply_deal_breakers(
         penalty: float,
         label: str,
     ) -> None:
-        nonlocal penalties, notes
+        nonlocal observed_penalties, notes
 
         condition = condition.fillna(False)
 
-        penalties += (
+        observed_penalties += (
             condition.astype(float)
             * float(penalty)
         )
@@ -87,6 +88,20 @@ def apply_deal_breakers(
             ~condition,
             notes + label + "; ",
         )
+
+    missing_evidence: list[list[str]] = [
+        [] for _ in range(len(result))
+    ]
+
+    def record_missing(
+        values: pd.Series,
+        exempt: pd.Series,
+        label: str,
+    ) -> None:
+        missing = values.isna() & ~exempt.fillna(False)
+        for position, active in enumerate(missing.tolist()):
+            if active:
+                missing_evidence[position].append(label)
 
     def exemption_mask(terms: Any) -> pd.Series:
         """
@@ -170,17 +185,20 @@ def apply_deal_breakers(
         ),
     )
 
-    if "net_debt_ebitda" in result.columns:
-        values = pd.to_numeric(
-            result["net_debt_ebitda"],
-            errors="coerce",
-        )
-
-        add_penalty(
-            (values > float(max_net_debt_ebitda)) & ~net_debt_ebitda_exempt,
-            15,
-            "Net Debt/EBITDA alto",
-        )
+    net_debt_values = pd.to_numeric(
+        result.get(
+            "net_debt_ebitda",
+            pd.Series(None, index=result.index),
+        ),
+        errors="coerce",
+    )
+    record_missing(net_debt_values, net_debt_ebitda_exempt, "net_debt_ebitda")
+    add_penalty(
+        (net_debt_values > float(max_net_debt_ebitda))
+        & ~net_debt_ebitda_exempt,
+        15,
+        "Net Debt/EBITDA alto",
+    )
 
     liquidity_column = None
 
@@ -189,55 +207,80 @@ def apply_deal_breakers(
     elif "current_liquidity" in result.columns:
         liquidity_column = "current_liquidity"
 
-    if liquidity_column is not None:
-        values = pd.to_numeric(
-            result[liquidity_column],
-            errors="coerce",
-        )
+    liquidity_values = pd.to_numeric(
+        result[liquidity_column]
+        if liquidity_column is not None
+        else pd.Series(None, index=result.index),
+        errors="coerce",
+    )
+    record_missing(
+        liquidity_values,
+        current_liquidity_exempt,
+        "current_ratio",
+    )
+    add_penalty(
+        (liquidity_values < float(min_current_ratio))
+        & ~current_liquidity_exempt,
+        10,
+        "Liquidez corrente baixa",
+    )
 
-        add_penalty(
-            (values < float(min_current_ratio)) & ~current_liquidity_exempt,
-            10,
-            "Liquidez corrente baixa",
-        )
+    f_score_values = pd.to_numeric(
+        result.get("f_score_annual", pd.Series(None, index=result.index)),
+        errors="coerce",
+    )
+    record_missing(f_score_values, f_score_exempt, "f_score_annual")
+    add_penalty(
+        (f_score_values < float(min_f_score)) & ~f_score_exempt,
+        15,
+        "Piotroski baixo",
+    )
 
-    if "f_score_annual" in result.columns:
-        values = pd.to_numeric(
-            result["f_score_annual"],
-            errors="coerce",
-        )
+    altman_values = pd.to_numeric(
+        result.get("altman_z", pd.Series(None, index=result.index)),
+        errors="coerce",
+    )
+    record_missing(altman_values, altman_z_exempt, "altman_z")
+    add_penalty(
+        (altman_values < float(min_altman_z)) & ~altman_z_exempt,
+        15,
+        "Altman Z baixo (risco de insolvencia)",
+    )
 
-        add_penalty(
-            (values < float(min_f_score)) & ~f_score_exempt,
-            15,
-            "Piotroski baixo",
-        )
+    short_values = pd.to_numeric(
+        result.get("short_float", pd.Series(None, index=result.index)),
+        errors="coerce",
+    )
+    no_exemption = pd.Series(False, index=result.index)
+    record_missing(short_values, no_exemption, "short_float")
+    add_penalty(
+        short_values > float(max_short_float),
+        10,
+        "Short float alto",
+    )
 
-    if "altman_z" in result.columns:
-        values = pd.to_numeric(
-            result["altman_z"],
-            errors="coerce",
-        )
-
-        add_penalty(
-            (values < float(min_altman_z)) & ~altman_z_exempt,
-            15,
-            "Altman Z baixo (risco de insolvencia)",
-        )
-
-    if "short_float" in result.columns:
-        values = pd.to_numeric(
-            result["short_float"],
-            errors="coerce",
-        )
-
-        add_penalty(
-            values > float(max_short_float),
-            10,
-            "Short float alto",
-        )
-
-    result["Risk Penalty"] = penalties.round(1)
+    missing_policy = rules.get("missing_data") or {}
+    penalty_each = float(missing_policy.get("penalty_each", 0.0))
+    penalty_cap = float(missing_policy.get("penalty_cap", 0.0))
+    uncertainty_penalty = pd.Series(
+        [
+            min(len(items) * penalty_each, penalty_cap)
+            for items in missing_evidence
+        ],
+        index=result.index,
+        dtype="float64",
+    )
+    total_penalty = observed_penalties + uncertainty_penalty
+    result["Observed Risk Penalty"] = observed_penalties.round(1)
+    result["Risk Uncertainty Penalty"] = uncertainty_penalty.round(1)
+    result["Risk Penalty"] = total_penalty.round(1)
+    result["Risk Evidence Missing"] = [
+        "; ".join(items) if items else "Nenhum"
+        for items in missing_evidence
+    ]
+    result["Risk Assessment Complete"] = [
+        not items for items in missing_evidence
+    ]
 
     result["Deal Breakers"] = (
         notes
@@ -246,7 +289,7 @@ def apply_deal_breakers(
     )
 
     result["Investment Score"] = (
-        score - penalties
+        score - total_penalty
     ).clip(
         lower=0,
         upper=100,
@@ -260,6 +303,7 @@ def score_dataframe(
     config_path: Path,
     deal_breakers_path: Path,
     scoring_reference: ScoringReference | None = None,
+    quality_at: datetime | None = None,
 ) -> pd.DataFrame:
     """
     Executa o pipeline de decisão do Atlas.
@@ -282,6 +326,7 @@ def score_dataframe(
 
     features_path = config_dir / "features.yaml"
     model_path = config_dir / "model.yaml"
+    data_quality_path = config_dir / "data_quality.yaml"
 
     if not features_path.exists():
         raise FileNotFoundError(
@@ -293,6 +338,10 @@ def score_dataframe(
         features_path=features_path,
         model_path=model_path if model_path.exists() else None,
         reference=scoring_reference,
+        quality_policy=(
+            load_yaml(data_quality_path) if data_quality_path.exists() else None
+        ),
+        quality_at=quality_at,
     )
 
     result = apply_deal_breakers(

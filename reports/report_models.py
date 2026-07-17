@@ -83,7 +83,14 @@ class CompanyReport:
     financial_score: float | None = None
     timing_score: float | None = None
     confidence_score: float | None = None
+    data_coverage: float | None = None
+    source_quality: float | None = None
+    data_freshness: float | None = None
     risk_penalty: float | None = None
+    observed_risk_penalty: float | None = None
+    risk_uncertainty_penalty: float | None = None
+    missing_required_features: tuple[str, ...] = field(default_factory=tuple)
+    risk_evidence_missing: tuple[str, ...] = field(default_factory=tuple)
 
     reference_universe: str = ""
     reference_date: str = ""
@@ -140,7 +147,12 @@ class CompanyReport:
             "financial_score",
             "timing_score",
             "confidence_score",
+            "data_coverage",
+            "source_quality",
+            "data_freshness",
             "risk_penalty",
+            "observed_risk_penalty",
+            "risk_uncertainty_penalty",
         ]
 
         for field_name in score_fields:
@@ -156,6 +168,8 @@ class CompanyReport:
             "risks",
             "catalysts",
             "deal_breakers",
+            "missing_required_features",
+            "risk_evidence_missing",
         ]
 
         for field_name in collection_fields:
@@ -227,7 +241,14 @@ class CompanyReport:
             "financial_score": self.financial_score,
             "timing_score": self.timing_score,
             "confidence_score": self.confidence_score,
+            "data_coverage": self.data_coverage,
+            "source_quality": self.source_quality,
+            "data_freshness": self.data_freshness,
             "risk_penalty": self.risk_penalty,
+            "observed_risk_penalty": self.observed_risk_penalty,
+            "risk_uncertainty_penalty": self.risk_uncertainty_penalty,
+            "missing_required_features": list(self.missing_required_features),
+            "risk_evidence_missing": list(self.risk_evidence_missing),
             "reference_universe": self.reference_universe,
             "reference_date": self.reference_date,
             "reference_count": self.reference_count,

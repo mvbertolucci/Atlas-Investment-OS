@@ -59,6 +59,10 @@ def test_canonical_ranking_policy_is_pinned() -> None:
         "primary_score": "Investment Score",
         "tie_breakers": ["Opportunity Score", "Conviction Score"],
         "min_confidence_score": 70.0,
+        "min_data_coverage_score": 70.0,
+        "min_source_quality_score": 70.0,
+        "min_data_freshness_score": 70.0,
+        "require_required_features": True,
         "require_no_deal_breakers": True,
     }
 
@@ -124,6 +128,40 @@ def test_missing_primary_score_is_explicit() -> None:
     aaa = next(company for company in report.companies if company.symbol == "AAA")
     assert aaa.safeguard_reasons == ("MISSING_PRIMARY_SCORE",)
     assert aaa.candidate_rank is None
+
+
+def test_canonical_quality_gates_block_missing_critical_feature() -> None:
+    frame = _frame()
+    frame["Data Coverage"] = 90.0
+    frame["Source Quality"] = 80.0
+    frame["Data Freshness"] = 100.0
+    frame["Missing Required Features"] = "Nenhum"
+    frame.loc[0, "Missing Required Features"] = "valuation:pe"
+    policy = load_ranking_policy("config/ranking.yaml")
+    report = rank_companies(frame, _universe(frame), policy)
+    aaa = next(company for company in report.companies if company.symbol == "AAA")
+    assert "MISSING_REQUIRED_FEATURES" in aaa.safeguard_reasons
+    assert aaa.missing_required_features == ("valuation:pe",)
+
+
+def test_canonical_quality_gates_are_independent() -> None:
+    frame = _frame()
+    frame["Data Coverage"] = 90.0
+    frame["Source Quality"] = 80.0
+    frame["Data Freshness"] = 100.0
+    frame["Missing Required Features"] = "Nenhum"
+    frame.loc[0, "Data Coverage"] = 60.0
+    frame.loc[1, "Source Quality"] = 50.0
+    frame.loc[2, "Data Freshness"] = 0.0
+    report = rank_companies(
+        frame,
+        _universe(frame),
+        load_ranking_policy("config/ranking.yaml"),
+    )
+    by_symbol = {company.symbol: company for company in report.companies}
+    assert "DATA_COVERAGE_BELOW_MINIMUM" in by_symbol["AAA"].safeguard_reasons
+    assert "SOURCE_QUALITY_BELOW_MINIMUM" in by_symbol["BBB"].safeguard_reasons
+    assert "DATA_FRESHNESS_BELOW_MINIMUM" in by_symbol["CCC"].safeguard_reasons
 
 
 def test_report_serialization(tmp_path: Path) -> None:

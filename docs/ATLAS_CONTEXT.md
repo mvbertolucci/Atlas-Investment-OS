@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 802 tests passing / 87.79% production coverage
+**Validation baseline:** 809 tests passing / 87.97% production coverage
 
 ## 1. Product mission
 
@@ -88,8 +88,13 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 
 - `config/features.yaml`: feature definitions and per-feature weights.
 - `config/model.yaml`: `factor_weights` — the scoring weight vector used by the
-  current pipeline (business/valuation/financial/timing).
-- `config/deal_breakers.json`: risk penalty rules and sector exemptions.
+  current pipeline (business/valuation/financial/timing), plus the confidence
+  cap applied when a required feature is missing.
+- `config/data_quality.yaml`: source-quality and freshness scoring policy.
+- `config/deal_breakers.json`: observed-risk rules, sector exemptions and the
+  missing-risk-evidence penalty.
+- `config/ranking.yaml`: candidacy gates for confidence, required evidence,
+  data coverage, source quality and freshness.
 - `config/settings.json`: runtime paths and provider settings.
 - `config/watchlist.csv`: manually curated research symbols -- assets the
   user chose to track, not the real portfolio. Edited by hand only; never
@@ -199,7 +204,7 @@ track (none of it changes governed scoring):
   (`config/universe_market.yaml`, NASDAQ Trader source, USD 300 million
   floor) has completed its 7,093-symbol snapshot/collection and model run;
   6,959 observations produced 2,429 eligible companies. The 2026-07-17
-  official-reference rerun produced 1,042 safeguarded
+  evidence-quality rerun produced 794 safeguarded
   candidates and a 20-position advisory portfolio, while 134 exhausted
   provider failures remain explicitly attributed. The US-listed ADR screener
   (`config/universe_adr.yaml`, same floor) reuses that collection; its

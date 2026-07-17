@@ -7,5 +7,9 @@
   "net_debt_ebitda_exempt_sectors": ["Biotechnology"],
   "current_liquidity_min": 1.0,
   "current_liquidity_exempt_sectors": ["Software", "Tobacco"],
-  "short_float_max": 20.0
+  "short_float_max": 20.0,
+  "missing_data": {
+    "penalty_each": 3.0,
+    "penalty_cap": 10.0
+  }
 }

@@ -95,6 +95,14 @@ def rank_companies(
         member = members.get(symbol)
         universe_eligible = bool(member and member.eligible)
         confidence = _number(row.get("Confidence Score"))
+        data_coverage = _number(
+            row.get("Data Coverage", row.get("Score Coverage"))
+        )
+        source_quality = _number(row.get("Source Quality"))
+        data_freshness = _number(row.get("Data Freshness"))
+        missing_required = _deal_breakers(
+            row.get("Missing Required Features")
+        )
         investment_score = _number(row.get(policy.primary_score))
         breakers = _deal_breakers(row.get("Deal Breakers"))
         reasons: list[str] = []
@@ -106,6 +114,34 @@ def rank_companies(
             reasons.append("MISSING_CONFIDENCE_SCORE")
         elif confidence < policy.min_confidence_score:
             reasons.append("CONFIDENCE_BELOW_MINIMUM")
+        if policy.require_required_features and missing_required:
+            reasons.append("MISSING_REQUIRED_FEATURES")
+        for value, minimum, missing_reason, below_reason in (
+            (
+                data_coverage,
+                policy.min_data_coverage_score,
+                "MISSING_DATA_COVERAGE",
+                "DATA_COVERAGE_BELOW_MINIMUM",
+            ),
+            (
+                source_quality,
+                policy.min_source_quality_score,
+                "MISSING_SOURCE_QUALITY",
+                "SOURCE_QUALITY_BELOW_MINIMUM",
+            ),
+            (
+                data_freshness,
+                policy.min_data_freshness_score,
+                "MISSING_DATA_FRESHNESS",
+                "DATA_FRESHNESS_BELOW_MINIMUM",
+            ),
+        ):
+            if minimum <= 0:
+                continue
+            if value is None:
+                reasons.append(missing_reason)
+            elif value < minimum:
+                reasons.append(below_reason)
         if policy.require_no_deal_breakers and breakers:
             reasons.append("DEAL_BREAKER_TRIGGERED")
         # `origin` vem de run_all.merge_watchlist_with_portfolio (proveniência
@@ -128,6 +164,10 @@ def rank_companies(
                 "confidence_score": confidence,
                 "deal_breakers": breakers,
                 "already_held": already_held,
+                "data_coverage_score": data_coverage,
+                "source_quality_score": source_quality,
+                "data_freshness_score": data_freshness,
+                "missing_required_features": missing_required,
             }
         )
 
