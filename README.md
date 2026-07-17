@@ -52,6 +52,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   and output contracts
 - Narrow typed runtime, collection, scoring, history, intelligence and
   reporting service facades; no module namespace injection
+- Concrete collection and scoring application services outside `run_all.py`,
+  with backward-compatible public wrappers
 
 ## Current integration status
 

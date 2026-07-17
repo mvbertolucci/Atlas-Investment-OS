@@ -75,6 +75,22 @@ facade for its responsibility; the Python module is never used as a service
 locator. Public helper contracts and existing test seams remain preserved. See
 ADR-015 and ADR-016.
 
+### Application-service layer
+
+- `application/collection.py`
+- `application/scoring.py`
+
+`CollectionApplicationService` owns watchlist loading, the in-memory
+watchlist/portfolio merge and provider collection/enrichment.
+`ScoringApplicationService` owns official-reference validation,
+normalization/scoring, feature coverage, universe evaluation and ranking.
+Both receive governed paths and the logger explicitly and call domain modules
+directly. The pipeline binds their methods to the narrow orchestration facades;
+it does not traverse `run_all.py`. Public functions with the historical names
+remain in `run_all.py` as thin compatibility wrappers and construct services
+from the current module paths, so existing callers and path monkeypatches keep
+working. See ADR-017.
+
 ### Data layer
 
 - `providers/`

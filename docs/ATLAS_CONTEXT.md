@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 848 tests passing / 89.02% production coverage
+**Validation baseline:** 854 tests passing / 89.41% production coverage
 
 ## 1. Product mission
 
@@ -45,7 +45,10 @@ and typed output; the runner fails fast on a missing dependency or an invalid
 output contract. `orchestration/services.py` groups runtime, collection,
 scoring, history, intelligence and reporting operations into narrow typed
 facades. `run_all.py` binds functions to those facades explicitly and no longer
-injects its module namespace into the pipeline.
+injects its module namespace into the pipeline. Collection and scoring
+implementations now live in `application/collection.py` and
+`application/scoring.py`; the corresponding historical `run_all` functions are
+compatibility wrappers only.
 
 ```text
 settings.json + watchlist.csv
@@ -85,6 +88,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 | Area | Main locations | Status |
 |---|---|---|
 | Pipeline orchestration | `orchestration/pipeline.py`, `orchestration/services.py`, `run_all.py` | Typed stages and narrow service facades integrated; CLI preserved |
+| Application services | `application/collection.py`, `application/scoring.py` | Concrete collection/scoring services integrated; `run_all` wrappers preserved |
 | Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, field evidence and SEC fundamental confirmation integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |

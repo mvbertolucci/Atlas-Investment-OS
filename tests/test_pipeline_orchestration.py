@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 import run_all
+from application import CollectionApplicationService, ScoringApplicationService
 from orchestration.pipeline import (
     CompletionOutput,
     PipelineContext,
@@ -175,7 +176,14 @@ def test_run_all_builds_narrow_typed_service_groups() -> None:
     assert isinstance(services.intelligence, IntelligenceServices)
     assert isinstance(services.reporting, ReportingServices)
     assert services.runtime.paths.root == run_all.ROOT
-    assert services.collection._collect_market_data is run_all.collect_market_data
+    assert isinstance(
+        services.collection._collect_market_data.__self__,
+        CollectionApplicationService,
+    )
+    assert isinstance(
+        services.scoring._build_scores.__self__,
+        ScoringApplicationService,
+    )
 
 
 def test_ticker_pipeline_uses_composed_runtime_service(

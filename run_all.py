@@ -6,21 +6,20 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-import yaml
 
-from analytics.feature_audit import (
-    audit_coverage,
-    format_coverage_report,
-    phantom_weight_summary,
-)
-from analytics.fundamentals import compute_fundamentals
 from analytics.history import load_history as load_score_history
 from analytics.history import previous_run_context
-from analytics.indicators import enrich_technicals
-from analytics.mapper import normalize_columns
 from analytics.performance_validation import (
     build_performance_validation_report,
     write_performance_validation_report,
+)
+from application import (
+    ORIGIN_PORTFOLIO,
+    ORIGIN_PRIORITY,
+    ORIGIN_UNIVERSE,
+    ORIGIN_WATCHLIST,
+    CollectionApplicationService,
+    ScoringApplicationService,
 )
 from atlas_logger import get_logger
 from health.health_check import print_health_report, run_health_check
@@ -60,16 +59,7 @@ from portfolio.pipeline import (
 )
 from portfolio.report import PortfolioReport
 from portfolio.sell_rules import SellRulesPolicy, load_sell_rules_policy
-from providers.yahoo import fetch_watchlist
-from providers.contracts import ProviderPolicy
-from providers.evidence import apply_sector_applicability, ensure_field_evidence
-from providers.sec_companyfacts import build_sec_secondary_provider
-from ranking import (
-    RankingReport,
-    load_ranking_policy,
-    rank_companies,
-    write_ranking_report,
-)
+from ranking import RankingReport
 from reports.atlas_report.context import build_report_context
 from reports.atlas_report.one_pager import (
     compute_symbol_contributions,
@@ -87,15 +77,10 @@ from priority import (
     write_priority_report,
 )
 from reports.report_engine import build_company_reports
-from scoring.investment import load_yaml, score_dataframe
-from scoring.reference import ScoringReference, load_scoring_reference
+from scoring.investment import load_yaml
+from scoring.reference import ScoringReference
 from storage.history_db import HistoryDatabase
-from universe import (
-    UniverseReport,
-    evaluate_universe,
-    load_universe_policy,
-    write_universe_report,
-)
+from universe import UniverseReport
 from watchlist import (
     WatchlistError,
     WatchlistReport,
@@ -161,123 +146,36 @@ def load_settings() -> dict:
     )
 
 
+def _collection_application_service() -> CollectionApplicationService:
+    return CollectionApplicationService(
+        root=ROOT,
+        config=CONFIG,
+        logger=logger,
+    )
+
+
+def _scoring_application_service() -> ScoringApplicationService:
+    return ScoringApplicationService(
+        root=ROOT,
+        config=CONFIG,
+        universe_report_file=UNIVERSE_REPORT_FILE,
+        ranking_report_file=RANKING_REPORT_FILE,
+        logger=logger,
+    )
+
+
 def load_watchlist(
     settings: dict,
 ) -> tuple[Path, pd.DataFrame]:
-    watchlist_path = ROOT / settings.get(
-        "watchlist_path",
-        "config/watchlist.csv",
-    )
-
-    if not watchlist_path.exists():
-        raise FileNotFoundError(
-            f"Watchlist não encontrada: {watchlist_path}"
-        )
-
-    watchlist = pd.read_csv(watchlist_path)
-
-    if watchlist.empty:
-        raise RuntimeError(
-            f"A watchlist está vazia: {watchlist_path}"
-        )
-
-    return watchlist_path, watchlist
-
-
-ORIGIN_PORTFOLIO = "portfolio"
-ORIGIN_WATCHLIST = "watchlist"
-ORIGIN_UNIVERSE = "universe"
-
-# Prioridade de proveniência quando um símbolo aparece em mais de um
-# universo de origem: quem já é posição real (`portfolio`) importa mais
-# operacionalmente do que "só" curiosidade de pesquisa (`watchlist`) ou
-# candidato descoberto num screener amplo (`universe`, ainda não wireado
-# neste merge). Hierarquia, não composição: cada linha carrega um único
-# rótulo, o de maior prioridade entre os universos aos quais pertence --
-# mais simples de consultar (`row["origin"] == "portfolio"`) do que um
-# valor composto, e suficiente para as duas garantias que a proveniência
-# precisa dar: o motor sell-only nunca deve agir fora de `portfolio`, e um
-# screener de compra nunca deve apresentar uma posição já existente como
-# candidata nova sem marcá-la.
-ORIGIN_PRIORITY = (ORIGIN_PORTFOLIO, ORIGIN_WATCHLIST, ORIGIN_UNIVERSE)
+    return _collection_application_service().load_watchlist(settings)
 
 
 def merge_watchlist_with_portfolio(
     watchlist: pd.DataFrame,
     settings: dict,
 ) -> pd.DataFrame:
-    """
-    A watchlist (`config/watchlist.csv`) é curada manualmente -- ativos que
-    o usuário se interessou em acompanhar. A carteira real
-    (`config/portfolio.csv`, gitignored) é populada a partir do arquivo de
-    investimentos real do usuário. Os dois são fontes distintas e nenhum
-    sobrescreve o outro em disco.
-
-    Para que o motor de rebalance sell-only tenha um `CompanyReport` de
-    cada posição real (`portfolio.pipeline.enrich_portfolio_from_analysis`
-    só liga um holding a um `CompanyReport` do mesmo símbolo), o universo
-    efetivamente coletado/pontuado nesta run precisa incluir também os
-    símbolos da carteira -- só em memória, nunca gravado de volta em
-    `watchlist.csv`. Símbolos já presentes na watchlist não são duplicados.
-
-    Toda linha do resultado carrega uma coluna `origin` (`portfolio` ou
-    `watchlist`, hierarquia `portfolio > watchlist`: um símbolo presente
-    nos dois ganha `portfolio`, porque "eu possuo isso" é o fato mais
-    relevante para decisão do que "eu me interessei por isso"). Motores de
-    decisão a jusante (sell-only, screeners de compra) usam essa coluna
-    para saber por que cada linha está sendo analisada -- nunca recomputam
-    a proveniência a partir do zero.
-
-    Ausência ou erro de leitura de `portfolio.csv` não interrompe a run:
-    a análise segue apenas com a watchlist, como antes de a carteira
-    existir.
-    """
-    result = watchlist.copy()
-    if "origin" not in result.columns:
-        result["origin"] = ORIGIN_WATCHLIST
-
-    portfolio_path = ROOT / settings.get(
-        "portfolio_path",
-        "config/portfolio.csv",
-    )
-    if not portfolio_path.exists():
-        return result
-
-    try:
-        portfolio = load_portfolio_csv(portfolio_path)
-    except PortfolioError:
-        logger.warning(
-            "Não foi possível ler %s para incluir a carteira no universo "
-            "analisado; seguindo apenas com a watchlist.",
-            portfolio_path,
-        )
-        return result
-
-    portfolio_symbols = {holding.symbol for holding in portfolio.holdings}
-
-    existing_symbols = (
-        result["symbol"].astype(str).str.strip().str.upper()
-    )
-    result.loc[
-        existing_symbols.isin(portfolio_symbols), "origin"
-    ] = ORIGIN_PORTFOLIO
-
-    already_present = set(existing_symbols)
-    extra_rows = [
-        {
-            "symbol": holding.symbol,
-            "name": holding.symbol,
-            "origin": ORIGIN_PORTFOLIO,
-        }
-        for holding in portfolio.holdings
-        if holding.symbol not in already_present
-    ]
-    if not extra_rows:
-        return result
-
-    return pd.concat(
-        [result, pd.DataFrame(extra_rows)],
-        ignore_index=True,
+    return _collection_application_service().merge_watchlist_with_portfolio(
+        watchlist, settings
     )
 
 
@@ -287,216 +185,49 @@ def collect_market_data(
     *,
     failures: list[str] | None = None,
 ) -> pd.DataFrame:
-    logger.info(
-        "Iniciando coleta de dados para %s empresas.",
-        len(watchlist),
-    )
-
-    # `providers.yahoo.fetch_symbol` reconstrói cada linha do zero a partir
-    # do que o Yahoo devolve -- qualquer coluna extra do `watchlist` de
-    # entrada (como `origin`) não sobrevive à chamada. Reanexa por símbolo
-    # (não por posição: falhas de fetch são só logadas e pulam a linha, então
-    # `rows` não fica necessariamente alinhado 1:1 com `watchlist`).
-    origin_by_symbol = (
-        {
-            str(symbol).strip().upper(): origin
-            for symbol, origin in zip(
-                watchlist.get("symbol", []),
-                watchlist.get("origin", []),
-            )
-        }
-        if "origin" in watchlist.columns
-        else {}
-    )
-
-    secondary_fetcher = build_sec_secondary_provider(ROOT, settings)
-    if bool(settings.get("sec_secondary_enabled", False)) and secondary_fetcher is None:
-        logger.warning(
-            "Segunda fonte SEC habilitada, mas sec_user_agent não foi encontrado "
-            "em %s.",
-            settings.get("provider_secrets_path", "config/provider_secrets.json"),
-        )
-    rows = fetch_watchlist(
+    return _collection_application_service().collect_market_data(
+        settings,
         watchlist,
-        period=settings.get("history_period", "2y"),
-        interval=settings.get("history_interval", "1d"),
         failures=failures,
-        provider_policy=ProviderPolicy(
-            timeout_seconds=float(settings.get("provider_timeout_seconds", 30)),
-            max_retries=int(settings.get("provider_max_retries", 2)),
-            backoff_seconds=float(settings.get("provider_backoff_seconds", 0.5)),
-            rate_limit_per_second=float(
-                settings.get("provider_rate_limit_per_second", 2)
-            ),
-        ),
-        raw_snapshot_dir=ROOT
-        / settings.get("raw_snapshot_path", "data/raw_snapshots"),
-        secondary_fetcher=secondary_fetcher,
-        critical_fields=tuple(
-            settings.get(
-                "provider_critical_fields",
-                (
-                    "market_cap",
-                    "enterprise_value",
-                    "total_debt",
-                    "total_cash",
-                    "ebitda",
-                    "free_cashflow",
-                    "current_ratio",
-                    "short_float",
-                ),
-            )
-        ),
     )
-
-    for row in rows:
-        symbol = str(row.get("symbol", "")).strip().upper()
-        row["origin"] = origin_by_symbol.get(symbol, ORIGIN_WATCHLIST)
-
-    quality_policy = yaml.safe_load(
-        (CONFIG / "data_quality.yaml").read_text(encoding="utf-8")
-    ) or {}
-    enriched = []
-    for row in rows:
-        prepared = compute_fundamentals(enrich_technicals(row))
-        ensure_field_evidence(prepared)
-        enriched.append(apply_sector_applicability(prepared, quality_policy))
-
-    df = pd.DataFrame(
-        [
-            {
-                key: value
-                for key, value in row.items()
-                if key != "history"
-            }
-            for row in enriched
-        ]
-    )
-
-    if df.empty:
-        raise RuntimeError(
-            "Nenhum dado foi coletado. "
-            "Verifique a watchlist ou a conexão."
-        )
-
-    logger.info(
-        "Coleta concluída: %s empresas retornadas.",
-        len(df),
-    )
-
-    return df
 
 
 def load_official_scoring_reference(
     settings: dict,
 ) -> ScoringReference | None:
-    reference_path = ROOT / settings.get(
-        "scoring_reference_path",
-        "output/dados/scoring_reference_market.json",
-    )
-    if not reference_path.exists():
-        logger.warning(
-            "Referência oficial de scoring ausente em %s; usando o lote "
-            "corrente com metadado CURRENT_BATCH.",
-            reference_path,
-        )
-        return None
-    try:
-        reference = load_scoring_reference(reference_path)
-    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
-        logger.warning(
-            "Referência oficial inválida em %s (%s); usando o lote corrente.",
-            reference_path,
-            exc,
-        )
-        return None
-
-    expected_universe = str(
-        settings.get("scoring_reference_universe_id", "US_MARKET_ELIGIBLE")
-    ).strip()
-    current_model_version = str(
-        load_yaml(CONFIG / "model.yaml").get("model_version", "legacy")
-    ).strip()
-    if reference.universe_id != expected_universe:
-        logger.warning(
-            "Referência %s usa universe_id=%s, esperado=%s; usando o lote "
-            "corrente.",
-            reference_path,
-            reference.universe_id,
-            expected_universe,
-        )
-        return None
-    if reference.model_version != current_model_version:
-        logger.warning(
-            "Referência %s usa model_version=%s, modelo atual=%s; usando o "
-            "lote corrente.",
-            reference_path,
-            reference.model_version,
-            current_model_version,
-        )
-        return None
-    logger.info(
-        "Referência oficial carregada: %s, data=%s, n=%s, versão=%s.",
-        reference.universe_id,
-        reference.reference_date,
-        reference.reference_count,
-        reference.reference_version,
-    )
-    return reference
+    return _scoring_application_service().load_official_reference(settings)
 
 
 def build_scores(
     df: pd.DataFrame,
     scoring_reference: ScoringReference | None = None,
 ) -> pd.DataFrame:
-    logger.info("Iniciando normalização e scoring.")
-
-    result = normalize_columns(df)
-
-    result = score_dataframe(
-        result,
-        CONFIG / "model.yaml",
-        CONFIG / "deal_breakers.json",
-        scoring_reference=scoring_reference,
+    return _scoring_application_service().build_scores(
+        df, scoring_reference
     )
-
-    logger.info(
-        "Scoring concluído para %s empresas.",
-        len(result),
-    )
-
-    return result
 
 
 def audit_feature_coverage(df: pd.DataFrame) -> dict:
-    """
-    Mede quanto do Investment Score está alocado a features cujas colunas
-    nunca chegam populadas (peso fantasma = constante 50 neutro).
+    return _scoring_application_service().audit_feature_coverage(df)
 
-    Não altera o pipeline; apenas informa e registra um aviso.
-    """
 
-    coverage = audit_coverage(
-        df,
-        CONFIG / "features.yaml",
-        CONFIG / "model.yaml",
+def generate_universe_report(
+    df: pd.DataFrame,
+    settings: dict,
+) -> UniverseReport | None:
+    return _scoring_application_service().generate_universe_report(
+        df, settings
     )
 
-    summary = phantom_weight_summary(coverage)
 
-    print()
-    print(format_coverage_report(coverage, summary))
-
-    phantom_share = summary["phantom_investment_share"]
-
-    if phantom_share > 0:
-        logger.warning(
-            "Peso fantasma no Investment Score: %.1f%% "
-            "(features sempre neutras por falta de dados).",
-            phantom_share,
-        )
-
-    return summary
+def generate_ranking_report(
+    df: pd.DataFrame,
+    settings: dict,
+    universe_report: UniverseReport | None,
+) -> RankingReport | None:
+    return _scoring_application_service().generate_ranking_report(
+        df, settings, universe_report
+    )
 
 
 def save_history_snapshot(
@@ -611,62 +342,6 @@ def generate_outcome_analytics(
         "Outcome Analytics: %s resultados elegíveis; hit rate %s.",
         report.hit_rate.eligible_count,
         report.hit_rate.hit_rate,
-    )
-    return report
-
-
-def generate_universe_report(
-    df: pd.DataFrame,
-    settings: dict,
-) -> UniverseReport | None:
-    """Avalia e publica o universo sem filtrar o pipeline existente."""
-    if not settings.get("universe_enabled", True):
-        logger.info("Market Universe desabilitado.")
-        return None
-
-    policy_path = ROOT / settings.get(
-        "universe_policy_path",
-        "config/universe.yaml",
-    )
-    policy = load_universe_policy(policy_path)
-    report = evaluate_universe(df, policy)
-    write_universe_report(report, UNIVERSE_REPORT_FILE)
-
-    logger.info(
-        "Market Universe: %s elegíveis de %s; cobertura média %s%%.",
-        report.eligible_count,
-        report.total_count,
-        report.average_data_coverage_pct,
-    )
-    return report
-
-
-def generate_ranking_report(
-    df: pd.DataFrame,
-    settings: dict,
-    universe_report: UniverseReport | None,
-) -> RankingReport | None:
-    """Publica ranking diagnóstico sem recalcular scores ou decisões."""
-    if not settings.get("ranking_enabled", True):
-        logger.info("Analytical Ranking desabilitado.")
-        return None
-    if universe_report is None:
-        logger.warning(
-            "Analytical Ranking ignorado: Universe Report indisponível."
-        )
-        return None
-
-    policy_path = ROOT / settings.get(
-        "ranking_policy_path",
-        "config/ranking.yaml",
-    )
-    policy = load_ranking_policy(policy_path)
-    report = rank_companies(df, universe_report, policy)
-    write_ranking_report(report, RANKING_REPORT_FILE)
-    logger.info(
-        "Analytical Ranking: %s candidatos de %s empresas.",
-        report.candidate_count,
-        report.total_count,
     )
     return report
 
@@ -1159,6 +834,8 @@ def build_pipeline_services() -> PipelineServices:
         universe_report_file=UNIVERSE_REPORT_FILE,
         ranking_report_file=RANKING_REPORT_FILE,
     )
+    collection_application = _collection_application_service()
+    scoring_application = _scoring_application_service()
     return PipelineServices(
         runtime=RuntimeServices(
             paths=paths,
@@ -1174,17 +851,27 @@ def build_pipeline_services() -> PipelineServices:
             _run_ticker_mode=run_ticker_mode,
         ),
         collection=CollectionServices(
-            _load_watchlist=load_watchlist,
-            _merge_watchlist_with_portfolio=merge_watchlist_with_portfolio,
-            _collect_market_data=collect_market_data,
+            _load_watchlist=collection_application.load_watchlist,
+            _merge_watchlist_with_portfolio=(
+                collection_application.merge_watchlist_with_portfolio
+            ),
+            _collect_market_data=collection_application.collect_market_data,
         ),
         scoring=ScoringServices(
             paths=paths,
-            _load_official_reference=load_official_scoring_reference,
-            _build_scores=build_scores,
-            _audit_feature_coverage=audit_feature_coverage,
-            _generate_universe_report=generate_universe_report,
-            _generate_ranking_report=generate_ranking_report,
+            _load_official_reference=(
+                scoring_application.load_official_reference
+            ),
+            _build_scores=scoring_application.build_scores,
+            _audit_feature_coverage=(
+                scoring_application.audit_feature_coverage
+            ),
+            _generate_universe_report=(
+                scoring_application.generate_universe_report
+            ),
+            _generate_ranking_report=(
+                scoring_application.generate_ranking_report
+            ),
         ),
         history=HistoryServices(
             paths=paths,

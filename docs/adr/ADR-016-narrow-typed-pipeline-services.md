@@ -45,6 +45,8 @@ typed, but operational dependencies were not restricted by responsibility.
   delegate to the same functions.
 - Some callbacks inside the concrete facades remain implementation details;
   callers use typed public methods only.
+- Collection and scoring callbacks are now bound directly to the concrete
+  application services described in ADR-017.
 
 ## Migration and rollback
 
