@@ -52,7 +52,6 @@ class RuntimeServices:
     _run_health_check: Callable[[Path], HealthReport]
     _print_health_report: Callable[[HealthReport], None]
     _load_settings: Callable[[], Settings]
-    _read_status_md: Callable[[], str]
     _print_console_table: Callable[[pd.DataFrame], None]
     _safe_console_text: Callable[[object, str | None], str]
     _save_execution_metrics: Callable[[ExecutionMetrics, Path], None]
@@ -67,9 +66,6 @@ class RuntimeServices:
 
     def load_settings(self) -> Settings:
         return self._load_settings()
-
-    def read_status_md(self) -> str:
-        return self._read_status_md()
 
     def print_console_table(self, frame: pd.DataFrame) -> None:
         self._print_console_table(frame)
@@ -245,11 +241,16 @@ class HistoryServices:
 @dataclass(frozen=True)
 class IntelligenceServices:
     paths: PipelinePaths
+    _read_status_md: Callable[[], str]
     _generate_portfolio_intelligence: Callable[..., tuple[Path, PortfolioReport] | None]
     _generate_watchlist_report: Callable[..., tuple[Path, WatchlistReport] | None]
     _build_report_context: Callable[..., ReportContext]
-    _render_report: Callable[[ReportContext], str]
-    _write_report: Callable[[str, Path, str], tuple[Path, Path]]
+    _render_and_write_report: Callable[
+        [ReportContext, str], tuple[Path, Path]
+    ]
+
+    def read_status_md(self) -> str:
+        return self._read_status_md()
 
     def generate_portfolio_intelligence(
         self,
@@ -297,11 +298,7 @@ class IntelligenceServices:
     def render_and_write_report(
         self, context: ReportContext, report_date: str
     ) -> tuple[Path, Path]:
-        return self._write_report(
-            self._render_report(context),
-            self.paths.output_reports,
-            report_date,
-        )
+        return self._render_and_write_report(context, report_date)
 
 
 @dataclass(frozen=True)

@@ -12,6 +12,7 @@ import run_all
 from application import (
     CollectionApplicationService,
     HistoryApplicationService,
+    IntelligenceApplicationService,
     ScoringApplicationService,
 )
 from orchestration.pipeline import (
@@ -192,6 +193,10 @@ def test_run_all_builds_narrow_typed_service_groups() -> None:
         services.history._save_history_snapshot.__self__,
         HistoryApplicationService,
     )
+    assert isinstance(
+        services.intelligence._generate_watchlist_report.__self__,
+        IntelligenceApplicationService,
+    )
 
 
 def test_ticker_pipeline_uses_composed_runtime_service(
@@ -353,7 +358,6 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
             _run_health_check=lambda root: fake.run_health_check(),
             _print_health_report=fake.print_health_report,
             _load_settings=fake.load_settings,
-            _read_status_md=fake.read_status_md,
             _print_console_table=fake.print_console_table,
             _safe_console_text=fake.safe_console_text,
             _save_execution_metrics=lambda metrics, path: (
@@ -390,13 +394,11 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
         ),
         intelligence=IntelligenceServices(
             paths=paths,
+            _read_status_md=fake.read_status_md,
             _generate_portfolio_intelligence=fake.generate_portfolio_intelligence,
             _generate_watchlist_report=fake.generate_watchlist_report,
             _build_report_context=fake.build_report_context,
-            _render_report=lambda report_context: "html",
-            _write_report=lambda html, output, date: (
-                fake.render_and_write_report(object(), date)
-            ),
+            _render_and_write_report=fake.render_and_write_report,
         ),
         reporting=ReportingServices(
             _generate_excel_reports=fake.generate_excel_reports,

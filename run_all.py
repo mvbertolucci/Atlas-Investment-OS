@@ -19,6 +19,7 @@ from application import (
     ORIGIN_WATCHLIST,
     CollectionApplicationService,
     HistoryApplicationService,
+    IntelligenceApplicationService,
     ScoringApplicationService,
 )
 from atlas_logger import get_logger
@@ -49,20 +50,15 @@ from orchestration.services import (
 )
 from portfolio.exceptions import PortfolioError
 from portfolio.loader import load_portfolio_csv
-from portfolio.pipeline import (
-    build_portfolio_intelligence,
-    write_portfolio_report,
-)
 from portfolio.report import PortfolioReport
 from portfolio.sell_rules import SellRulesPolicy
 from ranking import RankingReport
-from reports.atlas_report.context import build_report_context
 from reports.atlas_report.one_pager import (
     compute_symbol_contributions,
     render_one_pager,
 )
-from reports.atlas_report.render import page_shell, render_report
-from reports.atlas_report.write import write_one_pager, write_report
+from reports.atlas_report.render import page_shell
+from reports.atlas_report.write import write_one_pager
 from reports.excel import write_latest_and_history
 from reports.morning_brief import render_morning_brief, write_morning_brief
 from dashboard import build_dashboard_view, write_dashboard_view
@@ -74,17 +70,8 @@ from priority import (
 )
 from reports.report_engine import build_company_reports
 from scoring.reference import ScoringReference
-from storage.history_db import HistoryDatabase
 from universe import UniverseReport
-from watchlist import (
-    WatchlistError,
-    WatchlistReport,
-    attach_aging,
-    evaluate_watchlist_triggers,
-    load_watchlist_csv,
-    normalize_current_row,
-    write_watchlist_report,
-)
+from watchlist import WatchlistReport
 
 
 ROOT = Path(__file__).resolve().parent
@@ -116,16 +103,7 @@ logger = get_logger("run_all")
 
 
 def _read_status_md() -> str:
-    """
-    Lê STATUS.md só para extrair os alertas de conflito de motor exibidos
-    no Diagnóstico do relatório -- se o arquivo não existir, o relatório
-    simplesmente não mostra alertas (nunca quebra o run por isso).
-    """
-    status_path = ROOT / "STATUS.md"
-    try:
-        return status_path.read_text(encoding="utf-8")
-    except OSError:
-        return ""
+    return _intelligence_application_service().read_status_md()
 
 
 def load_settings() -> dict:
@@ -165,6 +143,18 @@ def _history_application_service() -> HistoryApplicationService:
         config=CONFIG,
         history_database=HISTORY_DATABASE,
         outcome_report_file=OUTCOME_REPORT_FILE,
+        logger=logger,
+    )
+
+
+def _intelligence_application_service() -> IntelligenceApplicationService:
+    return IntelligenceApplicationService(
+        root=ROOT,
+        config=CONFIG,
+        output_reports=OUTPUT_REPORTS,
+        history_database=HISTORY_DATABASE,
+        portfolio_report_file=PORTFOLIO_REPORT_FILE,
+        watchlist_report_file=WATCHLIST_REPORT_FILE,
         logger=logger,
     )
 
@@ -468,56 +458,15 @@ def generate_portfolio_intelligence(
     previous_run_at: pd.Timestamp | None = None,
     current_run_at: str | None = None,
 ) -> tuple[Path, PortfolioReport] | None:
-    portfolio_path = ROOT / settings.get(
-        "portfolio_path",
-        "config/portfolio.csv",
-    )
-
-    if not portfolio_path.exists():
-        logger.info(
-            "Portfolio Intelligence ignorado: arquivo não encontrado em %s.",
-            portfolio_path,
-        )
-        return None
-
-    logger.info(
-        "Executando Portfolio Intelligence com %s.",
-        portfolio_path,
-    )
-
-    # Nota: build_portfolio_intelligence nunca mais propaga
-    # SellEngineBlockedError -- quando o motor de venda recusa decidir (tese
-    # ausente), ele mesmo substitui o plano por REVISAR por holding, sem
-    # suprimir score/qualidade/alocação (ver portfolio.pipeline
-    # ::_build_blocked_rebalance_plan). O aviso do bloqueio já chega ao
-    # usuário via PortfolioReport.warnings (linha "Portfolio" no resumo do
-    # console + seção Carteira do relatório HTML).
-    report = build_portfolio_intelligence(
-        portfolio_path,
+    return _intelligence_application_service().generate_portfolio_intelligence(
         df,
-        portfolio_name=settings.get("portfolio_name"),
-        cash=float(settings.get("portfolio_cash", 0.0)),
-        currency=settings.get("portfolio_currency", "BRL"),
-        rebalance_mode=settings.get(
-            "portfolio_rebalance_mode", "sell_only"
-        ),
+        settings,
         sell_rules_policy=sell_rules_policy,
         previous_by_symbol=previous_by_symbol,
         baseline_status=baseline_status,
         previous_run_at=previous_run_at,
         current_run_at=current_run_at,
     )
-
-    report_path = write_portfolio_report(
-        report,
-        PORTFOLIO_REPORT_FILE,
-    )
-
-    logger.info(
-        "Portfolio Intelligence concluído em %s.",
-        report_path,
-    )
-    return report_path, report
 
 
 def generate_watchlist_report(
@@ -529,82 +478,14 @@ def generate_watchlist_report(
     previous_run_at: pd.Timestamp | None = None,
     current_run_at: str | None = None,
 ) -> tuple[Path, WatchlistReport] | None:
-    """
-    Independente do motor de venda estar bloqueado: watchlist tracking é uma
-    preocupação separada de PR-020, nunca acoplada ao estado da carteira.
-    """
-    watchlist_path = ROOT / settings.get(
-        "watchlist_path", "config/watchlist.csv"
-    )
-
-    if not watchlist_path.exists():
-        logger.info(
-            "Watchlist tracking ignorado: arquivo não encontrado em %s.",
-            watchlist_path,
-        )
-        return None
-
-    try:
-        entries = load_watchlist_csv(watchlist_path)
-    except WatchlistError as exc:
-        logger.warning(
-            "Não foi possível avaliar triggers da watchlist: %s",
-            exc,
-        )
-        return None
-
-    current_by_symbol = {
-        str(row.get("symbol", "")).strip().upper(): normalize_current_row(
-            row.to_dict()
-        )
-        for _, row in df.iterrows()
-        if str(row.get("symbol", "")).strip()
-    }
-
-    results = evaluate_watchlist_triggers(
-        entries,
-        current_by_symbol,
+    return _intelligence_application_service().generate_watchlist_report(
+        df,
+        settings,
         previous_by_symbol=previous_by_symbol,
         baseline_status=baseline_status,
         previous_run_at=previous_run_at,
         current_run_at=current_run_at,
     )
-
-    aging_threshold_days = int(
-        settings.get("watchlist_aging_threshold_days", 180)
-    )
-    last_triggered_value = (
-        str(current_run_at)
-        if current_run_at is not None
-        else datetime.now().isoformat(timespec="seconds")
-    )
-
-    with HistoryDatabase(HISTORY_DATABASE) as database:
-        trigger_history = database.load_watchlist_triggers()
-        results = attach_aging(
-            results,
-            entries,
-            trigger_history=trigger_history,
-            aging_threshold_days=aging_threshold_days,
-        )
-        for result in results:
-            if result.triggered_this_run:
-                database.save_watchlist_trigger(
-                    result.symbol,
-                    result.trigger_condition,
-                    last_triggered_value,
-                )
-
-    report = WatchlistReport(results=results)
-    report_path = write_watchlist_report(report, WATCHLIST_REPORT_FILE)
-
-    logger.info(
-        "Watchlist tracking: %s trigger(s) disparado(s); %s sugestão(ões) "
-        "de limpeza.",
-        len(report.triggered),
-        len(report.cleanup_candidates),
-    )
-    return report_path, report
 
 
 def _safe_console_text(
@@ -762,6 +643,7 @@ def build_pipeline_services() -> PipelineServices:
     collection_application = _collection_application_service()
     scoring_application = _scoring_application_service()
     history_application = _history_application_service()
+    intelligence_application = _intelligence_application_service()
     return PipelineServices(
         runtime=RuntimeServices(
             paths=paths,
@@ -769,7 +651,6 @@ def build_pipeline_services() -> PipelineServices:
             _run_health_check=run_health_check,
             _print_health_report=print_health_report,
             _load_settings=load_settings,
-            _read_status_md=_read_status_md,
             _print_console_table=print_console_table,
             _safe_console_text=_safe_console_text,
             _save_execution_metrics=save_execution_metrics,
@@ -820,11 +701,19 @@ def build_pipeline_services() -> PipelineServices:
         ),
         intelligence=IntelligenceServices(
             paths=paths,
-            _generate_portfolio_intelligence=generate_portfolio_intelligence,
-            _generate_watchlist_report=generate_watchlist_report,
-            _build_report_context=build_report_context,
-            _render_report=render_report,
-            _write_report=write_report,
+            _read_status_md=intelligence_application.read_status_md,
+            _generate_portfolio_intelligence=(
+                intelligence_application.generate_portfolio_intelligence
+            ),
+            _generate_watchlist_report=(
+                intelligence_application.generate_watchlist_report
+            ),
+            _build_report_context=(
+                intelligence_application.build_report_context
+            ),
+            _render_and_write_report=(
+                intelligence_application.render_and_write_report
+            ),
         ),
         reporting=ReportingServices(
             _generate_excel_reports=generate_excel_reports,

@@ -56,6 +56,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   with backward-compatible public wrappers
 - Concrete historical application service for previous-run context, SQLite
   snapshots and Outcome Analytics
+- Concrete intelligence application service for portfolio, watchlist tracking
+  and Atlas Report publication
 
 ## Current integration status
 

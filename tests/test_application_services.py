@@ -7,12 +7,16 @@ from types import SimpleNamespace
 import pandas as pd
 
 import application.collection as collection_module
+import application.intelligence as intelligence_module
 import application.scoring as scoring_module
 from application import (
     CollectionApplicationService,
     HistoryApplicationService,
+    IntelligenceApplicationService,
     ScoringApplicationService,
 )
+from storage.history_db import HistoryDatabase
+from watchlist.models import WatchlistEntry, WatchlistTriggerResult
 
 
 def _logger() -> logging.Logger:
@@ -233,3 +237,133 @@ def test_history_service_persists_and_recovers_previous_run(
     assert previous["AAA"]["investment_score"] == 72.0
     assert status == "comparable"
     assert str(run_at).startswith("2026-07-16")
+
+
+def _intelligence_service(tmp_path: Path) -> IntelligenceApplicationService:
+    return IntelligenceApplicationService(
+        root=tmp_path,
+        config=tmp_path / "config",
+        output_reports=tmp_path / "reports",
+        history_database=tmp_path / "history.db",
+        portfolio_report_file=tmp_path / "portfolio.json",
+        watchlist_report_file=tmp_path / "watchlist.json",
+        logger=_logger(),
+    )
+
+
+def test_intelligence_service_skips_absent_inputs(tmp_path: Path) -> None:
+    service = _intelligence_service(tmp_path)
+
+    assert service.generate_portfolio_intelligence(
+        pd.DataFrame(), {}
+    ) is None
+    assert service.generate_watchlist_report(pd.DataFrame(), {}) is None
+    assert service.read_status_md() == ""
+
+
+def test_intelligence_service_builds_portfolio_with_governed_mode(
+    tmp_path: Path, monkeypatch
+) -> None:
+    portfolio_path = tmp_path / "portfolio.csv"
+    portfolio_path.write_text("placeholder", encoding="utf-8")
+    report = object()
+    captured: dict[str, object] = {}
+
+    def fake_build(path, frame, **kwargs):
+        captured.update(path=path, **kwargs)
+        return report
+
+    monkeypatch.setattr(
+        intelligence_module, "build_portfolio_intelligence", fake_build
+    )
+    monkeypatch.setattr(
+        intelligence_module,
+        "write_portfolio_report",
+        lambda value, path: path,
+    )
+    service = _intelligence_service(tmp_path)
+
+    result = service.generate_portfolio_intelligence(
+        pd.DataFrame(),
+        {
+            "portfolio_path": str(portfolio_path),
+            "portfolio_rebalance_mode": "sell_only",
+        },
+    )
+
+    assert result == (tmp_path / "portfolio.json", report)
+    assert captured["path"] == portfolio_path
+    assert captured["rebalance_mode"] == "sell_only"
+
+
+def test_intelligence_service_renders_and_writes_atlas_report(
+    tmp_path: Path, monkeypatch
+) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        intelligence_module, "render_report", lambda context: "<html />"
+    )
+
+    def fake_write(html, output, date):
+        captured.update(html=html, output=output, date=date)
+        return output / "dated.html", output / "latest.html"
+
+    monkeypatch.setattr(intelligence_module, "write_report", fake_write)
+    service = _intelligence_service(tmp_path)
+
+    result = service.render_and_write_report(
+        object(), "2026-07-17"
+    )
+
+    assert result[0] == tmp_path / "reports" / "dated.html"
+    assert captured == {
+        "html": "<html />",
+        "output": tmp_path / "reports",
+        "date": "2026-07-17",
+    }
+
+
+def test_intelligence_service_persists_watchlist_trigger(
+    tmp_path: Path, monkeypatch
+) -> None:
+    watchlist_path = tmp_path / "watchlist.csv"
+    watchlist_path.write_text("symbol,name\nMSFT,Microsoft\n", encoding="utf-8")
+    entry = WatchlistEntry(
+        "MSFT",
+        "Microsoft",
+        included_at="2026-01-01",
+        trigger_condition="price > 100",
+    )
+    trigger = WatchlistTriggerResult(
+        symbol="MSFT",
+        trigger_condition="price > 100",
+        status="triggered",
+        message="Preço acima do limite",
+    )
+    monkeypatch.setattr(
+        intelligence_module, "load_watchlist_csv", lambda path: (entry,)
+    )
+    monkeypatch.setattr(
+        intelligence_module,
+        "normalize_current_row",
+        lambda row: row,
+    )
+    monkeypatch.setattr(
+        intelligence_module,
+        "evaluate_watchlist_triggers",
+        lambda *args, **kwargs: (trigger,),
+    )
+    service = _intelligence_service(tmp_path)
+
+    result = service.generate_watchlist_report(
+        pd.DataFrame([{"symbol": "MSFT", "price": 110.0}]),
+        {"watchlist_path": str(watchlist_path)},
+        current_run_at="2026-07-17T10:00:00",
+    )
+
+    assert result is not None
+    assert len(result[1].triggered) == 1
+    assert (tmp_path / "watchlist.json").exists()
+    with HistoryDatabase(tmp_path / "history.db") as database:
+        history = database.load_watchlist_triggers()
+    assert history["MSFT"]["last_triggered_at"] == "2026-07-17T10:00:00"

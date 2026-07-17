@@ -49,6 +49,8 @@ typed, but operational dependencies were not restricted by responsibility.
   application services described in ADR-017.
 - History and Outcome callbacks are bound to the concrete service described in
   ADR-018.
+- Portfolio, watchlist and Atlas Report callbacks are bound to the concrete
+  service described in ADR-019.
 
 ## Migration and rollback
 

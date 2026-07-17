@@ -439,7 +439,7 @@ class IntelligenceStage:
             phantom_weight_pct=scoring.feature_coverage_summary.get(
                 "phantom_investment_share", 0.0
             ),
-            status_md_text=services.runtime.read_status_md(),
+            status_md_text=intelligence_services.read_status_md(),
             holdings=(portfolio_report.holdings if portfolio_report else ()),
             score_history=historical.score_history,
             features_path=intelligence_services.paths.config / "features.yaml",
