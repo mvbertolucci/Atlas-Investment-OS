@@ -67,9 +67,13 @@ returned type before publishing it. The full/portfolio flow is composed as
 Bootstrap -> Collection -> Scoring -> Historical Context -> Persistence ->
 Intelligence -> Reports -> Completion; ticker mode is a dedicated bounded
 stage. `run_all.main()` only parses the request, creates the context, selects
-the pipeline and runs it. Existing helper functions remain injected as the
-service boundary so their public contracts and test seams are preserved. See
-ADR-015.
+the pipeline and runs it. `run_all.build_pipeline_services()` binds existing
+public helpers to six narrow typed facades: `RuntimeServices`,
+`CollectionServices`, `ScoringServices`, `HistoryServices`,
+`IntelligenceServices` and `ReportingServices`. Each stage addresses the
+facade for its responsibility; the Python module is never used as a service
+locator. Public helper contracts and existing test seams remain preserved. See
+ADR-015 and ADR-016.
 
 ### Data layer
 

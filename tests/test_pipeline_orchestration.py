@@ -14,8 +14,19 @@ from orchestration.pipeline import (
     PipelineContext,
     PipelineRequest,
     PipelineRunner,
+    TickerOutput,
     build_pipeline,
     parse_pipeline_request,
+)
+from orchestration.services import (
+    CollectionServices,
+    HistoryServices,
+    IntelligenceServices,
+    PipelinePaths,
+    PipelineServices,
+    ReportingServices,
+    RuntimeServices,
+    ScoringServices,
 )
 
 
@@ -130,12 +141,16 @@ def test_pipeline_factory_exposes_explicit_stage_order_per_mode() -> None:
 def test_run_all_main_only_assembles_and_executes_pipeline(monkeypatch) -> None:
     request = PipelineRequest("portfolio")
     captured: dict[str, Any] = {}
+    service_container = cast(Any, object())
 
     class FakeRunner:
         def run(self, context: PipelineContext) -> None:
             captured["context"] = context
 
     monkeypatch.setattr(run_all, "parse_pipeline_request", lambda argv: request)
+    monkeypatch.setattr(
+        run_all, "build_pipeline_services", lambda: service_container
+    )
     monkeypatch.setattr(
         run_all,
         "build_pipeline",
@@ -146,7 +161,45 @@ def test_run_all_main_only_assembles_and_executes_pipeline(monkeypatch) -> None:
 
     assert captured["mode"] == "portfolio"
     assert captured["context"].request is request
-    assert captured["context"].services is run_all
+    assert captured["context"].services is service_container
+
+
+def test_run_all_builds_narrow_typed_service_groups() -> None:
+    services = run_all.build_pipeline_services()
+
+    assert isinstance(services, PipelineServices)
+    assert isinstance(services.runtime, RuntimeServices)
+    assert isinstance(services.collection, CollectionServices)
+    assert isinstance(services.scoring, ScoringServices)
+    assert isinstance(services.history, HistoryServices)
+    assert isinstance(services.intelligence, IntelligenceServices)
+    assert isinstance(services.reporting, ReportingServices)
+    assert services.runtime.paths.root == run_all.ROOT
+    assert services.collection._collect_market_data is run_all.collect_market_data
+
+
+def test_ticker_pipeline_uses_composed_runtime_service(
+    monkeypatch, tmp_path: Path
+) -> None:
+    report_path = tmp_path / "MSFT.html"
+    calls: list[tuple[str, Any]] = []
+    monkeypatch.setattr(run_all, "load_settings", lambda: {"source": "test"})
+    monkeypatch.setattr(
+        run_all,
+        "run_ticker_mode",
+        lambda symbol, settings: (
+            calls.append((symbol, settings)) or report_path
+        ),
+    )
+    context = PipelineContext(
+        request=PipelineRequest("ticker", "MSFT"),
+        services=run_all.build_pipeline_services(),
+    )
+
+    build_pipeline("ticker").run(context)
+
+    assert context.require(TickerOutput).report_path == report_path
+    assert calls == [("MSFT", {"source": "test"})]
 
 
 def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
@@ -154,22 +207,24 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
     frame = pd.DataFrame([{"symbol": "MSFT", "price": 100.0}])
 
     class FakeServices:
-        ROOT = tmp_path
-        CONFIG = tmp_path
-        LOGS = tmp_path
-        OUTPUT_DATA = tmp_path
-        OUTPUT_REPORTS = tmp_path
-        HISTORY_DATABASE = tmp_path / "history.db"
-        EXECUTION_METRICS_FILE = tmp_path / "metrics.json"
-        OUTCOME_REPORT_FILE = tmp_path / "outcomes.json"
-        UNIVERSE_REPORT_FILE = tmp_path / "universe.json"
-        RANKING_REPORT_FILE = tmp_path / "ranking.json"
+        paths = SimpleNamespace(
+            root=tmp_path,
+            config=tmp_path,
+            logs=tmp_path,
+            output_data=tmp_path,
+            output_reports=tmp_path,
+            history_database=tmp_path / "history.db",
+            execution_metrics_file=tmp_path / "metrics.json",
+            outcome_report_file=tmp_path / "outcomes.json",
+            universe_report_file=tmp_path / "universe.json",
+            ranking_report_file=tmp_path / "ranking.json",
+        )
         logger = SimpleNamespace(
             info=lambda *args: calls.append("log_info"),
             warning=lambda *args: calls.append("log_warning"),
         )
 
-        def run_health_check(self, root):
+        def run_health_check(self):
             calls.append("health")
             return object()
 
@@ -179,7 +234,7 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
         def load_settings(self):
             return {}
 
-        def load_official_scoring_reference(self, settings):
+        def load_official_reference(self, settings):
             return None
 
         def load_watchlist(self, settings):
@@ -199,17 +254,23 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
         def audit_feature_coverage(self, scored):
             return {"phantom_investment_share": 0.0}
 
-        def load_yaml(self, path):
+        def load_model_config(self):
             return {"model_version": "test"}
 
-        def load_score_history(self, path):
+        def load_score_history(self):
             return pd.DataFrame()
 
         def previous_run_context(self, history, **kwargs):
             return {}, "no_prior_run", None
 
-        def load_sell_rules_policy(self, path):
+        def load_sell_rules_policy(self):
             return object()
+
+        def portfolio_path(self, settings):
+            return tmp_path / "portfolio.csv"
+
+        def load_portfolio(self, path):
+            raise AssertionError("portfolio ausente não deve ser carregado")
 
         def save_history_snapshot(self, scored, snapshot_date, model_version):
             calls.append("history")
@@ -233,13 +294,10 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
             calls.append("intelligence")
             return object()
 
-        def _read_status_md(self):
+        def read_status_md(self):
             return ""
 
-        def render_report(self, report_context):
-            return "html"
-
-        def write_report(self, html, output, date):
+        def render_and_write_report(self, report_context, date):
             return tmp_path / "atlas-dated.html", tmp_path / "atlas-latest.html"
 
         def generate_excel_reports(self, scored, **kwargs):
@@ -261,18 +319,80 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
         def print_console_table(self, scored):
             calls.append("console")
 
-        def _safe_console_text(self, value):
+        def safe_console_text(self, value, encoding=None):
             return value
 
-        def save_execution_metrics(self, metrics, path):
+        def save_execution_metrics(self, metrics):
             calls.append("metrics_saved")
 
         def print_execution_metrics(self, metrics):
             calls.append("metrics_printed")
 
+    fake = FakeServices()
+    paths = PipelinePaths(**vars(fake.paths))
+    services = PipelineServices(
+        runtime=RuntimeServices(
+            paths=paths,
+            logger=fake.logger,
+            _run_health_check=lambda root: fake.run_health_check(),
+            _print_health_report=fake.print_health_report,
+            _load_settings=fake.load_settings,
+            _read_status_md=fake.read_status_md,
+            _print_console_table=fake.print_console_table,
+            _safe_console_text=fake.safe_console_text,
+            _save_execution_metrics=lambda metrics, path: (
+                fake.save_execution_metrics(metrics)
+            ),
+            _print_execution_metrics=fake.print_execution_metrics,
+            _run_ticker_mode=lambda symbol, settings: tmp_path / "ticker.html",
+        ),
+        collection=CollectionServices(
+            _load_watchlist=fake.load_watchlist,
+            _merge_watchlist_with_portfolio=fake.merge_watchlist_with_portfolio,
+            _collect_market_data=fake.collect_market_data,
+        ),
+        scoring=ScoringServices(
+            paths=paths,
+            _load_official_reference=fake.load_official_reference,
+            _build_scores=fake.build_scores,
+            _audit_feature_coverage=fake.audit_feature_coverage,
+            _generate_universe_report=lambda frame, settings: None,
+            _generate_ranking_report=lambda frame, settings, universe: None,
+        ),
+        history=HistoryServices(
+            paths=paths,
+            logger=fake.logger,
+            _load_model_config=lambda path: fake.load_model_config(),
+            _load_score_history=lambda path: fake.load_score_history(),
+            _previous_run_context=fake.previous_run_context,
+            _load_sell_rules_policy=lambda path: fake.load_sell_rules_policy(),
+            _load_portfolio=fake.load_portfolio,
+            _save_history_snapshot=fake.save_history_snapshot,
+            _save_outcome_decisions=fake.save_outcome_decisions,
+            _evaluate_outcome_decisions=fake.evaluate_outcome_decisions,
+            _generate_outcome_analytics=fake.generate_outcome_analytics,
+        ),
+        intelligence=IntelligenceServices(
+            paths=paths,
+            _generate_portfolio_intelligence=fake.generate_portfolio_intelligence,
+            _generate_watchlist_report=fake.generate_watchlist_report,
+            _build_report_context=fake.build_report_context,
+            _render_report=lambda report_context: "html",
+            _write_report=lambda html, output, date: (
+                fake.render_and_write_report(object(), date)
+            ),
+        ),
+        reporting=ReportingServices(
+            _generate_excel_reports=fake.generate_excel_reports,
+            _generate_morning_brief=fake.generate_morning_brief,
+            _generate_priority_report=fake.generate_priority_report,
+            _generate_performance_validation=fake.generate_performance_validation,
+            _generate_dashboard=fake.generate_dashboard,
+        ),
+    )
     context = PipelineContext(
         request=PipelineRequest("portfolio"),
-        services=cast(Any, FakeServices()),
+        services=services,
     )
     result = build_pipeline("portfolio").run(context)
 

@@ -19,6 +19,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-013 | Separate coverage, provenance, freshness, confidence and risk uncertainty | Accepted 2026-07-17 |
 | ADR-014 | Use typed provider boundaries, field evidence and immutable raw snapshots | Accepted 2026-07-17 |
 | ADR-015 | Compose execution as typed pipeline stages over a shared context | Accepted 2026-07-17 |
+| ADR-016 | Inject narrow typed service facades instead of a module namespace | Accepted 2026-07-17 |
 
 ## Recording a new decision
 

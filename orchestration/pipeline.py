@@ -21,6 +21,8 @@ from scoring.reference import ScoringReference
 from universe import UniverseReport
 from watchlist.models import WatchlistReport
 
+from orchestration.services import PipelineServices
+
 
 PipelineMode = Literal["full", "portfolio", "ticker"]
 ArtifactT = TypeVar("ArtifactT")
@@ -38,20 +40,6 @@ class PipelineRequest:
             raise ValueError("O modo ticker exige um símbolo.")
         if self.mode != "ticker" and self.ticker is not None:
             raise ValueError("ticker só pode ser informado no modo ticker.")
-
-
-class PipelineServices(Protocol):
-    ROOT: Path
-    CONFIG: Path
-    LOGS: Path
-    OUTPUT_DATA: Path
-    OUTPUT_REPORTS: Path
-    HISTORY_DATABASE: Path
-    EXECUTION_METRICS_FILE: Path
-    OUTCOME_REPORT_FILE: Path
-    UNIVERSE_REPORT_FILE: Path
-    RANKING_REPORT_FILE: Path
-    logger: Any
 
 
 @dataclass
@@ -112,7 +100,7 @@ class HistoricalContextOutput:
     score_history: pd.DataFrame
     previous_by_symbol: dict[str, Any]
     baseline_status: str
-    previous_run_at: str | None
+    previous_run_at: pd.Timestamp | None
     sell_rules_policy: SellRulesPolicy
 
 
@@ -192,12 +180,13 @@ class BootstrapStage:
 
     def run(self, context: PipelineContext) -> BootstrapOutput:
         services = context.services
-        health_report = services.run_health_check(services.ROOT)
-        services.print_health_report(health_report)
-        settings = services.load_settings()
-        scoring_reference = services.load_official_scoring_reference(settings)
-        watchlist_path, watchlist = services.load_watchlist(settings)
-        analysis_universe = services.merge_watchlist_with_portfolio(
+        runtime = services.runtime
+        health_report = runtime.run_health_check()
+        runtime.print_health_report(health_report)
+        settings = runtime.load_settings()
+        scoring_reference = services.scoring.load_official_reference(settings)
+        watchlist_path, watchlist = services.collection.load_watchlist(settings)
+        analysis_universe = services.collection.merge_watchlist_with_portfolio(
             watchlist, settings
         )
 
@@ -212,8 +201,8 @@ class BootstrapStage:
                 "símbolo(s) da carteira real incluído(s) só nesta análise "
                 "(watchlist.csv não é alterado)"
             )
-        print(f"History DB      : {services.HISTORY_DATABASE}")
-        print(f"Execution log   : {services.LOGS / 'atlas.log'}")
+        print(f"History DB      : {runtime.paths.history_database}")
+        print(f"Execution log   : {runtime.paths.logs / 'atlas.log'}")
         print()
         return BootstrapOutput(
             settings=settings,
@@ -234,7 +223,7 @@ class CollectionStage:
         bootstrap = context.require(BootstrapOutput)
         failures: list[str] = []
         with StageTimer(context.metrics, "download_time"):
-            frame = services.collect_market_data(
+            frame = services.collection.collect_market_data(
                 bootstrap.settings,
                 bootstrap.analysis_universe,
                 failures=failures,
@@ -253,22 +242,26 @@ class ScoringStage:
         bootstrap = context.require(BootstrapOutput)
         collection = context.require(CollectionOutput)
         with StageTimer(context.metrics, "scoring_time"):
-            frame = services.build_scores(
+            frame = services.scoring.build_scores(
                 collection.frame,
                 bootstrap.scoring_reference,
             )
-        coverage = services.audit_feature_coverage(frame)
+        coverage = services.scoring.audit_feature_coverage(frame)
         if context.request.mode == "full":
-            universe_report = services.generate_universe_report(
+            universe_report = services.scoring.generate_universe_report(
                 frame, bootstrap.settings
             )
-            ranking_report = services.generate_ranking_report(
+            ranking_report = services.scoring.generate_ranking_report(
                 frame, bootstrap.settings, universe_report
             )
             broad_path = (
-                services.OUTPUT_DATA / "research_ranking_report_market.json"
+                services.scoring.paths.output_data
+                / "research_ranking_report_market.json"
             )
-            adr_path = services.OUTPUT_DATA / "research_ranking_report_adr.json"
+            adr_path = (
+                services.scoring.paths.output_data
+                / "research_ranking_report_adr.json"
+            )
         else:
             universe_report = ranking_report = None
             broad_path = adr_path = None
@@ -291,37 +284,34 @@ class HistoricalContextStage:
         services = context.services
         bootstrap = context.require(BootstrapOutput)
         scoring = context.require(ScoringOutput)
+        history_services = services.history
         frame = scoring.frame.copy()
         run_at = datetime.now()
         snapshot_date = run_at.isoformat(timespec="seconds")
         model_version = (
             str(
-                services.load_yaml(services.CONFIG / "model.yaml").get(
-                    "model_version", "legacy"
-                )
+                history_services.load_model_config().get("model_version", "legacy")
             ).strip()
             or "legacy"
         )
-        score_history = services.load_score_history(services.HISTORY_DATABASE)
+        score_history = history_services.load_score_history()
         previous_by_symbol, baseline_status, previous_run_at = (
-            services.previous_run_context(
+            history_services.previous_run_context(
                 score_history,
                 current_snapshot_date=snapshot_date,
                 current_model_version=model_version,
             )
         )
-        sell_rules_policy = services.load_sell_rules_policy(
-            services.CONFIG / "sell_rules.yaml"
-        )
+        sell_rules_policy = history_services.load_sell_rules_policy()
 
-        portfolio_path = services.ROOT / bootstrap.settings.get(
-            "portfolio_path", "config/portfolio.csv"
-        )
+        portfolio_path = history_services.portfolio_path(bootstrap.settings)
         if portfolio_path.exists():
             try:
                 quantity_by_symbol = {
                     holding.symbol: holding.quantity
-                    for holding in services.load_portfolio_csv(portfolio_path).holdings
+                    for holding in history_services.load_portfolio(
+                        portfolio_path
+                    ).holdings
                 }
                 frame["quantity"] = (
                     frame["symbol"].astype(str).str.strip().str.upper().map(
@@ -329,7 +319,7 @@ class HistoricalContextStage:
                     )
                 )
             except PortfolioError:
-                services.logger.warning(
+                history_services.logger.warning(
                     "Não foi possível ler %s para anexar quantity ao "
                     "snapshot histórico.",
                     portfolio_path,
@@ -370,23 +360,26 @@ class PersistenceStage:
         services = context.services
         bootstrap = context.require(BootstrapOutput)
         historical = context.require(HistoricalContextOutput)
+        history_services = services.history
         with StageTimer(context.metrics, "history_time"):
-            services.save_history_snapshot(
+            history_services.save_history_snapshot(
                 historical.frame,
                 historical.snapshot_date,
                 historical.model_version,
             )
-            capture = services.save_outcome_decisions(
+            capture = history_services.save_outcome_decisions(
                 historical.frame,
                 historical.snapshot_date,
                 bootstrap.settings,
             )
-            evaluation = services.evaluate_outcome_decisions(
+            evaluation = history_services.evaluate_outcome_decisions(
                 historical.frame,
                 historical.snapshot_date,
                 bootstrap.settings,
             )
-            analytics = services.generate_outcome_analytics(bootstrap.settings)
+            analytics = history_services.generate_outcome_analytics(
+                bootstrap.settings
+            )
         return PersistenceOutput(capture, evaluation, analytics)
 
 
@@ -408,7 +401,8 @@ class IntelligenceStage:
         scoring = context.require(ScoringOutput)
         historical = context.require(HistoricalContextOutput)
         persistence = context.require(PersistenceOutput)
-        portfolio_result = services.generate_portfolio_intelligence(
+        intelligence_services = services.intelligence
+        portfolio_result = intelligence_services.generate_portfolio_intelligence(
             historical.frame,
             bootstrap.settings,
             sell_rules_policy=historical.sell_rules_policy,
@@ -418,7 +412,7 @@ class IntelligenceStage:
             current_run_at=historical.snapshot_date,
         )
         portfolio_report = portfolio_result[1] if portfolio_result else None
-        watchlist_result = services.generate_watchlist_report(
+        watchlist_result = intelligence_services.generate_watchlist_report(
             historical.frame,
             bootstrap.settings,
             previous_by_symbol=historical.previous_by_symbol,
@@ -427,7 +421,7 @@ class IntelligenceStage:
             current_run_at=historical.snapshot_date,
         )
         watchlist_report = watchlist_result[1] if watchlist_result else None
-        report_context = services.build_report_context(
+        report_context = intelligence_services.build_report_context(
             mode=context.request.mode,
             df=historical.frame,
             snapshot_date=historical.snapshot_date,
@@ -445,17 +439,16 @@ class IntelligenceStage:
             phantom_weight_pct=scoring.feature_coverage_summary.get(
                 "phantom_investment_share", 0.0
             ),
-            status_md_text=services._read_status_md(),
+            status_md_text=services.runtime.read_status_md(),
             holdings=(portfolio_report.holdings if portfolio_report else ()),
             score_history=historical.score_history,
-            features_path=services.CONFIG / "features.yaml",
-            model_path=services.CONFIG / "model.yaml",
+            features_path=intelligence_services.paths.config / "features.yaml",
+            model_path=intelligence_services.paths.config / "model.yaml",
             broad_market_report_path=scoring.broad_market_report_path,
             adr_report_path=scoring.adr_report_path,
         )
-        dated, latest = services.write_report(
-            services.render_report(report_context),
-            services.OUTPUT_REPORTS,
+        dated, latest = intelligence_services.render_and_write_report(
+            report_context,
             historical.run_at.strftime("%Y-%m-%d"),
         )
         return IntelligenceOutput(
@@ -487,19 +480,20 @@ class ReportsStage:
         historical = context.require(HistoricalContextOutput)
         persistence = context.require(PersistenceOutput)
         intelligence = context.require(IntelligenceOutput)
+        reporting = services.reporting
         with StageTimer(context.metrics, "reports_time"):
-            history_file, latest_file = services.generate_excel_reports(
+            history_file, latest_file = reporting.generate_excel_reports(
                 historical.frame,
                 portfolio_report=intelligence.portfolio_report,
                 outcome_report=persistence.outcome_analytics,
             )
         with StageTimer(context.metrics, "morning_brief_time"):
-            brief_file, brief_text = services.generate_morning_brief(
+            brief_file, brief_text = reporting.generate_morning_brief(
                 historical.frame,
                 portfolio_report=intelligence.portfolio_report,
                 outcome_report=persistence.outcome_analytics,
             )
-        priority_result = services.generate_priority_report(
+        priority_result = reporting.generate_priority_report(
             bootstrap.settings,
             ranking_report=scoring.ranking_report,
             portfolio_report=intelligence.portfolio_report,
@@ -507,14 +501,14 @@ class ReportsStage:
         priority_file, priority_report = (
             priority_result if priority_result else (None, None)
         )
-        performance_file = services.generate_performance_validation(
+        performance_file = reporting.generate_performance_validation(
             historical.frame,
             bootstrap.settings,
             portfolio_report=intelligence.portfolio_report,
             outcome_report=persistence.outcome_analytics,
             snapshot_date=historical.snapshot_date,
         )
-        dashboard_file = services.generate_dashboard(
+        dashboard_file = reporting.generate_dashboard(
             historical.frame,
             bootstrap.settings,
             portfolio_report=intelligence.portfolio_report,
@@ -554,15 +548,17 @@ class CompletionStage:
         persistence = context.require(PersistenceOutput)
         intelligence = context.require(IntelligenceOutput)
         reports = context.require(ReportsOutput)
+        runtime = services.runtime
+        paths = runtime.paths
 
-        services.print_console_table(historical.frame)
-        print(services._safe_console_text(reports.brief_text))
+        runtime.print_console_table(historical.frame)
+        print(runtime.safe_console_text(reports.brief_text))
         print()
         print("=" * 70)
         print("ARQUIVOS GERADOS")
         print("=" * 70)
         print(f"Snapshot        : {historical.snapshot_date}")
-        print(f"SQLite          : {services.HISTORY_DATABASE}")
+        print(f"SQLite          : {paths.history_database}")
         print(f"Excel histórico : {reports.history_file}")
         print(
             f"Latest.xlsx     : {reports.latest_file}"
@@ -598,7 +594,7 @@ class CompletionStage:
                 f"Outcome Hit Rate: {shown}% "
                 f"({hit_rate.hit_count}/{hit_rate.eligible_count})"
             )
-            print(f"Outcome JSON    : {services.OUTCOME_REPORT_FILE}")
+            print(f"Outcome JSON    : {paths.outcome_report_file}")
         if reports.dashboard_file is not None:
             print(f"Dashboard JSON  : {reports.dashboard_file}")
         if reports.priority_file is not None:
@@ -607,14 +603,14 @@ class CompletionStage:
             print(f"Validation JSON : {reports.performance_validation_file}")
         if scoring.universe_report is not None:
             universe = scoring.universe_report
-            print(f"Universe JSON   : {services.UNIVERSE_REPORT_FILE}")
+            print(f"Universe JSON   : {paths.universe_report_file}")
             print(
                 f"Universe        : {universe.eligible_count}/{universe.total_count} "
                 f"elegíveis; cobertura {universe.average_data_coverage_pct}%"
             )
         if scoring.ranking_report is not None:
             ranking = scoring.ranking_report
-            print(f"Ranking JSON    : {services.RANKING_REPORT_FILE}")
+            print(f"Ranking JSON    : {paths.ranking_report_file}")
             print(
                 f"Ranking         : {ranking.candidate_count}/"
                 f"{ranking.total_count} candidatos"
@@ -657,15 +653,13 @@ class CompletionStage:
         print(f"Atlas Report    : {intelligence.atlas_report_dated}")
         print(f"Atlas Latest    : {intelligence.atlas_report_latest}")
         print("=" * 70)
-        services.save_execution_metrics(
-            context.metrics, services.EXECUTION_METRICS_FILE
-        )
-        services.print_execution_metrics(context.metrics)
-        services.logger.info(
+        runtime.save_execution_metrics(context.metrics)
+        runtime.print_execution_metrics(context.metrics)
+        runtime.logger.info(
             "Atlas concluído com sucesso em %.2f segundos.",
             context.metrics.total_time(),
         )
-        print(f"Métricas salvas : {services.EXECUTION_METRICS_FILE}")
+        print(f"Métricas salvas : {paths.execution_metrics_file}")
         print()
         print("Atlas finalizado com sucesso.")
         return CompletionOutput(snapshot_date=historical.snapshot_date)
@@ -677,9 +671,11 @@ class TickerStage:
     output_type = TickerOutput
 
     def run(self, context: PipelineContext) -> TickerOutput:
-        services = context.services
-        settings = services.load_settings()
-        path = services.run_ticker_mode(str(context.request.ticker), settings)
+        runtime = context.services.runtime
+        settings = runtime.load_settings()
+        path = runtime.run_ticker_mode(
+            str(context.request.ticker), settings
+        )
         return TickerOutput(path)
 
 

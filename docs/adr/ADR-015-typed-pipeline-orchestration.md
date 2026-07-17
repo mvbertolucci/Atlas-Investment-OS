@@ -39,8 +39,8 @@ the dependency visible.
 - Missing intermediate state fails at the nearest boundary with the artifact
   type named in the error.
 - New stages can be inserted without growing the CLI entry function.
-- The service protocol is intentionally a migration boundary: domain helpers
-  can later move to narrower service objects without changing stage contracts.
+- The initial module-shaped service boundary was replaced by the narrow typed
+  facades recorded in ADR-016 without changing stage artifact contracts.
 - This refactor changes orchestration only. It does not change governed
   features, weights, thresholds, scoring, eligibility or output formats.
 

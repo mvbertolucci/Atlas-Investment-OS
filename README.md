@@ -50,6 +50,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   and annual FCF/EBITDA fallback, with period/definition alignment
 - Typed `PipelineContext` and explicit execution stages with validated input
   and output contracts
+- Narrow typed runtime, collection, scoring, history, intelligence and
+  reporting service facades; no module namespace injection
 
 ## Current integration status
 

@@ -42,6 +42,16 @@ from outcomes.pipeline import (
 )
 from outcomes.report import write_outcome_report
 from orchestration import PipelineContext, build_pipeline, parse_pipeline_request
+from orchestration.services import (
+    CollectionServices,
+    HistoryServices,
+    IntelligenceServices,
+    PipelinePaths,
+    PipelineServices,
+    ReportingServices,
+    RuntimeServices,
+    ScoringServices,
+)
 from portfolio.exceptions import PortfolioError
 from portfolio.loader import load_portfolio_csv
 from portfolio.pipeline import (
@@ -1136,13 +1146,84 @@ def run_ticker_mode(symbol: str, settings: dict) -> Path:
     return path
 
 
+def build_pipeline_services() -> PipelineServices:
+    paths = PipelinePaths(
+        root=ROOT,
+        config=CONFIG,
+        logs=LOGS,
+        output_data=OUTPUT_DATA,
+        output_reports=OUTPUT_REPORTS,
+        history_database=HISTORY_DATABASE,
+        execution_metrics_file=EXECUTION_METRICS_FILE,
+        outcome_report_file=OUTCOME_REPORT_FILE,
+        universe_report_file=UNIVERSE_REPORT_FILE,
+        ranking_report_file=RANKING_REPORT_FILE,
+    )
+    return PipelineServices(
+        runtime=RuntimeServices(
+            paths=paths,
+            logger=logger,
+            _run_health_check=run_health_check,
+            _print_health_report=print_health_report,
+            _load_settings=load_settings,
+            _read_status_md=_read_status_md,
+            _print_console_table=print_console_table,
+            _safe_console_text=_safe_console_text,
+            _save_execution_metrics=save_execution_metrics,
+            _print_execution_metrics=print_execution_metrics,
+            _run_ticker_mode=run_ticker_mode,
+        ),
+        collection=CollectionServices(
+            _load_watchlist=load_watchlist,
+            _merge_watchlist_with_portfolio=merge_watchlist_with_portfolio,
+            _collect_market_data=collect_market_data,
+        ),
+        scoring=ScoringServices(
+            paths=paths,
+            _load_official_reference=load_official_scoring_reference,
+            _build_scores=build_scores,
+            _audit_feature_coverage=audit_feature_coverage,
+            _generate_universe_report=generate_universe_report,
+            _generate_ranking_report=generate_ranking_report,
+        ),
+        history=HistoryServices(
+            paths=paths,
+            logger=logger,
+            _load_model_config=load_yaml,
+            _load_score_history=load_score_history,
+            _previous_run_context=previous_run_context,
+            _load_sell_rules_policy=load_sell_rules_policy,
+            _load_portfolio=load_portfolio_csv,
+            _save_history_snapshot=save_history_snapshot,
+            _save_outcome_decisions=save_outcome_decisions,
+            _evaluate_outcome_decisions=evaluate_outcome_decisions,
+            _generate_outcome_analytics=generate_outcome_analytics,
+        ),
+        intelligence=IntelligenceServices(
+            paths=paths,
+            _generate_portfolio_intelligence=generate_portfolio_intelligence,
+            _generate_watchlist_report=generate_watchlist_report,
+            _build_report_context=build_report_context,
+            _render_report=render_report,
+            _write_report=write_report,
+        ),
+        reporting=ReportingServices(
+            _generate_excel_reports=generate_excel_reports,
+            _generate_morning_brief=generate_morning_brief,
+            _generate_priority_report=generate_priority_report,
+            _generate_performance_validation=generate_performance_validation,
+            _generate_dashboard=generate_dashboard,
+        ),
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
     request = parse_pipeline_request(argv)
     metrics = ExecutionMetrics()
     logger.info("Iniciando Atlas (modo=%s).", request.mode)
     context = PipelineContext(
         request=request,
-        services=sys.modules[__name__],
+        services=build_pipeline_services(),
         metrics=metrics,
     )
     try:
