@@ -24,6 +24,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-018 | Give history and Outcome Analytics a concrete application service | Accepted 2026-07-17 |
 | ADR-019 | Give portfolio, watchlist and Atlas Report a concrete intelligence service | Accepted 2026-07-17 |
 | ADR-020 | Give final report publication a concrete application service | Accepted 2026-07-17 |
+| ADR-021 | Separate governed ticker analysis from runtime operations | Accepted 2026-07-17 |
 
 ## Recording a new decision
 

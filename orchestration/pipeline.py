@@ -673,7 +673,7 @@ class TickerStage:
     def run(self, context: PipelineContext) -> TickerOutput:
         runtime = context.services.runtime
         settings = runtime.load_settings()
-        path = runtime.run_ticker_mode(
+        path = context.services.ticker.run_ticker_mode(
             str(context.request.ticker), settings
         )
         return TickerOutput(path)

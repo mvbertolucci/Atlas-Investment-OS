@@ -10,12 +10,14 @@ import application.collection as collection_module
 import application.intelligence as intelligence_module
 import application.reporting as reporting_module
 import application.scoring as scoring_module
+import application.ticker as ticker_module
 from application import (
     CollectionApplicationService,
     HistoryApplicationService,
     IntelligenceApplicationService,
     ReportingApplicationService,
     ScoringApplicationService,
+    TickerAnalysisApplicationService,
 )
 from storage.history_db import HistoryDatabase
 from watchlist.models import WatchlistEntry, WatchlistTriggerResult
@@ -326,6 +328,124 @@ def test_reporting_service_injects_morning_brief_ports(
         "brief",
     )
     assert received == [tmp_path / "morning.md"]
+
+
+def test_ticker_service_composes_analysis_and_one_pager(
+    tmp_path: Path, monkeypatch
+) -> None:
+    portfolio_path = tmp_path / "portfolio.csv"
+    portfolio_path.write_text("placeholder", encoding="utf-8")
+    reference = object()
+    captured: dict[str, object] = {}
+
+    class Collection:
+        def collect_market_data(self, settings, universe, **kwargs):
+            captured["universe"] = universe.copy()
+            return pd.DataFrame(
+                [{"symbol": "MSFT", "name": "Microsoft", "raw": 1}]
+            )
+
+    class Scoring:
+        def load_official_reference(self, settings):
+            return reference
+
+        def build_scores(self, frame, scoring_reference=None):
+            captured["reference"] = scoring_reference
+            result = frame.copy()
+            result["Investment Score"] = 81.0
+            return result
+
+    class History:
+        def load_score_history(self, path=None):
+            return pd.DataFrame(
+                [
+                    {"symbol": "MSFT", "Investment Score": 79.0},
+                    {"symbol": "OTHER", "Investment Score": 20.0},
+                ]
+            )
+
+        def portfolio_path(self, settings):
+            return portfolio_path
+
+        def load_portfolio(self, path):
+            return SimpleNamespace(
+                holding=lambda symbol: SimpleNamespace(thesis="Cloud thesis")
+            )
+
+    monkeypatch.setattr(
+        ticker_module,
+        "compute_symbol_contributions",
+        lambda *args: ([{"feature": "quality"}], []),
+    )
+
+    def fake_render(**kwargs):
+        captured["render"] = kwargs
+        return "<main />"
+
+    monkeypatch.setattr(ticker_module, "render_one_pager", fake_render)
+    monkeypatch.setattr(
+        ticker_module, "page_shell", lambda title, body: f"{title}{body}"
+    )
+    monkeypatch.setattr(
+        ticker_module,
+        "write_one_pager",
+        lambda html, output, symbol, stamp: output / f"{symbol}.html",
+    )
+    messages: list[str] = []
+    service = TickerAnalysisApplicationService(
+        config=tmp_path / "config",
+        output_reports=tmp_path / "reports",
+        collection=Collection(),
+        scoring=Scoring(),
+        history=History(),
+        logger=_logger(),
+        output_writer=messages.append,
+    )
+
+    path = service.run_ticker_mode(" msft ", {})
+
+    assert path == tmp_path / "reports" / "MSFT.html"
+    assert captured["reference"] is reference
+    assert captured["universe"].iloc[0].to_dict() == {
+        "symbol": "MSFT",
+        "name": "MSFT",
+        "origin": "ticker",
+    }
+    render = captured["render"]
+    assert render["investment_score"] == 81.0
+    assert render["thesis"] == "Cloud thesis"
+    assert render["score_history"]["symbol"].tolist() == ["MSFT"]
+    assert messages == [f"One-pager de MSFT gerado em {path}"]
+
+
+def test_ticker_service_rejects_missing_collected_symbol(
+    tmp_path: Path,
+) -> None:
+    collection = SimpleNamespace(
+        collect_market_data=lambda *args, **kwargs: pd.DataFrame(
+            [{"symbol": "OTHER"}]
+        )
+    )
+    scoring = SimpleNamespace(
+        load_official_reference=lambda settings: None,
+        build_scores=lambda frame, reference: frame,
+    )
+    history = SimpleNamespace()
+    service = TickerAnalysisApplicationService(
+        config=tmp_path,
+        output_reports=tmp_path,
+        collection=collection,
+        scoring=scoring,
+        history=history,
+        logger=_logger(),
+    )
+
+    try:
+        service.run_ticker_mode("MSFT", {})
+    except RuntimeError as exc:
+        assert "MSFT" in str(exc)
+    else:
+        raise AssertionError("símbolo ausente deveria falhar")
 
 
 def test_intelligence_service_skips_absent_inputs(tmp_path: Path) -> None:

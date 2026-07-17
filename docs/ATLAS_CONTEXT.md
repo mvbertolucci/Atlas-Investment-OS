@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 862 tests passing / 89.94% production coverage
+**Validation baseline:** 864 tests passing / 90.26% production coverage
 
 ## 1. Product mission
 
@@ -42,10 +42,11 @@ The official entry point is `run_all.py`.
 order. It creates a typed `PipelineContext` and executes explicit stages from
 `orchestration/pipeline.py`. Every stage declares its required input artifacts
 and typed output; the runner fails fast on a missing dependency or an invalid
-output contract. `orchestration/services.py` groups runtime, collection,
-scoring, history, intelligence and reporting operations into narrow typed
-facades. `run_all.py` binds functions to those facades explicitly and no longer
-injects its module namespace into the pipeline. Collection and scoring
+output contract. `orchestration/services.py` groups runtime, ticker,
+collection, scoring, history, intelligence and reporting operations into
+narrow typed facades. `run_all.py` binds functions to those facades explicitly
+and no longer injects its module namespace into the pipeline. Collection and
+scoring
 implementations now live in `application/collection.py` and
 `application/scoring.py`; the corresponding historical `run_all` functions are
 compatibility wrappers only. Historical context, SQLite snapshots and Outcome
@@ -54,7 +55,9 @@ intelligence, watchlist tracking and Atlas Report publication are owned by
 `application/intelligence.py`. Final Excel, Morning Brief, priority,
 performance-validation and dashboard publication is owned by
 `application/reporting.py`; the composition root binds one concrete instance
-directly to `ReportingServices`.
+directly to `ReportingServices`. Governed single-symbol analysis and one-pager
+publication are composed in `application/ticker.py` and exposed separately by
+`TickerServices`, rather than as a runtime operation.
 
 ```text
 settings.json + watchlist.csv
@@ -98,6 +101,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 | Historical application service | `application/history.py` | Previous-run context, snapshots and Outcome Analytics integrated; wrappers preserved |
 | Intelligence application service | `application/intelligence.py` | Portfolio, watchlist and Atlas Report integrated; wrappers preserved |
 | Reporting application service | `application/reporting.py` | Excel, Morning Brief, priority, performance validation and dashboard integrated; wrappers preserved |
+| Ticker application service | `application/ticker.py` | Broad-reference single-symbol analysis and one-pager publication integrated; wrapper preserved |
 | Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, field evidence and SEC fundamental confirmation integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |

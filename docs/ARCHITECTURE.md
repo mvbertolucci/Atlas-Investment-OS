@@ -68,8 +68,8 @@ Bootstrap -> Collection -> Scoring -> Historical Context -> Persistence ->
 Intelligence -> Reports -> Completion; ticker mode is a dedicated bounded
 stage. `run_all.main()` only parses the request, creates the context, selects
 the pipeline and runs it. `run_all.build_pipeline_services()` binds existing
-public helpers to six narrow typed facades: `RuntimeServices`,
-`CollectionServices`, `ScoringServices`, `HistoryServices`,
+public helpers to seven narrow typed facades: `RuntimeServices`,
+`TickerServices`, `CollectionServices`, `ScoringServices`, `HistoryServices`,
 `IntelligenceServices` and `ReportingServices`. Each stage addresses the
 facade for its responsibility; the Python module is never used as a service
 locator. Public helper contracts and existing test seams remain preserved. See
@@ -82,6 +82,7 @@ ADR-015 and ADR-016.
 - `application/history.py`
 - `application/intelligence.py`
 - `application/reporting.py`
+- `application/ticker.py`
 
 `CollectionApplicationService` owns watchlist loading, the in-memory
 watchlist/portfolio merge and provider collection/enrichment.
@@ -98,7 +99,10 @@ directly. The pipeline binds their methods to the narrow
 orchestration facades; it does not traverse `run_all.py`. Public functions with
 the historical names remain in `run_all.py` as thin compatibility wrappers and
 construct services from the current module paths, so existing callers and path
-monkeypatches keep working. See ADR-017 through ADR-020.
+monkeypatches keep working. `TickerAnalysisApplicationService` composes the
+collection, scoring and history ports for governed single-symbol analysis and
+one-pager publication; ticker execution no longer belongs to runtime
+operations. See ADR-017 through ADR-021.
 
 ### Data layer
 

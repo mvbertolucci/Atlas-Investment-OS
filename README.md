@@ -50,7 +50,7 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   and annual FCF/EBITDA fallback, with period/definition alignment
 - Typed `PipelineContext` and explicit execution stages with validated input
   and output contracts
-- Narrow typed runtime, collection, scoring, history, intelligence and
+- Narrow typed runtime, ticker, collection, scoring, history, intelligence and
   reporting service facades; no module namespace injection
 - Concrete collection and scoring application services outside `run_all.py`,
   with backward-compatible public wrappers
@@ -60,6 +60,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   and Atlas Report publication
 - Concrete reporting application service for Excel, Morning Brief, priority,
   performance validation and dashboard publication
+- Concrete ticker-analysis application service for governed single-symbol
+  scoring and one-pager publication
 
 ## Current integration status
 

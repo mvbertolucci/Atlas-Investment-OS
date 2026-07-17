@@ -15,6 +15,7 @@ from application import (
     IntelligenceApplicationService,
     ReportingApplicationService,
     ScoringApplicationService,
+    TickerAnalysisApplicationService,
 )
 from orchestration.pipeline import (
     CompletionOutput,
@@ -34,6 +35,7 @@ from orchestration.services import (
     ReportingServices,
     RuntimeServices,
     ScoringServices,
+    TickerServices,
 )
 
 
@@ -176,6 +178,7 @@ def test_run_all_builds_narrow_typed_service_groups() -> None:
 
     assert isinstance(services, PipelineServices)
     assert isinstance(services.runtime, RuntimeServices)
+    assert isinstance(services.ticker, TickerServices)
     assert isinstance(services.collection, CollectionServices)
     assert isinstance(services.scoring, ScoringServices)
     assert isinstance(services.history, HistoryServices)
@@ -202,20 +205,27 @@ def test_run_all_builds_narrow_typed_service_groups() -> None:
         services.reporting._generate_excel_reports.__self__,
         ReportingApplicationService,
     )
+    assert isinstance(
+        services.ticker._run_ticker_mode.__self__,
+        TickerAnalysisApplicationService,
+    )
 
 
-def test_ticker_pipeline_uses_composed_runtime_service(
+def test_ticker_pipeline_uses_composed_ticker_service(
     monkeypatch, tmp_path: Path
 ) -> None:
     report_path = tmp_path / "MSFT.html"
     calls: list[tuple[str, Any]] = []
     monkeypatch.setattr(run_all, "load_settings", lambda: {"source": "test"})
+    ticker_service = SimpleNamespace(
+        run_ticker_mode=lambda symbol, settings: (
+            calls.append((symbol, settings)) or report_path
+        )
+    )
     monkeypatch.setattr(
         run_all,
-        "run_ticker_mode",
-        lambda symbol, settings: (
-            calls.append((symbol, settings)) or report_path
-        ),
+        "_ticker_analysis_application_service",
+        lambda *args: ticker_service,
     )
     context = PipelineContext(
         request=PipelineRequest("ticker", "MSFT"),
@@ -369,6 +379,8 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
                 fake.save_execution_metrics(metrics)
             ),
             _print_execution_metrics=fake.print_execution_metrics,
+        ),
+        ticker=TickerServices(
             _run_ticker_mode=lambda symbol, settings: tmp_path / "ticker.html",
         ),
         collection=CollectionServices(

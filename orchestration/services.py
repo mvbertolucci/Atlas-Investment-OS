@@ -56,7 +56,6 @@ class RuntimeServices:
     _safe_console_text: Callable[[object, str | None], str]
     _save_execution_metrics: Callable[[ExecutionMetrics, Path], None]
     _print_execution_metrics: Callable[[ExecutionMetrics], None]
-    _run_ticker_mode: Callable[[str, Settings], Path]
 
     def run_health_check(self) -> HealthReport:
         return self._run_health_check(self.paths.root)
@@ -80,6 +79,11 @@ class RuntimeServices:
 
     def print_execution_metrics(self, metrics: ExecutionMetrics) -> None:
         self._print_execution_metrics(metrics)
+
+
+@dataclass(frozen=True)
+class TickerServices:
+    _run_ticker_mode: Callable[[str, Settings], Path]
 
     def run_ticker_mode(self, symbol: str, settings: Settings) -> Path:
         return self._run_ticker_mode(symbol, settings)
@@ -388,6 +392,7 @@ class ReportingServices:
 @dataclass(frozen=True)
 class PipelineServices:
     runtime: RuntimeServices
+    ticker: TickerServices
     collection: CollectionServices
     scoring: ScoringServices
     history: HistoryServices

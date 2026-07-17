@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -18,6 +17,7 @@ from application import (
     IntelligenceApplicationService,
     ReportingApplicationService,
     ScoringApplicationService,
+    TickerAnalysisApplicationService,
 )
 from atlas_logger import get_logger
 from health.health_check import print_health_report, run_health_check
@@ -44,18 +44,11 @@ from orchestration.services import (
     ReportingServices,
     RuntimeServices,
     ScoringServices,
+    TickerServices,
 )
-from portfolio.exceptions import PortfolioError
-from portfolio.loader import load_portfolio_csv
 from portfolio.report import PortfolioReport
 from portfolio.sell_rules import SellRulesPolicy
 from ranking import RankingReport
-from reports.atlas_report.one_pager import (
-    compute_symbol_contributions,
-    render_one_pager,
-)
-from reports.atlas_report.render import page_shell
-from reports.atlas_report.write import write_one_pager
 from reports.morning_brief import render_morning_brief, write_morning_brief
 from priority import PriorityReport
 from scoring.reference import ScoringReference
@@ -160,6 +153,21 @@ def _reporting_application_service() -> ReportingApplicationService:
         logger=logger,
         morning_brief_writer=write_morning_brief,
         morning_brief_renderer=render_morning_brief,
+    )
+
+
+def _ticker_analysis_application_service(
+    collection: CollectionApplicationService | None = None,
+    scoring: ScoringApplicationService | None = None,
+    history: HistoryApplicationService | None = None,
+) -> TickerAnalysisApplicationService:
+    return TickerAnalysisApplicationService(
+        config=CONFIG,
+        output_reports=OUTPUT_REPORTS,
+        collection=collection or _collection_application_service(),
+        scoring=scoring or _scoring_application_service(),
+        history=history or _history_application_service(),
+        logger=logger,
     )
 
 
@@ -467,75 +475,9 @@ def run_ticker_mode(symbol: str, settings: dict) -> Path:
     amplo elegível. A watchlist não participa do denominador e, portanto,
     adicionar ou remover um ticker dela não altera este score.
     """
-    symbol = symbol.strip().upper()
-    logger.info("Modo --ticker: analisando %s contra a referência ampla.", symbol)
-    scoring_reference = load_official_scoring_reference(settings)
-    analysis_universe = pd.DataFrame(
-        [{"symbol": symbol, "name": symbol, "origin": "ticker"}]
+    return _ticker_analysis_application_service().run_ticker_mode(
+        symbol, settings
     )
-    df = collect_market_data(settings, analysis_universe)
-    df = build_scores(df, scoring_reference)
-
-    symbol_rows = df.index[
-        df["symbol"].astype(str).str.strip().str.upper() == symbol
-    ]
-    if len(symbol_rows) == 0:
-        raise RuntimeError(
-            f"Não foi possível coletar dados de mercado para {symbol}."
-        )
-    position = symbol_rows[0]
-
-    investment_score = None
-    if "Investment Score" in df.columns:
-        try:
-            investment_score = float(df.loc[position, "Investment Score"])
-        except (TypeError, ValueError):
-            investment_score = None
-
-    positive, negative = compute_symbol_contributions(
-        df,
-        symbol,
-        CONFIG / "features.yaml",
-        CONFIG / "model.yaml",
-    )
-
-    score_history = load_score_history(HISTORY_DATABASE)
-    if not score_history.empty and "symbol" in score_history.columns:
-        score_history = score_history.loc[
-            score_history["symbol"].astype(str).str.upper() == symbol
-        ]
-
-    thesis = ""
-    portfolio_path = ROOT / settings.get("portfolio_path", "config/portfolio.csv")
-    if portfolio_path.exists():
-        try:
-            holding = load_portfolio_csv(portfolio_path).holding(symbol)
-            if holding is not None:
-                thesis = holding.thesis
-        except PortfolioError:
-            logger.warning(
-                "Não foi possível ler %s para buscar a tese de %s.",
-                portfolio_path,
-                symbol,
-            )
-
-    company_name = str(df.loc[position].get("name", "") or "").strip() or symbol
-    body = render_one_pager(
-        symbol=symbol,
-        company_name=company_name,
-        investment_score=investment_score,
-        positive=positive,
-        negative=negative,
-        score_history=score_history,
-        thesis=thesis,
-    )
-    html = page_shell(f"Atlas One-Pager — {symbol}", body)
-
-    date_stamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
-    path = write_one_pager(html, OUTPUT_REPORTS, symbol, date_stamp)
-    print(f"One-pager de {symbol} gerado em {path}")
-    logger.info("One-pager de %s gerado em %s.", symbol, path)
-    return path
 
 
 def build_pipeline_services() -> PipelineServices:
@@ -556,6 +498,11 @@ def build_pipeline_services() -> PipelineServices:
     history_application = _history_application_service()
     intelligence_application = _intelligence_application_service()
     reporting_application = _reporting_application_service()
+    ticker_application = _ticker_analysis_application_service(
+        collection_application,
+        scoring_application,
+        history_application,
+    )
     return PipelineServices(
         runtime=RuntimeServices(
             paths=paths,
@@ -567,7 +514,9 @@ def build_pipeline_services() -> PipelineServices:
             _safe_console_text=_safe_console_text,
             _save_execution_metrics=save_execution_metrics,
             _print_execution_metrics=print_execution_metrics,
-            _run_ticker_mode=run_ticker_mode,
+        ),
+        ticker=TickerServices(
+            _run_ticker_mode=ticker_application.run_ticker_mode,
         ),
         collection=CollectionServices(
             _load_watchlist=collection_application.load_watchlist,
