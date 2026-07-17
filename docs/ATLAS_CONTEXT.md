@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 836 tests passing / 87.64% production coverage
+**Validation baseline:** 846 tests passing / 88.83% production coverage
 
 ## 1. Product mission
 
@@ -37,6 +37,12 @@ Core design properties:
 ## 2. Current executable flow
 
 The official entry point is `run_all.py`.
+
+`run_all.py` is now the composition root rather than the owner of execution
+order. It creates a typed `PipelineContext` and executes explicit stages from
+`orchestration/pipeline.py`. Every stage declares its required input artifacts
+and typed output; the runner fails fast on a missing dependency or an invalid
+output contract.
 
 ```text
 settings.json + watchlist.csv
@@ -75,6 +81,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 
 | Area | Main locations | Status |
 |---|---|---|
+| Pipeline orchestration | `orchestration/pipeline.py`, `run_all.py` | Typed stages integrated; CLI preserved |
 | Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, field evidence and SEC fundamental confirmation integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |

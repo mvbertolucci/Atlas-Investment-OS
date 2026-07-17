@@ -54,6 +54,23 @@ conditional Excel sheets and the Morning Brief.
 
 ## Layers
 
+### Orchestration layer
+
+- `orchestration/pipeline.py`
+- `run_all.py` (composition root and stable CLI entry point)
+
+`PipelineContext` owns the immutable execution request, shared services,
+execution metrics and a typed artifact registry. Each explicit `PipelineStage`
+declares the artifact types it requires and the single typed output it
+publishes. `PipelineRunner` validates dependencies before execution and the
+returned type before publishing it. The full/portfolio flow is composed as
+Bootstrap -> Collection -> Scoring -> Historical Context -> Persistence ->
+Intelligence -> Reports -> Completion; ticker mode is a dedicated bounded
+stage. `run_all.main()` only parses the request, creates the context, selects
+the pipeline and runs it. Existing helper functions remain injected as the
+service boundary so their public contracts and test seams are preserved. See
+ADR-015.
+
 ### Data layer
 
 - `providers/`

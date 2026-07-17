@@ -48,10 +48,14 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   fallback/confirmation contract
 - SEC Company Facts confirmation/fallback for comparable reported fundamentals
   and annual FCF/EBITDA fallback, with period/definition alignment
+- Typed `PipelineContext` and explicit execution stages with validated input
+  and output contracts
 
 ## Current integration status
 
-The company-analysis pipeline is integrated end to end through `run_all.py`:
+The company-analysis pipeline is integrated end to end through explicit typed
+stages in `orchestration/pipeline.py`; `run_all.py` is the stable CLI and
+composition root:
 
 ```text
 Providers -> Factors -> Scores -> Decision -> Thesis -> History -> Reports
