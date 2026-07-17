@@ -50,6 +50,12 @@ def test_collection_service_preserves_origin_and_provider_policy(
     monkeypatch.setattr(
         collection_module, "build_sec_secondary_provider", lambda *args: None
     )
+    massive_provider = object()
+    monkeypatch.setattr(
+        collection_module,
+        "build_massive_secondary_provider",
+        lambda *args: massive_provider,
+    )
     monkeypatch.setattr(
         collection_module, "enrich_technicals", lambda row: row
     )
@@ -81,6 +87,7 @@ def test_collection_service_preserves_origin_and_provider_policy(
     assert policy.timeout_seconds == 7
     assert policy.max_retries == 4
     assert policy.rate_limit_per_second == 3
+    assert captured["secondary_fetchers"] == (massive_provider,)
 
 
 def test_scoring_service_uses_governed_paths(

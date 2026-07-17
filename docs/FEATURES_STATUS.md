@@ -7,7 +7,7 @@
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
 | Market/fundamental collection | Yes | Yes | Yes | Yes | Operational |
-| Provider resilience and raw evidence | Yes | Yes | No | No | SEC confirms/falls back comparable balance-sheet fundamentals and supplies annual FCF/EBITDA fallback; TTM definition mismatches stay explicit; market cap/EV/float still lack a second source |
+| Provider resilience and raw evidence | Yes | Yes | No | No | SEC confirms comparable reported fundamentals; a credential-gated Massive adapter covers market cap/EV and derives short float from dated short-interest/free-float evidence, but live activation still requires a personal key and eligible plan |
 | Technical enrichment | Yes | Yes | Yes | Yes | Operational; 100% direct coverage |
 | Investment scoring | Yes | Yes | Yes | Yes | Operational |
 | Opportunity and conviction | Yes | Yes | Yes | Yes | Operational |

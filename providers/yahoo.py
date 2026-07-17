@@ -261,6 +261,15 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
         if observed_at
         for field_name in fields
     }
+    observed_at_by_field.update(
+        {
+            "market_cap": market_observed_at,
+            "enterprise_value": market_observed_at,
+        }
+    )
+    short_interest_date = _unix_date(info.get("dateShortInterest"))
+    if short_interest_date:
+        observed_at_by_field["short_float"] = short_interest_date
     annotated = ensure_field_evidence(
         record,
         source="Yahoo Finance",
@@ -289,6 +298,7 @@ def fetch_watchlist(
     provider_policy: ProviderPolicy | None = None,
     raw_snapshot_dir: str | Path | None = None,
     secondary_fetcher: Callable[..., dict[str, Any]] | None = None,
+    secondary_fetchers: Iterable[Callable[..., dict[str, Any]]] = (),
     critical_fields: Iterable[str] = DEFAULT_CRITICAL_FIELDS,
 ) -> list[dict]:
     """
@@ -297,11 +307,36 @@ def fetch_watchlist(
     as linhas coletadas.
     """
     rows: list[dict] = []
+    critical_fields = tuple(critical_fields)
     client = ProviderClient("Yahoo Finance", provider_policy)
-    secondary_client = ProviderClient(
-        str(getattr(secondary_fetcher, "provider_name", "Secondary")),
-        provider_policy,
+    configured_fetchers = tuple(
+        fetcher
+        for fetcher in ((secondary_fetcher,) + tuple(secondary_fetchers))
+        if fetcher is not None
     )
+    claimed_fields: set[str] = set()
+    secondary_boundaries = []
+    for fetcher in configured_fetchers:
+        declared = getattr(fetcher, "supported_fields", None)
+        supported = tuple(
+            field_name
+            for field_name in critical_fields
+            if field_name not in claimed_fields
+            and (declared is None or field_name in declared)
+        )
+        if not supported:
+            continue
+        claimed_fields.update(supported)
+        provider_name = str(
+            getattr(fetcher, "provider_name", "Secondary")
+        )
+        secondary_boundaries.append(
+            (
+                fetcher,
+                ProviderClient(provider_name, provider_policy),
+                supported,
+            )
+        )
     for _, row in watchlist.iterrows():
         symbol = str(row.get("symbol", "")).strip()
         if not symbol:
@@ -326,19 +361,26 @@ def fetch_watchlist(
                 )
                 primary["raw_snapshot_hash"] = receipt.sha256
                 primary["raw_snapshot_path"] = str(receipt.path)
-            secondary = None
-            if secondary_fetcher is not None:
+            reconciled = primary
+            secondary_snapshots: dict[str, dict[str, str]] = {}
+            secondary_errors: dict[str, dict[str, Any]] = {}
+            for fetcher, secondary_client, supported in secondary_boundaries:
+                provider_name = secondary_client.provider
+                secondary = None
                 try:
                     secondary = secondary_client.execute(
                         "fetch_symbol",
-                        secondary_fetcher,
+                        fetcher,
                         symbol,
                         name,
                         period=period,
                         interval=interval,
                     )
                 except ProviderError as secondary_error:
-                    primary["secondary_provider_error"] = secondary_error.to_dict()
+                    error_payload = secondary_error.to_dict()
+                    secondary_errors[provider_name] = error_payload
+                    if "secondary_provider_error" not in primary:
+                        primary["secondary_provider_error"] = error_payload
                 else:
                     ensure_field_evidence(secondary)
                     if raw_snapshot_dir is not None:
@@ -347,19 +389,39 @@ def fetch_watchlist(
                             raw_snapshot_dir,
                             provider=str(secondary.get("source") or "Secondary"),
                             symbol=symbol,
-                            collected_at=str(secondary.get("as_of") or primary["as_of"]),
+                            collected_at=str(
+                                secondary.get("as_of") or primary["as_of"]
+                            ),
                         )
-                        primary["secondary_raw_snapshot_hash"] = secondary_receipt.sha256
-                        primary["secondary_raw_snapshot_path"] = str(
-                            secondary_receipt.path
-                        )
-            rows.append(
-                reconcile_critical_fields(
-                    primary,
-                    secondary,
-                    critical_fields,
+                        snapshot_payload = {
+                            "hash": secondary_receipt.sha256,
+                            "path": str(secondary_receipt.path),
+                        }
+                        secondary_snapshots[provider_name] = snapshot_payload
+                        if "secondary_raw_snapshot_hash" not in primary:
+                            primary["secondary_raw_snapshot_hash"] = (
+                                secondary_receipt.sha256
+                            )
+                            primary["secondary_raw_snapshot_path"] = str(
+                                secondary_receipt.path
+                            )
+                reconciled = reconcile_critical_fields(
+                    reconciled, secondary, supported
                 )
+            remaining_fields = tuple(
+                field_name
+                for field_name in critical_fields
+                if field_name not in claimed_fields
             )
+            if remaining_fields:
+                reconciled = reconcile_critical_fields(
+                    reconciled, None, remaining_fields
+                )
+            if secondary_snapshots:
+                reconciled["secondary_raw_snapshots"] = secondary_snapshots
+            if secondary_errors:
+                reconciled["secondary_provider_errors"] = secondary_errors
+            rows.append(reconciled)
             print(f"[OK] {symbol}")
         except Exception as exc:
             print(f"[ERRO] {symbol}: {exc}")

@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 867 tests passing / 90.38% production coverage
+**Validation baseline:** 878 tests passing / 90.44% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -28,10 +28,13 @@ reporting, ticker-analysis and operational-runtime services. `run_all.py` is
 limited to governed path definitions, dependency construction, compatibility
 wrappers and `main()`; no pipeline stage traverses it as a service locator.
 
-The next work should return to product evidence, in this order:
+The Massive adapter is implemented but disabled until a personal API key and
+eligible plan are configured. Until live activation, market cap, enterprise
+value and short float continue to report `secondary_unavailable` whenever SEC
+is the only active secondary. The next work should proceed in this order:
 
-1. Select and configure a licensed independent market-data secondary for
-   market cap, enterprise value and float.
+1. Configure `massive_api_key` locally, enable `massive_secondary_enabled` and
+   run a bounded AAPL verification; never commit the key or raw response.
 2. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 3. Run broad portfolio validation and publish coverage limitations before any
@@ -119,7 +122,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 | Intelligence application service | `application/intelligence.py` | Portfolio, watchlist and Atlas Report integrated; wrappers preserved |
 | Reporting application service | `application/reporting.py` | Excel, Morning Brief, priority, performance validation and dashboard integrated; wrappers preserved |
 | Ticker application service | `application/ticker.py` | Broad-reference single-symbol analysis and one-pager publication integrated; wrapper preserved |
-| Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, field evidence and SEC fundamental confirmation integrated |
+| Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, field evidence, SEC confirmation and credential-gated Massive adapter integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |
 | Decision and thesis | `decision/` | Integrated |
@@ -144,8 +147,9 @@ Outcome JSON + Excel + Morning Brief + execution metrics
   data coverage, source quality and freshness.
 - `config/settings.json`: runtime paths plus provider timeout, retry, backoff,
   pacing, critical fields and raw-snapshot location.
-- `config/provider_secrets.json`: ignored local provider identity; create from
-  `provider_secrets.example.json`. Never commit its SEC User-Agent contact.
+- `config/provider_secrets.json`: ignored local provider identity and keys;
+  create from `provider_secrets.example.json`. Never commit its SEC User-Agent
+  contact or Massive API key.
 - `config/watchlist.csv`: manually curated research symbols -- assets the
   user chose to track, not the real portfolio. Edited by hand only; never
   written to by the pipeline.

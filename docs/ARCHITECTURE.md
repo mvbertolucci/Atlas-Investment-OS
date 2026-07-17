@@ -115,6 +115,7 @@ See ADR-022.
 - `providers/`
 - `providers/contracts.py` (timeout, retry, pacing and typed failures)
 - `providers/evidence.py` (per-field state, timestamps and source confirmation)
+- `providers/massive.py` (optional licensed market/ownership confirmation)
 - `analytics/mapper.py`
 - `analytics/fundamentals.py`
 - `analytics/indicators.py`
@@ -125,7 +126,9 @@ Provider adapter output stays flat for analytical compatibility and carries a
 nested `field_evidence` audit map. Live collection stores the adapter payload
 before enrichment; checkpoints and score history retain its SHA-256. Critical
 fields can be reconciled with a second adapter, with fallback, confirmation and
-conflict represented explicitly. See ADR-014.
+conflict represented explicitly. SEC and Massive run through independent
+bounded clients and immutable snapshots; each declares the fields it can
+actually confirm. See ADR-014 and ADR-023.
 
 ### Feature and scoring layer
 

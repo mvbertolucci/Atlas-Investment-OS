@@ -223,6 +223,15 @@ def record_from_company_facts(
 @dataclass
 class SecCompanyFactsProvider:
     provider_name = "SEC EDGAR Company Facts"
+    supported_fields = frozenset(
+        {
+            "total_debt",
+            "total_cash",
+            "ebitda",
+            "free_cashflow",
+            "current_ratio",
+        }
+    )
 
     user_agent: str
     ticker_map_fetcher: Callable[..., dict[str, str]] = fetch_ticker_cik_map

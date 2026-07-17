@@ -14,6 +14,7 @@ from portfolio.exceptions import PortfolioError
 from portfolio.loader import load_portfolio_csv
 from providers.contracts import ProviderPolicy
 from providers.evidence import apply_sector_applicability, ensure_field_evidence
+from providers.massive import build_massive_secondary_provider
 from providers.sec_companyfacts import build_sec_secondary_provider
 from providers.yahoo import fetch_watchlist
 
@@ -126,6 +127,9 @@ class CollectionApplicationService:
         )
 
         secondary_fetcher = build_sec_secondary_provider(self.root, settings)
+        massive_fetcher = build_massive_secondary_provider(
+            self.root, settings
+        )
         if (
             bool(settings.get("sec_secondary_enabled", False))
             and secondary_fetcher is None
@@ -133,6 +137,18 @@ class CollectionApplicationService:
             self.logger.warning(
                 "Segunda fonte SEC habilitada, mas sec_user_agent não foi "
                 "encontrado em %s.",
+                settings.get(
+                    "provider_secrets_path",
+                    "config/provider_secrets.json",
+                ),
+            )
+        if (
+            bool(settings.get("massive_secondary_enabled", False))
+            and massive_fetcher is None
+        ):
+            self.logger.warning(
+                "Segunda fonte Massive habilitada, mas massive_api_key não "
+                "foi encontrada em %s ou MASSIVE_API_KEY.",
                 settings.get(
                     "provider_secrets_path",
                     "config/provider_secrets.json",
@@ -159,6 +175,9 @@ class CollectionApplicationService:
             raw_snapshot_dir=self.root
             / settings.get("raw_snapshot_path", "data/raw_snapshots"),
             secondary_fetcher=secondary_fetcher,
+            secondary_fetchers=(
+                (massive_fetcher,) if massive_fetcher is not None else ()
+            ),
             critical_fields=tuple(
                 settings.get(
                     "provider_critical_fields",

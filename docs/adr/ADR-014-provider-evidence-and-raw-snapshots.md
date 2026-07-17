@@ -51,8 +51,10 @@ when a common fiscal period can be constructed. It can provide annual fallback
 for free cash flow and EBITDA, but does not confirm Yahoo's TTM definitions;
 those comparisons are marked `definition_mismatch`. Values from different
 periods are marked `period_mismatch` and are not compared.
-Market cap, enterprise value and short float remain
-`secondary_unavailable` because Company Facts does not report them.
+Company Facts still does not report market cap, enterprise value or short
+float. ADR-023 adds an optional credential-gated Massive adapter for those
+fields; until it is explicitly activated and live-verified, they remain
+`secondary_unavailable` in real runs.
 
 ## Consequences
 

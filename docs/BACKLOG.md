@@ -58,8 +58,12 @@
 - [x] Configure SEC Company Facts as the independent live adapter for reported
       fundamentals, with its identifying User-Agent stored only in ignored
       local configuration
-- [ ] Add a licensed market-data secondary for market cap, enterprise value
-      and float; SEC correctly leaves these fields `secondary_unavailable`
+- [x] Add a credential-gated Massive adapter for market cap, enterprise value,
+      short interest and free float; derive `short_float` only from periods no
+      more than 45 days apart
+- [ ] Configure a personal Massive API key/eligible plan and complete a bounded
+      live AAPL verification; until then these fields remain
+      `secondary_unavailable` in real runs
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 
