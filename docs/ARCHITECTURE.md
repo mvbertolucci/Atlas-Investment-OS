@@ -83,6 +83,7 @@ ADR-015 and ADR-016.
 - `application/intelligence.py`
 - `application/reporting.py`
 - `application/ticker.py`
+- `application/runtime.py`
 
 `CollectionApplicationService` owns watchlist loading, the in-memory
 watchlist/portfolio merge and provider collection/enrichment.
@@ -103,6 +104,11 @@ monkeypatches keep working. `TickerAnalysisApplicationService` composes the
 collection, scoring and history ports for governed single-symbol analysis and
 one-pager publication; ticker execution no longer belongs to runtime
 operations. See ADR-017 through ADR-021.
+
+`OperationalRuntimeService` owns settings loading, Health Check delegation,
+console presentation and execution-metrics publication. `RuntimeServices`
+binds its methods directly while retaining shared pipeline paths and logger.
+See ADR-022.
 
 ### Data layer
 

@@ -62,6 +62,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   performance validation and dashboard publication
 - Concrete ticker-analysis application service for governed single-symbol
   scoring and one-pager publication
+- Concrete operational runtime service for settings, Health Check, console and
+  execution metrics
 
 ## Current integration status
 

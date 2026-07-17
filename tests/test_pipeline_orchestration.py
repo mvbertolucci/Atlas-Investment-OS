@@ -13,6 +13,7 @@ from application import (
     CollectionApplicationService,
     HistoryApplicationService,
     IntelligenceApplicationService,
+    OperationalRuntimeService,
     ReportingApplicationService,
     ScoringApplicationService,
     TickerAnalysisApplicationService,
@@ -206,6 +207,10 @@ def test_run_all_builds_narrow_typed_service_groups() -> None:
         ReportingApplicationService,
     )
     assert isinstance(
+        services.runtime._load_settings.__self__,
+        OperationalRuntimeService,
+    )
+    assert isinstance(
         services.ticker._run_ticker_mode.__self__,
         TickerAnalysisApplicationService,
     )
@@ -216,7 +221,11 @@ def test_ticker_pipeline_uses_composed_ticker_service(
 ) -> None:
     report_path = tmp_path / "MSFT.html"
     calls: list[tuple[str, Any]] = []
-    monkeypatch.setattr(run_all, "load_settings", lambda: {"source": "test"})
+    monkeypatch.setattr(
+        OperationalRuntimeService,
+        "load_settings",
+        lambda self: {"source": "test"},
+    )
     ticker_service = SimpleNamespace(
         run_ticker_mode=lambda symbol, settings: (
             calls.append((symbol, settings)) or report_path
@@ -370,14 +379,12 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
         runtime=RuntimeServices(
             paths=paths,
             logger=fake.logger,
-            _run_health_check=lambda root: fake.run_health_check(),
+            _run_health_check=fake.run_health_check,
             _print_health_report=fake.print_health_report,
             _load_settings=fake.load_settings,
             _print_console_table=fake.print_console_table,
             _safe_console_text=fake.safe_console_text,
-            _save_execution_metrics=lambda metrics, path: (
-                fake.save_execution_metrics(metrics)
-            ),
+            _save_execution_metrics=fake.save_execution_metrics,
             _print_execution_metrics=fake.print_execution_metrics,
         ),
         ticker=TickerServices(

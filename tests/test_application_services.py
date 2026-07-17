@@ -15,6 +15,7 @@ from application import (
     CollectionApplicationService,
     HistoryApplicationService,
     IntelligenceApplicationService,
+    OperationalRuntimeService,
     ReportingApplicationService,
     ScoringApplicationService,
     TickerAnalysisApplicationService,
@@ -446,6 +447,91 @@ def test_ticker_service_rejects_missing_collected_symbol(
         assert "MSFT" in str(exc)
     else:
         raise AssertionError("símbolo ausente deveria falhar")
+
+
+def test_operational_runtime_loads_settings_and_formats_console(
+    tmp_path: Path,
+) -> None:
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "settings.json").write_text(
+        '{"source": "test"}', encoding="utf-8"
+    )
+    output: list[str] = []
+    service = OperationalRuntimeService(
+        root=tmp_path,
+        config=config,
+        execution_metrics_file=tmp_path / "metrics.csv",
+        logger=_logger(),
+        output_writer=output.append,
+    )
+
+    assert service.load_settings() == {"source": "test"}
+    assert service.safe_console_text("Rating: ★", "cp1252") == "Rating: ?"
+
+    service.print_console_table(
+        pd.DataFrame([{"symbol": "MSFT", "Investment Score": 81.0}])
+    )
+
+    assert output[0] == ""
+    assert "MSFT" in output[1]
+    assert "81.0" in output[1]
+    assert output[2] == ""
+
+
+def test_operational_runtime_delegates_health_and_metrics(
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[str, object]] = []
+    health_report = object()
+    metrics = SimpleNamespace(name="metrics")
+    metrics_path = tmp_path / "metrics.csv"
+    service = OperationalRuntimeService(
+        root=tmp_path,
+        config=tmp_path,
+        execution_metrics_file=metrics_path,
+        logger=_logger(),
+        health_check_runner=lambda root: (
+            calls.append(("health", root)) or health_report
+        ),
+        health_report_writer=lambda report: calls.append(
+            ("health_report", report)
+        ),
+        metrics_saver=lambda value, path: calls.append(
+            ("metrics_saved", (value, path))
+        ),
+        metrics_writer=lambda value: calls.append(
+            ("metrics_printed", value)
+        ),
+    )
+
+    assert service.run_health_check() is health_report
+    service.print_health_report(health_report)
+    service.save_execution_metrics(metrics)
+    service.print_execution_metrics(metrics)
+
+    assert calls == [
+        ("health", tmp_path),
+        ("health_report", health_report),
+        ("metrics_saved", (metrics, metrics_path)),
+        ("metrics_printed", metrics),
+    ]
+
+
+def test_operational_runtime_reports_missing_settings(tmp_path: Path) -> None:
+    service = OperationalRuntimeService(
+        root=tmp_path,
+        config=tmp_path / "missing",
+        execution_metrics_file=tmp_path / "metrics.csv",
+        logger=_logger(),
+    )
+
+    try:
+        service.load_settings()
+    except FileNotFoundError as exc:
+        assert "settings.json" in str(exc)
+    else:
+        raise AssertionError("configuração ausente deveria falhar")
 
 
 def test_intelligence_service_skips_absent_inputs(tmp_path: Path) -> None:

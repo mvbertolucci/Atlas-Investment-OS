@@ -49,16 +49,16 @@ class PipelinePaths:
 class RuntimeServices:
     paths: PipelinePaths
     logger: Logger
-    _run_health_check: Callable[[Path], HealthReport]
+    _run_health_check: Callable[[], HealthReport]
     _print_health_report: Callable[[HealthReport], None]
     _load_settings: Callable[[], Settings]
     _print_console_table: Callable[[pd.DataFrame], None]
     _safe_console_text: Callable[[object, str | None], str]
-    _save_execution_metrics: Callable[[ExecutionMetrics, Path], None]
+    _save_execution_metrics: Callable[[ExecutionMetrics], None]
     _print_execution_metrics: Callable[[ExecutionMetrics], None]
 
     def run_health_check(self) -> HealthReport:
-        return self._run_health_check(self.paths.root)
+        return self._run_health_check()
 
     def print_health_report(self, report: HealthReport) -> None:
         self._print_health_report(report)
@@ -75,7 +75,7 @@ class RuntimeServices:
         return self._safe_console_text(value, encoding)
 
     def save_execution_metrics(self, metrics: ExecutionMetrics) -> None:
-        self._save_execution_metrics(metrics, self.paths.execution_metrics_file)
+        self._save_execution_metrics(metrics)
 
     def print_execution_metrics(self, metrics: ExecutionMetrics) -> None:
         self._print_execution_metrics(metrics)

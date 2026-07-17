@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import sys
 from pathlib import Path
 
 import pandas as pd
@@ -15,6 +13,7 @@ from application import (
     CollectionApplicationService,
     HistoryApplicationService,
     IntelligenceApplicationService,
+    OperationalRuntimeService,
     ReportingApplicationService,
     ScoringApplicationService,
     TickerAnalysisApplicationService,
@@ -23,7 +22,6 @@ from atlas_logger import get_logger
 from health.health_check import print_health_report, run_health_check
 from metrics.execution import (
     ExecutionMetrics,
-    StageTimer,
     print_execution_metrics,
     save_execution_metrics,
 )
@@ -89,15 +87,19 @@ def _read_status_md() -> str:
 
 
 def load_settings() -> dict:
-    settings_path = CONFIG / "settings.json"
+    return _operational_runtime_service().load_settings()
 
-    if not settings_path.exists():
-        raise FileNotFoundError(
-            f"Arquivo de configuração não encontrado: {settings_path}"
-        )
 
-    return json.loads(
-        settings_path.read_text(encoding="utf-8")
+def _operational_runtime_service() -> OperationalRuntimeService:
+    return OperationalRuntimeService(
+        root=ROOT,
+        config=CONFIG,
+        execution_metrics_file=EXECUTION_METRICS_FILE,
+        logger=logger,
+        health_check_runner=run_health_check,
+        health_report_writer=print_health_report,
+        metrics_saver=save_execution_metrics,
+        metrics_writer=print_execution_metrics,
     )
 
 
@@ -411,59 +413,11 @@ def _safe_console_text(
     value: object,
     encoding: str | None = None,
 ) -> str:
-    text = str(value)
-    target_encoding = encoding or getattr(
-        sys.stdout,
-        "encoding",
-        None,
-    )
-    if not target_encoding:
-        return text
-    return text.encode(
-        target_encoding,
-        errors="replace",
-    ).decode(target_encoding)
+    return _operational_runtime_service().safe_console_text(value, encoding)
 
 
 def print_console_table(df: pd.DataFrame) -> None:
-    columns = [
-        "symbol",
-        "Investment Score",
-        "Opportunity Score",
-        "Opportunity Rating",
-        "Conviction Score",
-        "Decision Rating",
-        "Suggested Action",
-        "Business Score",
-        "Valuation Score",
-        "Financial Score",
-        "Timing Score",
-        "Confidence Score",
-        "Risk Penalty",
-        "Score Band",
-    ]
-
-    available_columns = [
-        column
-        for column in columns
-        if column in df.columns
-    ]
-
-    print()
-
-    if available_columns:
-        table = (
-            df[available_columns]
-            .head(20)
-            .to_string(index=False)
-        )
-        print(_safe_console_text(table))
-    else:
-        print(
-            "[AVISO] Nenhuma coluna de resumo foi encontrada."
-        )
-
-    print()
+    _operational_runtime_service().print_console_table(df)
 
 
 def run_ticker_mode(symbol: str, settings: dict) -> Path:
@@ -498,6 +452,7 @@ def build_pipeline_services() -> PipelineServices:
     history_application = _history_application_service()
     intelligence_application = _intelligence_application_service()
     reporting_application = _reporting_application_service()
+    operational_runtime = _operational_runtime_service()
     ticker_application = _ticker_analysis_application_service(
         collection_application,
         scoring_application,
@@ -507,13 +462,17 @@ def build_pipeline_services() -> PipelineServices:
         runtime=RuntimeServices(
             paths=paths,
             logger=logger,
-            _run_health_check=run_health_check,
-            _print_health_report=print_health_report,
-            _load_settings=load_settings,
-            _print_console_table=print_console_table,
-            _safe_console_text=_safe_console_text,
-            _save_execution_metrics=save_execution_metrics,
-            _print_execution_metrics=print_execution_metrics,
+            _run_health_check=operational_runtime.run_health_check,
+            _print_health_report=operational_runtime.print_health_report,
+            _load_settings=operational_runtime.load_settings,
+            _print_console_table=operational_runtime.print_console_table,
+            _safe_console_text=operational_runtime.safe_console_text,
+            _save_execution_metrics=(
+                operational_runtime.save_execution_metrics
+            ),
+            _print_execution_metrics=(
+                operational_runtime.print_execution_metrics
+            ),
         ),
         ticker=TickerServices(
             _run_ticker_mode=ticker_application.run_ticker_mode,

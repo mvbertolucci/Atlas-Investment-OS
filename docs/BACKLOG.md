@@ -8,11 +8,11 @@
 - [x] Extract concrete reporting application service
 - [x] Extract concrete ticker-analysis application service and separate
       `TickerServices` from `RuntimeServices`
-- [ ] Extract `OperationalRuntimeService` for settings, Health Check, execution
+- [x] Extract `OperationalRuntimeService` for settings, Health Check, execution
       metrics and console presentation
-- [ ] Bind the concrete runtime service without changing CLI, output contracts
+- [x] Bind the concrete runtime service without changing CLI, output contracts
       or compatibility wrappers
-- [ ] Audit `run_all.py` as composition root, document the boundary and run the
+- [x] Audit `run_all.py` as composition root, document the boundary and run the
       full regression/coverage gate
 
 ## Completed foundations

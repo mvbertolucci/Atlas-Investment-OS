@@ -19,28 +19,24 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 864 tests passing / 90.26% production coverage
+**Validation baseline:** 867 tests passing / 90.38% production coverage
 
-## Current handoff — application-boundary refactor
+## Current handoff — application boundaries complete
 
-Work is saved on `master` through commit `9e14ffb`. The typed pipeline now
-binds concrete collection, scoring, history, intelligence, reporting and
-ticker-analysis application services. `run_all.py` remains the stable CLI and
-compatibility surface, but no pipeline stage traverses it as a service locator.
+The typed pipeline binds concrete collection, scoring, history, intelligence,
+reporting, ticker-analysis and operational-runtime services. `run_all.py` is
+limited to governed path definitions, dependency construction, compatibility
+wrappers and `main()`; no pipeline stage traverses it as a service locator.
 
-Resume the architectural sequence in this order:
+The next work should return to product evidence, in this order:
 
-1. Extract an `OperationalRuntimeService` for settings loading, Health Check,
-   execution metrics and console presentation.
-2. Bind that concrete service to `RuntimeServices`, preserving the CLI,
-   public helper signatures, output text and existing monkeypatch seams.
-3. Audit `run_all.py` after the extraction; keep it limited to dependency
-   construction, compatibility wrappers and `main()`.
-4. Add an ADR, focused tests and run the full coverage command before the
-   atomic commit. Do not change governed scoring or portfolio semantics.
-5. After this boundary work, return to the product backlog: licensed secondary
-   market data and broad real historical validation remain the leading open
-   evidence tasks.
+1. Select and configure a licensed independent market-data secondary for
+   market cap, enterprise value and float.
+2. Run the implemented historical execution and total-return adapters against
+   a broad real dataset with explicit delisting evidence.
+3. Run broad portfolio validation and publish coverage limitations before any
+   calibration claim. Do not change governed scoring semantics without
+   versioned out-of-sample evidence.
 
 ## 1. Product mission
 
@@ -419,7 +415,6 @@ A task is complete only when:
 
 Recommended first prompt:
 
-> Read AGENTS.md and docs/ATLAS_CONTEXT.md. Verify commit 9e14ffb, the clean
-> working tree and the test baseline. Then continue the recorded
-> OperationalRuntimeService extraction, preserving public interfaces and
-> governed financial configuration.
+> Read AGENTS.md and docs/ATLAS_CONTEXT.md. Verify the clean working tree and
+> test baseline. Then inspect the leading open evidence task in BACKLOG.md,
+> preserving public interfaces and governed financial configuration.

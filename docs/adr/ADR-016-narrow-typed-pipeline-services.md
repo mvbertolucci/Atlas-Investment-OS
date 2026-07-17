@@ -15,8 +15,9 @@ typed, but operational dependencies were not restricted by responsibility.
 
 1. `PipelineServices` is an explicit immutable container, not a protocol that
    describes a module namespace.
-2. It groups six typed facades:
-   - `RuntimeServices`: paths, health, settings, console, metrics and ticker;
+2. It groups seven typed facades (as amended by ADR-021):
+   - `RuntimeServices`: paths, health, settings, console and metrics;
+   - `TickerServices`: governed single-symbol analysis and one-pager;
    - `CollectionServices`: watchlist loading/merge and provider collection;
    - `ScoringServices`: official reference, scoring, coverage, universe and
      ranking;
@@ -51,6 +52,8 @@ typed, but operational dependencies were not restricted by responsibility.
   ADR-018.
 - Portfolio, watchlist and Atlas Report callbacks are bound to the concrete
   service described in ADR-019.
+- Reporting, ticker and operational callbacks are bound to the concrete
+  services described in ADR-020, ADR-021 and ADR-022.
 
 ## Migration and rollback
 
