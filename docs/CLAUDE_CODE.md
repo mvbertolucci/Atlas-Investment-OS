@@ -206,7 +206,7 @@ weighted-average factor exposure (PortfolioRebalance.factor_exposures,
 ValidationPeriod.factor_exposures), the watchlist/portfolio decoupling
 (run_all.merge_watchlist_with_portfolio) and universe provenance
 (origin column, RankedCompany.already_held, Holding.origin). Run the full
-test/coverage gate; expect 828 tests and 87.90% production coverage. Report
+test/coverage gate; expect 836 tests and 87.64% production coverage. Report
 any mismatch before editing. Do not push without explicit approval, even
 after committing.
 

@@ -46,9 +46,27 @@ def _safe_statement(ticker: "yf.Ticker", attr: str):
         return None
 
 
+def _statement_date(statement: pd.DataFrame | None) -> str | None:
+    if statement is None or statement.empty or len(statement.columns) == 0:
+        return None
+    dates = pd.to_datetime(statement.columns, errors="coerce", utc=True)
+    dates = dates[~pd.isna(dates)]
+    return max(dates).date().isoformat() if len(dates) else None
+
+
 def _earnings_date(info: dict[str, Any]) -> str | None:
     """Normaliza a data de earnings atribuída pelo provider, quando houver."""
     value = info.get("earningsTimestamp") or info.get("earningsTimestampStart")
+    try:
+        timestamp = float(value)
+    except (TypeError, ValueError):
+        return None
+    if timestamp != timestamp:
+        return None
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).date().isoformat()
+
+
+def _unix_date(value: Any) -> str | None:
     try:
         timestamp = float(value)
     except (TypeError, ValueError):
@@ -81,6 +99,9 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
     price = _safe_float(last.get("Close"))
     previous_close = _safe_float(prev.get("Close"))
     change_pct = (price / previous_close - 1) * 100 if price and previous_close else None
+    balance_sheet = _safe_statement(t, "balance_sheet")
+    income_statement = _safe_statement(t, "financials")
+    cashflow = _safe_statement(t, "cashflow")
 
     retrieved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     record = {
@@ -137,9 +158,9 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
         "inst_own": _safe_float(info.get("heldPercentInstitutions")),
         "history": hist.reset_index().to_dict("records"),
         "source": "Yahoo Finance",
-        "_balance_sheet": _safe_statement(t, "balance_sheet"),
-        "_income_statement": _safe_statement(t, "financials"),
-        "_cashflow": _safe_statement(t, "cashflow"),
+        "_balance_sheet": balance_sheet,
+        "_income_statement": income_statement,
+        "_cashflow": cashflow,
     }
     info_fields = {
         "name": ("longName", "shortName"),
@@ -210,14 +231,53 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
             None,
         )
     market_observed_at = pd.Timestamp(hist.index[-1]).isoformat()
-    return ensure_field_evidence(
+    balance_date = _unix_date(info.get("mostRecentQuarter")) or _statement_date(
+        balance_sheet
+    )
+    income_date = _statement_date(income_statement)
+    cashflow_date = _statement_date(cashflow)
+    observed_at_by_field = {
+        field_name: observed_at
+        for observed_at, fields in (
+            (
+                balance_date,
+                (
+                    "debt_to_equity", "current_ratio", "quick_ratio",
+                    "total_debt", "total_cash",
+                ),
+            ),
+            (
+                income_date,
+                (
+                    "roe", "roa", "gross_margin", "operating_margin",
+                    "ebitda_margin", "net_margin", "ebitda",
+                ),
+            ),
+            (
+                cashflow_date,
+                ("free_cashflow", "operating_cashflow"),
+            ),
+        )
+        if observed_at
+        for field_name in fields
+    }
+    annotated = ensure_field_evidence(
         record,
         source="Yahoo Finance",
         retrieved_at=retrieved_at,
         raw_presence=raw_presence,
         raw_values=raw_values,
         observed_at_by_category={"market": market_observed_at},
+        observed_at_by_field=observed_at_by_field,
     )
+    for field_name in ("free_cashflow", "ebitda"):
+        evidence = annotated["field_evidence"].get(field_name)
+        if isinstance(evidence, dict):
+            evidence["detail"] = (
+                "Yahoo provider TTM value; not directly comparable to one "
+                "annual SEC filing"
+            )
+    return annotated
 
 
 def fetch_watchlist(
@@ -238,7 +298,10 @@ def fetch_watchlist(
     """
     rows: list[dict] = []
     client = ProviderClient("Yahoo Finance", provider_policy)
-    secondary_client = ProviderClient("Secondary", provider_policy)
+    secondary_client = ProviderClient(
+        str(getattr(secondary_fetcher, "provider_name", "Secondary")),
+        provider_policy,
+    )
     for _, row in watchlist.iterrows():
         symbol = str(row.get("symbol", "")).strip()
         if not symbol:

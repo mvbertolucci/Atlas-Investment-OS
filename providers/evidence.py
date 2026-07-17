@@ -99,6 +99,7 @@ def ensure_field_evidence(
     raw_presence: Mapping[str, bool] | None = None,
     raw_values: Mapping[str, Any] | None = None,
     observed_at_by_category: Mapping[str, str] | None = None,
+    observed_at_by_field: Mapping[str, str] | None = None,
     not_applicable_fields: Iterable[str] = (),
 ) -> dict[str, Any]:
     evidence = dict(record.get("field_evidence") or {})
@@ -132,7 +133,9 @@ def ensure_field_evidence(
             status = DataValueStatus.INVALID
         else:
             status = DataValueStatus.PRESENT
-        observed_at = (observed_at_by_category or {}).get(category)
+        observed_at = (observed_at_by_field or {}).get(field_name) or (
+            observed_at_by_category or {}
+        ).get(category)
         evidence[field_name] = FieldEvidence(
             status=status,
             source=provider,
@@ -220,6 +223,7 @@ def reconcile_critical_fields(
     critical_fields: Iterable[str],
     *,
     tolerance: float = 0.05,
+    period_tolerance_days: int = 45,
 ) -> dict[str, Any]:
     result = dict(primary)
     result["field_evidence"] = dict(primary.get("field_evidence") or {})
@@ -270,7 +274,60 @@ def reconcile_critical_fields(
                 "retrieved_at": result.get("as_of", ""),
             })
         )
+        if secondary_status != DataValueStatus.PRESENT:
+            result["field_evidence"][field_name] = replace(
+                current,
+                confirmation_status="secondary_unavailable",
+                confirmed_by=secondary_source,
+                detail=f"secondary_status={secondary_status.value}",
+            ).to_dict()
+            continue
         if primary_status == secondary_status == DataValueStatus.PRESENT:
+            if "not directly comparable" in str(current.detail).casefold() or (
+                "not directly comparable"
+                in str(secondary_evidence.detail).casefold()
+            ):
+                result["field_evidence"][field_name] = replace(
+                    current,
+                    confirmation_status="definition_mismatch",
+                    confirmed_by=secondary_source,
+                    detail="provider definitions are not directly comparable",
+                ).to_dict()
+                continue
+            if not current.observed_at or not secondary_evidence.observed_at:
+                result["field_evidence"][field_name] = replace(
+                    current,
+                    confirmation_status="period_unverified",
+                    confirmed_by=secondary_source,
+                    detail="one source has no fiscal observation date",
+                ).to_dict()
+                continue
+            try:
+                primary_date = datetime.fromisoformat(
+                    str(current.observed_at)[:10]
+                ).date()
+                secondary_date = datetime.fromisoformat(
+                    str(secondary_evidence.observed_at)[:10]
+                ).date()
+            except ValueError:
+                result["field_evidence"][field_name] = replace(
+                    current,
+                    confirmation_status="period_unverified",
+                    confirmed_by=secondary_source,
+                    detail="invalid fiscal observation date",
+                ).to_dict()
+                continue
+            if abs((primary_date - secondary_date).days) > period_tolerance_days:
+                result["field_evidence"][field_name] = replace(
+                    current,
+                    confirmation_status="period_mismatch",
+                    confirmed_by=secondary_source,
+                    detail=(
+                        f"primary_period={primary_date}; "
+                        f"secondary_period={secondary_date}"
+                    ),
+                ).to_dict()
+                continue
             if _values_agree(result.get(field_name), secondary.get(field_name), tolerance):
                 updated = replace(
                     current,

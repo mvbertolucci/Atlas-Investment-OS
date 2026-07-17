@@ -19,7 +19,11 @@ def _record(source: str, **values):
         "as_of": "2026-07-17T12:00:00+00:00",
         **values,
     }
-    return ensure_field_evidence(record, source=source)
+    return ensure_field_evidence(
+        record,
+        source=source,
+        observed_at_by_category={"fundamentals": "2026-06-30"},
+    )
 
 
 def test_field_evidence_distinguishes_all_non_present_states() -> None:
@@ -92,6 +96,34 @@ def test_conflicting_critical_sources_invalidate_value() -> None:
     assert result["market_cap"] is None
     assert field_status(result, "market_cap") == DataValueStatus.INVALID
     assert result["field_evidence"]["market_cap"]["confirmation_status"] == "conflict"
+
+
+def test_different_fiscal_periods_are_not_compared() -> None:
+    primary = _record("Primary", total_debt=100.0)
+    secondary = _record("Secondary", total_debt=200.0)
+    secondary["field_evidence"]["total_debt"]["observed_at"] = "2025-12-31"
+
+    result = reconcile_critical_fields(primary, secondary, ("total_debt",))
+
+    assert result["total_debt"] == 100.0
+    assert result["field_evidence"]["total_debt"]["confirmation_status"] == (
+        "period_mismatch"
+    )
+
+
+def test_different_metric_definitions_are_not_compared() -> None:
+    primary = _record("Primary", free_cashflow=100.0)
+    secondary = _record("Secondary", free_cashflow=200.0)
+    primary["field_evidence"]["free_cashflow"]["detail"] = (
+        "TTM; not directly comparable to annual"
+    )
+
+    result = reconcile_critical_fields(primary, secondary, ("free_cashflow",))
+
+    assert result["free_cashflow"] == 100.0
+    assert result["field_evidence"]["free_cashflow"]["confirmation_status"] == (
+        "definition_mismatch"
+    )
 
 
 def test_critical_field_records_absent_secondary() -> None:

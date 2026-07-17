@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 828 tests passing / 87.90% production coverage
+**Validation baseline:** 836 tests passing / 87.64% production coverage
 
 ## 1. Product mission
 
@@ -75,7 +75,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 
 | Area | Main locations | Status |
 |---|---|---|
-| Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary and field-level evidence integrated |
+| Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, field evidence and SEC fundamental confirmation integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |
 | Decision and thesis | `decision/` | Integrated |
@@ -100,6 +100,8 @@ Outcome JSON + Excel + Morning Brief + execution metrics
   data coverage, source quality and freshness.
 - `config/settings.json`: runtime paths plus provider timeout, retry, backoff,
   pacing, critical fields and raw-snapshot location.
+- `config/provider_secrets.json`: ignored local provider identity; create from
+  `provider_secrets.example.json`. Never commit its SEC User-Agent contact.
 - `config/watchlist.csv`: manually curated research symbols -- assets the
   user chose to track, not the real portfolio. Edited by hand only; never
   written to by the pipeline.

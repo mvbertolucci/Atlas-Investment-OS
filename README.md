@@ -46,6 +46,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   not-applicable evidence states
 - Immutable SHA-256 raw snapshots and critical-field second-source
   fallback/confirmation contract
+- SEC Company Facts confirmation/fallback for comparable reported fundamentals
+  and annual FCF/EBITDA fallback, with period/definition alignment
 
 ## Current integration status
 

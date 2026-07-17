@@ -50,6 +50,7 @@ data/*.log
 
 # Posições reais da carteira pessoal (dado sensível, não versionado)
 config/portfolio.csv
+config/provider_secrets.json
 
 # Editores e sistema operacional
 .vscode/

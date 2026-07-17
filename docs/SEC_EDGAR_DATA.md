@@ -10,7 +10,7 @@ already consume -- proven against **real, live SEC data**, not just
 synthetic fixtures.
 
 **This delivers a small, real vertical slice, not a complete historical
-dataset.** It covers 15 native fundamental concepts, now collected in
+dataset.** It covers 16 native fundamental concepts, now collected in
 checkpointed, resumable batches across many tickers at once
 (`backtesting/sec_edgar_collector.py`, mirroring `universe/collector.py`'s
 design), and now converted into the *ratios* `config/features.yaml`
@@ -27,6 +27,22 @@ family (`rsi_14`, `momentum_*`, `distance_52w_high`) is derived from the same
 paired price series. It does not yet cover `forward_pe`, `peg`, `ev_ebitda`,
 historical index membership, or delisting records. See "What is covered" and
 "What is not" below.
+
+## Live second-source role
+
+`providers/sec_companyfacts.py` also reuses this parser in normal watchlist
+and broad-universe collection. It aligns facts from a common fiscal period and
+independently confirms or provides fallback for reported debt, cash and current
+ratio. Annual SEC FCF and EBITDA can replace an unavailable Yahoo value, but
+are not compared directly with Yahoo's TTM definitions. Fiscal-date and
+definition differences are preserved as `period_mismatch` or
+`definition_mismatch`, never treated as numeric conflict.
+
+Enablement is governed by `sec_secondary_enabled` in `config/settings.json`.
+The required identifying contact is read from the ignored
+`config/provider_secrets.json`, created from
+`config/provider_secrets.example.json`; personal contact data must never be
+committed. SEC raw responses receive their own immutable SHA-256 snapshot.
 
 ## Why SEC EDGAR
 

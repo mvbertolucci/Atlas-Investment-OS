@@ -21,6 +21,7 @@ from providers.evidence import (
     reconcile_critical_fields,
 )
 from storage.raw_snapshots import store_raw_snapshot
+from providers.sec_companyfacts import build_sec_secondary_provider
 from universe.sources import (
     ConstituentBatch,
     load_constituent_snapshot,
@@ -273,7 +274,10 @@ def collect_constituent_batch(
         rate_limit_per_second=rate_limit_per_second,
     )
     primary_client = ProviderClient("Yahoo Finance", provider_policy)
-    secondary_client = ProviderClient("Secondary", provider_policy)
+    secondary_client = ProviderClient(
+        str(getattr(secondary_fetcher, "provider_name", "Secondary")),
+        provider_policy,
+    )
     snapshot_root = Path(raw_snapshot_dir or Path(state_path).parent / "raw_snapshots")
     attempted = succeeded = failed = skipped = 0
 
@@ -501,6 +505,7 @@ def main() -> None:
         ),
         raw_snapshot_dir=ROOT
         / settings.get("raw_snapshot_path", "data/raw_snapshots"),
+        secondary_fetcher=build_sec_secondary_provider(ROOT, settings),
         critical_fields=tuple(settings.get("provider_critical_fields", ())),
         quality_policy=quality_policy,
     )

@@ -39,15 +39,20 @@ payload produced a score.
    silently choosing one source. When no secondary adapter is configured, the
    evidence explicitly says `secondary_unavailable`.
 
-## Operational limitation
+## Secondary provider activation
 
 The reconciliation contract is active in both watchlist and broad-universe
-collection and accepts an independent secondary adapter. Atlas does not enable
-one by default because no authenticated provider or SEC-compliant user-agent
-identity is configured in the repository. It therefore records critical live
-Yahoo fields as unconfirmed rather than presenting same-provider data as an
-independent confirmation. Adding a production secondary adapter requires no
-scoring-contract change.
+collection. SEC Company Facts is the configured independent adapter for
+reported fundamentals. Its identifying `User-Agent` lives only in the ignored
+`config/provider_secrets.json`; the repository ships a safe example file.
+
+SEC confirms or provides fallback for cash, reported debt and current ratio
+when a common fiscal period can be constructed. It can provide annual fallback
+for free cash flow and EBITDA, but does not confirm Yahoo's TTM definitions;
+those comparisons are marked `definition_mismatch`. Values from different
+periods are marked `period_mismatch` and are not compared.
+Market cap, enterprise value and short float remain
+`secondary_unavailable` because Company Facts does not report them.
 
 ## Consequences
 

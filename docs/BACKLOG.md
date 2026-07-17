@@ -40,8 +40,11 @@
 - [x] Explicit present, missing, unavailable, invalid, stale and sector-not-applicable states
 - [x] Immutable content-addressed raw snapshots with SHA-256 retained in history
 - [x] Critical-field fallback, confirmation and conflict contract
-- [ ] Configure an independent live secondary adapter and provider identity;
-      until then critical Yahoo evidence is explicitly `secondary_unavailable`
+- [x] Configure SEC Company Facts as the independent live adapter for reported
+      fundamentals, with its identifying User-Agent stored only in ignored
+      local configuration
+- [ ] Add a licensed market-data secondary for market cap, enterprise value
+      and float; SEC correctly leaves these fields `secondary_unavailable`
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

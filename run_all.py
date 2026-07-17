@@ -53,6 +53,7 @@ from portfolio.sell_rules import SellRulesPolicy, load_sell_rules_policy
 from providers.yahoo import fetch_watchlist
 from providers.contracts import ProviderPolicy
 from providers.evidence import apply_sector_applicability, ensure_field_evidence
+from providers.sec_companyfacts import build_sec_secondary_provider
 from ranking import (
     RankingReport,
     load_ranking_policy,
@@ -298,6 +299,13 @@ def collect_market_data(
         else {}
     )
 
+    secondary_fetcher = build_sec_secondary_provider(ROOT, settings)
+    if bool(settings.get("sec_secondary_enabled", False)) and secondary_fetcher is None:
+        logger.warning(
+            "Segunda fonte SEC habilitada, mas sec_user_agent não foi encontrado "
+            "em %s.",
+            settings.get("provider_secrets_path", "config/provider_secrets.json"),
+        )
     rows = fetch_watchlist(
         watchlist,
         period=settings.get("history_period", "2y"),
@@ -313,6 +321,7 @@ def collect_market_data(
         ),
         raw_snapshot_dir=ROOT
         / settings.get("raw_snapshot_path", "data/raw_snapshots"),
+        secondary_fetcher=secondary_fetcher,
         critical_fields=tuple(
             settings.get(
                 "provider_critical_fields",

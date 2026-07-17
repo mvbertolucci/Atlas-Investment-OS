@@ -2,12 +2,12 @@
 
 **Release:** v1.2.0
 **Baseline:** PR-033 + point-in-time acquisition/derivation (including `timing` and extended `valuation`) + deterministic PR-034 target/execution-evidence/total-return-evidence/execution/validation cores
-**Test baseline:** 828 passing / 87.90% production coverage
+**Test baseline:** 836 passing / 87.64% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
 | Market/fundamental collection | Yes | Yes | Yes | Yes | Operational |
-| Provider resilience and raw evidence | Yes | Yes | No | No | Timeout/retry/rate-limit contract, typed errors, field timestamps and immutable SHA-256 snapshots operational; independent secondary adapter not configured by default |
+| Provider resilience and raw evidence | Yes | Yes | No | No | SEC confirms/falls back comparable balance-sheet fundamentals and supplies annual FCF/EBITDA fallback; TTM definition mismatches stay explicit; market cap/EV/float still lack a second source |
 | Technical enrichment | Yes | Yes | Yes | Yes | Operational; 100% direct coverage |
 | Investment scoring | Yes | Yes | Yes | Yes | Operational |
 | Opportunity and conviction | Yes | Yes | Yes | Yes | Operational |

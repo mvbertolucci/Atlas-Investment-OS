@@ -95,6 +95,11 @@ FIELD_TAG_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
     "capital_expenditures": (
         ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"),
     ),
+    "depreciation_and_amortization": (
+        ("us-gaap", "DepreciationDepletionAndAmortization"),
+        ("us-gaap", "DepreciationDepletionAndAmortizationPropertyPlantAndEquipment"),
+        ("us-gaap", "Depreciation"),
+    ),
     "dividends_paid": (
         ("us-gaap", "PaymentsOfDividends"),
         ("us-gaap", "PaymentsOfDividendsCommonStock"),

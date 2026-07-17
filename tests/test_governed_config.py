@@ -99,6 +99,8 @@ def test_provider_operational_policy_is_pinned() -> None:
         "short_float",
     ]
     assert settings["raw_snapshot_path"] == "data/raw_snapshots"
+    assert settings["sec_secondary_enabled"] is True
+    assert settings["provider_secrets_path"] == "config/provider_secrets.json"
 
 
 def test_deal_breakers_thresholds_are_pinned() -> None:
