@@ -9,7 +9,11 @@ import pandas as pd
 import pytest
 
 import run_all
-from application import CollectionApplicationService, ScoringApplicationService
+from application import (
+    CollectionApplicationService,
+    HistoryApplicationService,
+    ScoringApplicationService,
+)
 from orchestration.pipeline import (
     CompletionOutput,
     PipelineContext,
@@ -183,6 +187,10 @@ def test_run_all_builds_narrow_typed_service_groups() -> None:
     assert isinstance(
         services.scoring._build_scores.__self__,
         ScoringApplicationService,
+    )
+    assert isinstance(
+        services.history._save_history_snapshot.__self__,
+        HistoryApplicationService,
     )
 
 

@@ -8,7 +8,11 @@ import pandas as pd
 
 import application.collection as collection_module
 import application.scoring as scoring_module
-from application import CollectionApplicationService, ScoringApplicationService
+from application import (
+    CollectionApplicationService,
+    HistoryApplicationService,
+    ScoringApplicationService,
+)
 
 
 def _logger() -> logging.Logger:
@@ -193,3 +197,39 @@ def test_collection_service_rejects_empty_watchlist(tmp_path: Path) -> None:
         assert "vazia" in str(exc)
     else:
         raise AssertionError("watchlist vazia deveria falhar")
+
+
+def test_history_service_persists_and_recovers_previous_run(
+    tmp_path: Path,
+) -> None:
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "model.yaml").write_text(
+        "model_version: test-model\n", encoding="utf-8"
+    )
+    service = HistoryApplicationService(
+        root=tmp_path,
+        config=config,
+        history_database=tmp_path / "history.db",
+        outcome_report_file=tmp_path / "outcomes.json",
+        logger=_logger(),
+    )
+    frame = pd.DataFrame(
+        [{"symbol": "AAA", "Investment Score": 72.0, "price": 10.0}]
+    )
+
+    saved = service.save_history_snapshot(
+        frame, "2026-07-16T10:00:00", "test-model"
+    )
+    history = service.load_score_history()
+    previous, status, run_at = service.previous_run_context(
+        history,
+        current_snapshot_date="2026-07-17T10:00:00",
+        current_model_version="test-model",
+    )
+
+    assert saved == "2026-07-16T10:00:00"
+    assert service.load_model_config()["model_version"] == "test-model"
+    assert previous["AAA"]["investment_score"] == 72.0
+    assert status == "comparable"
+    assert str(run_at).startswith("2026-07-16")

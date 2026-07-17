@@ -21,6 +21,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-015 | Compose execution as typed pipeline stages over a shared context | Accepted 2026-07-17 |
 | ADR-016 | Inject narrow typed service facades instead of a module namespace | Accepted 2026-07-17 |
 | ADR-017 | Move collection and scoring implementations into application services | Accepted 2026-07-17 |
+| ADR-018 | Give history and Outcome Analytics a concrete application service | Accepted 2026-07-17 |
 
 ## Recording a new decision
 

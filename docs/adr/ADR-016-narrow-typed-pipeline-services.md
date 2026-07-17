@@ -47,6 +47,8 @@ typed, but operational dependencies were not restricted by responsibility.
   callers use typed public methods only.
 - Collection and scoring callbacks are now bound directly to the concrete
   application services described in ADR-017.
+- History and Outcome callbacks are bound to the concrete service described in
+  ADR-018.
 
 ## Migration and rollback
 

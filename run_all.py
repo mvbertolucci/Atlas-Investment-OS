@@ -8,7 +8,6 @@ from pathlib import Path
 import pandas as pd
 
 from analytics.history import load_history as load_score_history
-from analytics.history import previous_run_context
 from analytics.performance_validation import (
     build_performance_validation_report,
     write_performance_validation_report,
@@ -19,6 +18,7 @@ from application import (
     ORIGIN_UNIVERSE,
     ORIGIN_WATCHLIST,
     CollectionApplicationService,
+    HistoryApplicationService,
     ScoringApplicationService,
 )
 from atlas_logger import get_logger
@@ -31,15 +31,11 @@ from metrics.execution import (
 )
 from outcomes.analytics import (
     OutcomeAnalyticsReport,
-    build_outcome_analytics_report,
 )
 from outcomes.pipeline import (
     OutcomeCaptureResult,
     OutcomeEvaluationResult,
-    capture_outcome_snapshots,
-    evaluate_due_outcomes,
 )
-from outcomes.report import write_outcome_report
 from orchestration import PipelineContext, build_pipeline, parse_pipeline_request
 from orchestration.services import (
     CollectionServices,
@@ -58,7 +54,7 @@ from portfolio.pipeline import (
     write_portfolio_report,
 )
 from portfolio.report import PortfolioReport
-from portfolio.sell_rules import SellRulesPolicy, load_sell_rules_policy
+from portfolio.sell_rules import SellRulesPolicy
 from ranking import RankingReport
 from reports.atlas_report.context import build_report_context
 from reports.atlas_report.one_pager import (
@@ -77,7 +73,6 @@ from priority import (
     write_priority_report,
 )
 from reports.report_engine import build_company_reports
-from scoring.investment import load_yaml
 from scoring.reference import ScoringReference
 from storage.history_db import HistoryDatabase
 from universe import UniverseReport
@@ -164,6 +159,16 @@ def _scoring_application_service() -> ScoringApplicationService:
     )
 
 
+def _history_application_service() -> HistoryApplicationService:
+    return HistoryApplicationService(
+        root=ROOT,
+        config=CONFIG,
+        history_database=HISTORY_DATABASE,
+        outcome_report_file=OUTCOME_REPORT_FILE,
+        logger=logger,
+    )
+
+
 def load_watchlist(
     settings: dict,
 ) -> tuple[Path, pd.DataFrame]:
@@ -235,20 +240,9 @@ def save_history_snapshot(
     snapshot_date: str,
     model_version: str = "legacy",
 ) -> str:
-    with HistoryDatabase(HISTORY_DATABASE) as database:
-        database.save_snapshot(
-            df=df,
-            snapshot_date=snapshot_date,
-            model_version=model_version,
-        )
-
-    logger.info(
-        "Snapshot histórico salvo em %s (model_version=%s).",
-        snapshot_date,
-        model_version,
+    return _history_application_service().save_history_snapshot(
+        df, snapshot_date, model_version
     )
-
-    return snapshot_date
 
 
 def save_outcome_decisions(
@@ -256,29 +250,9 @@ def save_outcome_decisions(
     snapshot_date: str,
     settings: dict,
 ) -> OutcomeCaptureResult | None:
-    if not settings.get(
-        "outcome_analytics_enabled",
-        True,
-    ):
-        logger.info("Outcome Analytics desabilitado.")
-        return None
-
-    with HistoryDatabase(HISTORY_DATABASE) as database:
-        result = capture_outcome_snapshots(
-            database,
-            df,
-            decision_date=snapshot_date,
-            horizons_days=settings.get(
-                "outcome_horizons_days"
-            ),
-        )
-
-    logger.info(
-        "Outcome snapshots salvos: %s; ignorados: %s.",
-        result.saved_count,
-        len(result.skipped_symbols),
+    return _history_application_service().save_outcome_decisions(
+        df, snapshot_date, settings
     )
-    return result
 
 
 def evaluate_outcome_decisions(
@@ -286,64 +260,15 @@ def evaluate_outcome_decisions(
     snapshot_date: str,
     settings: dict,
 ) -> OutcomeEvaluationResult | None:
-    if not settings.get(
-        "outcome_analytics_enabled",
-        True,
-    ):
-        return None
-
-    with HistoryDatabase(HISTORY_DATABASE) as database:
-        result = evaluate_due_outcomes(
-            database,
-            df,
-            evaluation_date=snapshot_date,
-            horizons_days=settings.get(
-                "outcome_horizons_days"
-            ),
-        )
-
-    logger.info(
-        "Outcome results avaliados: %s; pendentes: %s; sem preço: %s.",
-        result.evaluated_count,
-        result.pending_count,
-        len(result.missing_price_symbols),
+    return _history_application_service().evaluate_outcome_decisions(
+        df, snapshot_date, settings
     )
-    return result
 
 
 def generate_outcome_analytics(
     settings: dict,
 ) -> OutcomeAnalyticsReport | None:
-    if not settings.get(
-        "outcome_analytics_enabled",
-        True,
-    ):
-        return None
-
-    with HistoryDatabase(HISTORY_DATABASE) as database:
-        report = build_outcome_analytics_report(
-            database,
-            threshold_pct=settings.get(
-                "outcome_hit_threshold_pct",
-                0.0,
-            ),
-            bucket_size=settings.get(
-                "outcome_calibration_bucket_size",
-                20,
-            ),
-        )
-
-    write_outcome_report(
-        report,
-        OUTCOME_REPORT_FILE,
-    )
-
-    logger.info(
-        "Outcome Analytics: %s resultados elegíveis; hit rate %s.",
-        report.hit_rate.eligible_count,
-        report.hit_rate.hit_rate,
-    )
-    return report
+    return _history_application_service().generate_outcome_analytics(settings)
 
 
 def generate_performance_validation(
@@ -836,6 +761,7 @@ def build_pipeline_services() -> PipelineServices:
     )
     collection_application = _collection_application_service()
     scoring_application = _scoring_application_service()
+    history_application = _history_application_service()
     return PipelineServices(
         runtime=RuntimeServices(
             paths=paths,
@@ -876,15 +802,21 @@ def build_pipeline_services() -> PipelineServices:
         history=HistoryServices(
             paths=paths,
             logger=logger,
-            _load_model_config=load_yaml,
-            _load_score_history=load_score_history,
-            _previous_run_context=previous_run_context,
-            _load_sell_rules_policy=load_sell_rules_policy,
-            _load_portfolio=load_portfolio_csv,
-            _save_history_snapshot=save_history_snapshot,
-            _save_outcome_decisions=save_outcome_decisions,
-            _evaluate_outcome_decisions=evaluate_outcome_decisions,
-            _generate_outcome_analytics=generate_outcome_analytics,
+            _load_model_config=history_application.load_model_config,
+            _load_score_history=history_application.load_score_history,
+            _previous_run_context=history_application.previous_run_context,
+            _load_sell_rules_policy=(
+                history_application.load_sell_rules_policy
+            ),
+            _load_portfolio=history_application.load_portfolio,
+            _save_history_snapshot=history_application.save_history_snapshot,
+            _save_outcome_decisions=history_application.save_outcome_decisions,
+            _evaluate_outcome_decisions=(
+                history_application.evaluate_outcome_decisions
+            ),
+            _generate_outcome_analytics=(
+                history_application.generate_outcome_analytics
+            ),
         ),
         intelligence=IntelligenceServices(
             paths=paths,
