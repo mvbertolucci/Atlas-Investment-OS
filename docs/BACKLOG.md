@@ -1,5 +1,20 @@
 # Backlog
 
+## Next architectural increment — runtime boundary
+
+- [x] Extract concrete collection and scoring application services
+- [x] Extract concrete history and Outcome Analytics application service
+- [x] Extract concrete intelligence application service
+- [x] Extract concrete reporting application service
+- [x] Extract concrete ticker-analysis application service and separate
+      `TickerServices` from `RuntimeServices`
+- [ ] Extract `OperationalRuntimeService` for settings, Health Check, execution
+      metrics and console presentation
+- [ ] Bind the concrete runtime service without changing CLI, output contracts
+      or compatibility wrappers
+- [ ] Audit `run_all.py` as composition root, document the boundary and run the
+      full regression/coverage gate
+
 ## Completed foundations
 
 ### Release 0.9.0 — Decision Intelligence

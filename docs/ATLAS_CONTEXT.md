@@ -21,6 +21,27 @@ bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
 **Validation baseline:** 864 tests passing / 90.26% production coverage
 
+## Current handoff — application-boundary refactor
+
+Work is saved on `master` through commit `9e14ffb`. The typed pipeline now
+binds concrete collection, scoring, history, intelligence, reporting and
+ticker-analysis application services. `run_all.py` remains the stable CLI and
+compatibility surface, but no pipeline stage traverses it as a service locator.
+
+Resume the architectural sequence in this order:
+
+1. Extract an `OperationalRuntimeService` for settings loading, Health Check,
+   execution metrics and console presentation.
+2. Bind that concrete service to `RuntimeServices`, preserving the CLI,
+   public helper signatures, output text and existing monkeypatch seams.
+3. Audit `run_all.py` after the extraction; keep it limited to dependency
+   construction, compatibility wrappers and `main()`.
+4. Add an ADR, focused tests and run the full coverage command before the
+   atomic commit. Do not change governed scoring or portfolio semantics.
+5. After this boundary work, return to the product backlog: licensed secondary
+   market data and broad real historical validation remain the leading open
+   evidence tasks.
+
 ## 1. Product mission
 
 Atlas transforms market and fundamental data into transparent investment scores, decisions, theses, portfolio intelligence and reports. It is a decision-support system, not an autonomous trading system and not a promise of investment performance.
@@ -398,7 +419,7 @@ A task is complete only when:
 
 Recommended first prompt:
 
-> Read AGENTS.md and docs/ATLAS_CONTEXT.md. Verify the repository baseline,
-> coverage gate and tests. Then inspect the backlog and propose the next
-> product milestone, preserving existing history and governed financial
-> configuration.
+> Read AGENTS.md and docs/ATLAS_CONTEXT.md. Verify commit 9e14ffb, the clean
+> working tree and the test baseline. Then continue the recorded
+> OperationalRuntimeService extraction, preserving public interfaces and
+> governed financial configuration.
