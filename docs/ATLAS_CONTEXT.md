@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 809 tests passing / 87.97% production coverage
+**Validation baseline:** 828 tests passing / 87.90% production coverage
 
 ## 1. Product mission
 
@@ -42,6 +42,8 @@ The official entry point is `run_all.py`.
 settings.json + watchlist.csv
           ↓
 Yahoo provider
+          ↓
+bounded provider contract + immutable raw snapshot + field evidence
           ↓
 technical enrichment + derived fundamentals
           ↓
@@ -73,7 +75,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 
 | Area | Main locations | Status |
 |---|---|---|
-| Providers and mapping | `providers/`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Integrated |
+| Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary and field-level evidence integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |
 | Decision and thesis | `decision/` | Integrated |
@@ -90,12 +92,14 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 - `config/model.yaml`: `factor_weights` — the scoring weight vector used by the
   current pipeline (business/valuation/financial/timing), plus the confidence
   cap applied when a required feature is missing.
-- `config/data_quality.yaml`: source-quality and freshness scoring policy.
+- `config/data_quality.yaml`: source-quality, freshness and sector
+  applicability policy.
 - `config/deal_breakers.json`: observed-risk rules, sector exemptions and the
   missing-risk-evidence penalty.
 - `config/ranking.yaml`: candidacy gates for confidence, required evidence,
   data coverage, source quality and freshness.
-- `config/settings.json`: runtime paths and provider settings.
+- `config/settings.json`: runtime paths plus provider timeout, retry, backoff,
+  pacing, critical fields and raw-snapshot location.
 - `config/watchlist.csv`: manually curated research symbols -- assets the
   user chose to track, not the real portfolio. Edited by hand only; never
   written to by the pipeline.

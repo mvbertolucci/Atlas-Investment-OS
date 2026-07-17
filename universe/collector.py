@@ -9,9 +9,18 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+import yaml
+
 from analytics.fundamentals import compute_fundamentals
 from analytics.indicators import enrich_technicals
 from providers.yahoo import fetch_symbol
+from providers.contracts import ProviderClient, ProviderError, ProviderPolicy
+from providers.evidence import (
+    apply_sector_applicability,
+    ensure_field_evidence,
+    reconcile_critical_fields,
+)
+from storage.raw_snapshots import store_raw_snapshot
 from universe.sources import (
     ConstituentBatch,
     load_constituent_snapshot,
@@ -46,8 +55,14 @@ def _json_value(value: Any) -> Any:
     raise TypeError(f"Valor não serializável no checkpoint: {type(value).__name__}")
 
 
-def _prepare_observation(raw: dict[str, Any]) -> dict[str, Any]:
+def _prepare_observation(
+    raw: dict[str, Any],
+    *,
+    quality_policy: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     enriched = compute_fundamentals(enrich_technicals(dict(raw)))
+    ensure_field_evidence(enriched)
+    apply_sector_applicability(enriched, quality_policy)
     return {
         key: _json_value(value)
         for key, value in enriched.items()
@@ -224,6 +239,23 @@ def collect_constituent_batch(
     period: str = "2y",
     interval: str = "1d",
     retries: int = 2,
+    timeout_seconds: float = 30.0,
+    backoff_seconds: float = 0.5,
+    rate_limit_per_second: float = 2.0,
+    raw_snapshot_dir: str | Path | None = None,
+    secondary_fetcher: Callable[..., dict[str, Any]] | None = None,
+    critical_fields: Iterable[str] = (
+        "market_cap",
+        "enterprise_value",
+        "total_debt",
+        "total_cash",
+        "ebitda",
+        "free_cashflow",
+        "current_ratio",
+        "short_float",
+    ),
+    confirmation_tolerance: float = 0.05,
+    quality_policy: Mapping[str, Any] | None = None,
     now: Callable[[], str] = _utc_timestamp,
 ) -> CollectionBatchResult:
     if retries < 0:
@@ -234,6 +266,15 @@ def collect_constituent_batch(
         total_constituents=batch.total_constituents,
         now=now,
     )
+    provider_policy = ProviderPolicy(
+        timeout_seconds=timeout_seconds,
+        max_retries=retries,
+        backoff_seconds=backoff_seconds,
+        rate_limit_per_second=rate_limit_per_second,
+    )
+    primary_client = ProviderClient("Yahoo Finance", provider_policy)
+    secondary_client = ProviderClient("Secondary", provider_policy)
+    snapshot_root = Path(raw_snapshot_dir or Path(state_path).parent / "raw_snapshots")
     attempted = succeeded = failed = skipped = 0
 
     for constituent in batch.frame_rows:
@@ -243,35 +284,76 @@ def collect_constituent_batch(
             continue
 
         attempted += 1
-        last_error: Exception | None = None
-        for _ in range(retries + 1):
-            try:
-                raw = fetcher(
-                    symbol,
-                    constituent.get("name", ""),
-                    period=period,
-                    interval=interval,
-                )
-                observation = _prepare_observation(raw)
-                observation["universe_snapshot_date"] = snapshot_date
-                observation["universe_source_symbol"] = constituent.get(
-                    "source_symbol", symbol
-                )
-                state.observations[symbol] = observation
-                state.failures.pop(symbol, None)
-                succeeded += 1
-                last_error = None
-                break
-            except Exception as exc:  # provider boundary: persist exact failure
-                last_error = exc
+        last_error: ProviderError | None = None
+        try:
+            raw = primary_client.execute(
+                "fetch_symbol",
+                fetcher,
+                symbol,
+                constituent.get("name", ""),
+                period=period,
+                interval=interval,
+            )
+            collected_at = str(raw.get("as_of") or now())
+            receipt = store_raw_snapshot(
+                raw,
+                snapshot_root,
+                provider=str(raw.get("source") or "Yahoo Finance"),
+                symbol=symbol,
+                collected_at=collected_at,
+            )
+            raw["raw_snapshot_hash"] = receipt.sha256
+            raw["raw_snapshot_path"] = str(receipt.path)
+            secondary = None
+            if secondary_fetcher is not None:
+                try:
+                    secondary = secondary_client.execute(
+                        "fetch_symbol",
+                        secondary_fetcher,
+                        symbol,
+                        constituent.get("name", ""),
+                        period=period,
+                        interval=interval,
+                    )
+                except ProviderError as secondary_error:
+                    raw["secondary_provider_error"] = secondary_error.to_dict()
+                else:
+                    ensure_field_evidence(secondary)
+                    secondary_receipt = store_raw_snapshot(
+                        secondary,
+                        snapshot_root,
+                        provider=str(secondary.get("source") or "Secondary"),
+                        symbol=symbol,
+                        collected_at=str(secondary.get("as_of") or now()),
+                    )
+                    raw["secondary_raw_snapshot_hash"] = secondary_receipt.sha256
+                    raw["secondary_raw_snapshot_path"] = str(secondary_receipt.path)
+            reconciled = reconcile_critical_fields(
+                raw,
+                secondary,
+                critical_fields,
+                tolerance=confirmation_tolerance,
+            )
+            observation = _prepare_observation(
+                reconciled,
+                quality_policy=quality_policy,
+            )
+            observation["universe_snapshot_date"] = snapshot_date
+            observation["universe_source_symbol"] = constituent.get(
+                "source_symbol", symbol
+            )
+            state.observations[symbol] = observation
+            state.failures.pop(symbol, None)
+            succeeded += 1
+        except ProviderError as exc:
+            last_error = exc
 
         timestamp = now()
         if last_error is not None:
-            previous_attempts = int(
-                state.failures.get(symbol, {}).get("attempts", 0)
-            )
+            previous_attempts = int(state.failures.get(symbol, {}).get("attempts", 0))
             state.failures[symbol] = {
-                "attempts": previous_attempts + retries + 1,
+                **last_error.to_dict(),
+                "attempts": previous_attempts + last_error.attempts,
                 "last_error": str(last_error),
                 "updated_at": timestamp,
             }
@@ -351,7 +433,12 @@ def main() -> None:
     retries = (
         args.retries
         if args.retries is not None
-        else int(settings.get("research_collection_retries", 2))
+        else int(
+            settings.get(
+                "provider_max_retries",
+                settings.get("research_collection_retries", 2),
+            )
+        )
     )
     snapshot_date = _snapshot_date(records)
     state = load_collection_state(
@@ -394,6 +481,12 @@ def main() -> None:
             batch_number=args.batch_number,
         )
 
+    quality_path = ROOT / "config" / "data_quality.yaml"
+    quality_policy = (
+        yaml.safe_load(quality_path.read_text(encoding="utf-8")) or {}
+        if quality_path.exists()
+        else {}
+    )
     result = collect_constituent_batch(
         batch,
         snapshot_date=snapshot_date,
@@ -401,6 +494,15 @@ def main() -> None:
         period=settings.get("history_period", "2y"),
         interval=settings.get("history_interval", "1d"),
         retries=retries,
+        timeout_seconds=float(settings.get("provider_timeout_seconds", 30)),
+        backoff_seconds=float(settings.get("provider_backoff_seconds", 0.5)),
+        rate_limit_per_second=float(
+            settings.get("provider_rate_limit_per_second", 2)
+        ),
+        raw_snapshot_dir=ROOT
+        / settings.get("raw_snapshot_path", "data/raw_snapshots"),
+        critical_fields=tuple(settings.get("provider_critical_fields", ())),
+        quality_policy=quality_policy,
     )
     print(
         f"Lote {result.batch_number}/{result.total_batches}: "

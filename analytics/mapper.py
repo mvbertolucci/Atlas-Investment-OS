@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from providers.evidence import DataValueStatus, FieldEvidence, utc_now
+
 COLUMN_MAP = {
     "ev_to_ebitda": "ev_ebitda",
     "enterprise_to_ebitda": "ev_ebitda",
@@ -10,6 +12,60 @@ COLUMN_MAP = {
     "target_price": "consensus_target",
     "ebitda_margin": "operating_margin_proxy",
 }
+
+
+DERIVED_DEPENDENCIES = {
+    "net_debt": ("total_debt", "total_cash"),
+    "net_debt_ebitda": ("total_debt", "total_cash", "ebitda"),
+    "fcf_yield": ("free_cashflow", "market_cap"),
+    "shareholder_yield": ("dividend_rate", "price", "market_cap"),
+    "target_upside": ("consensus_target", "price"),
+    "ev_ebit": ("enterprise_value", "ebit"),
+}
+
+
+def _propagate_field_evidence(frame: pd.DataFrame) -> pd.DataFrame:
+    if "field_evidence" not in frame.columns:
+        return frame
+    for index, row in frame.iterrows():
+        evidence = dict(row.get("field_evidence") or {})
+        for source, target in COLUMN_MAP.items():
+            if source in evidence and target not in evidence:
+                evidence[target] = dict(evidence[source])
+        for target, dependencies in DERIVED_DEPENDENCIES.items():
+            if target not in frame.columns or target in evidence:
+                continue
+            dependency_evidence = [
+                FieldEvidence.from_dict(evidence[name])
+                for name in dependencies
+                if name in evidence
+            ]
+            statuses = {item.status for item in dependency_evidence}
+            if DataValueStatus.NOT_APPLICABLE in statuses:
+                status = DataValueStatus.NOT_APPLICABLE
+            elif pd.notna(row.get(target)) and statuses <= {DataValueStatus.PRESENT}:
+                status = DataValueStatus.PRESENT
+            elif DataValueStatus.INVALID in statuses:
+                status = DataValueStatus.INVALID
+            elif DataValueStatus.STALE in statuses:
+                status = DataValueStatus.STALE
+            elif DataValueStatus.UNAVAILABLE in statuses:
+                status = DataValueStatus.UNAVAILABLE
+            else:
+                status = DataValueStatus.MISSING
+            timestamps = [item.retrieved_at for item in dependency_evidence if item.retrieved_at]
+            observed = [item.observed_at for item in dependency_evidence if item.observed_at]
+            evidence[target] = FieldEvidence(
+                status=status,
+                source="Atlas derived",
+                category="fundamentals",
+                retrieved_at=max(timestamps) if timestamps else utc_now(),
+                observed_at=max(observed) if observed else None,
+                available_at=max(timestamps) if timestamps else None,
+                detail="derived from " + ", ".join(dependencies),
+            ).to_dict()
+        frame.at[index, "field_evidence"] = evidence
+    return frame
 
 
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -73,4 +129,4 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     if "short_float" in out.columns:
         out["short_float"] = pd.to_numeric(out["short_float"], errors="coerce") * 100
 
-    return out
+    return _propagate_field_evidence(out)

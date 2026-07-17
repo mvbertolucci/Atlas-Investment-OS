@@ -5,6 +5,7 @@ from typing import Any
 import pandas as pd
 
 from scoring.reference import ScoringReference, percentile_rank
+from providers.evidence import DataValueStatus
 
 
 # Fallback usado quando config/features.yaml nao traz a secao `valuation`
@@ -66,7 +67,29 @@ def metric_available(df: pd.DataFrame, column: str) -> pd.Series:
     if column not in df.columns:
         return pd.Series(False, index=df.index)
 
-    return pd.to_numeric(df[column], errors="coerce").notna()
+    numeric = pd.to_numeric(df[column], errors="coerce").notna()
+    if "field_evidence" not in df.columns:
+        return numeric
+    allowed = df["field_evidence"].map(
+        lambda evidence: (
+            not isinstance(evidence, dict)
+            or str((evidence.get(column) or {}).get("status", "present"))
+            == DataValueStatus.PRESENT.value
+        )
+    )
+    return numeric & allowed
+
+
+def metric_applicable(df: pd.DataFrame, column: str) -> pd.Series:
+    if "field_evidence" not in df.columns:
+        return pd.Series(True, index=df.index)
+    return df["field_evidence"].map(
+        lambda evidence: (
+            not isinstance(evidence, dict)
+            or str((evidence.get(column) or {}).get("status", "present"))
+            != DataValueStatus.NOT_APPLICABLE.value
+        )
+    )
 
 
 def score_valuation(
@@ -78,7 +101,7 @@ def score_valuation(
 
     weighted_sum = pd.Series(0.0, index=df.index)
     available_weight = pd.Series(0.0, index=df.index)
-    total_weight = sum(v["weight"] for v in valuation_features.values()) or 1.0
+    applicable_weight = pd.Series(0.0, index=df.index)
 
     details = pd.DataFrame(index=df.index)
 
@@ -92,15 +115,22 @@ def score_valuation(
             scope=cfg["percentile_scope"],
         )
         available = metric_available(df, column)
+        applicable = metric_applicable(df, column)
 
-        weighted_sum += score * cfg["weight"]
+        weighted_sum += score * cfg["weight"] * applicable.astype(float)
         available_weight += available.astype(float) * cfg["weight"]
+        applicable_weight += applicable.astype(float) * cfg["weight"]
 
         safe_label = cfg["label"].replace(" ", "_").replace("/", "_")
         details[f"valuation_{safe_label}_score"] = score.round(1)
         details[f"valuation_{safe_label}_available"] = available
+        details[f"valuation_{safe_label}_applicable"] = applicable
 
-    factor_score = (weighted_sum / total_weight).round(1)
-    confidence = (available_weight / total_weight * 100).clip(0, 100).round(1)
+    factor_score = (
+        weighted_sum / applicable_weight.replace(0, pd.NA)
+    ).fillna(50.0).round(1)
+    confidence = (
+        available_weight / applicable_weight.replace(0, pd.NA) * 100
+    ).fillna(100.0).clip(0, 100).round(1)
 
     return factor_score, confidence, details

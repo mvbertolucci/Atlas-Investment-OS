@@ -33,6 +33,16 @@
 - [x] Add sector-aware Deal Breakers
 - [x] Remove obsolete Confidence Score code
 
+### Provider evidence and provenance hardening
+
+- [x] Uniform provider timeout, exponential retries, rate limiting and typed errors
+- [x] Per-field source, category, retrieval/observation/availability timestamps
+- [x] Explicit present, missing, unavailable, invalid, stale and sector-not-applicable states
+- [x] Immutable content-addressed raw snapshots with SHA-256 retained in history
+- [x] Critical-field fallback, confirmation and conflict contract
+- [ ] Configure an independent live secondary adapter and provider identity;
+      until then critical Yahoo evidence is explicitly `secondary_unavailable`
+
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 
 ### PR-018.0 — Baseline and documentation

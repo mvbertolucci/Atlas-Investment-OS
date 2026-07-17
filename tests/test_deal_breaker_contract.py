@@ -130,6 +130,31 @@ def test_missing_risk_evidence_has_explicit_capped_uncertainty_penalty() -> None
     }
 
 
+def test_not_applicable_risk_field_is_not_missing_evidence() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "Investment Score": 80.0,
+                "net_debt_ebitda": 1.0,
+                "current_ratio": None,
+                "f_score_annual": 8.0,
+                "altman_z": 5.0,
+                "short_float": 2.0,
+                "field_evidence": {
+                    "current_ratio": {"status": "not_applicable"}
+                },
+            }
+        ]
+    )
+
+    result = apply_deal_breakers(frame, DEAL_BREAKERS_PATH)
+
+    assert result.loc[0, "Risk Evidence Missing"] == "Nenhum"
+    assert result.loc[0, "Risk Uncertainty Penalty"] == 0.0
+    assert result.loc[0, "Investment Score"] == 80.0
+    assert result.loc[0, "Risk Assessment Complete"] == True  # noqa: E712
+
+
 def test_missing_data_policy_is_pinned() -> None:
     policy = json.loads(DEAL_BREAKERS_PATH.read_text(encoding="utf-8"))[
         "missing_data"

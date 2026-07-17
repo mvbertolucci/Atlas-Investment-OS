@@ -8,6 +8,7 @@ import pandas as pd
 import yaml
 
 from analytics.data_quality import freshness_scores, source_quality_scores
+from providers.evidence import DataValueStatus
 from factors.valuation import score_valuation
 from scoring.reference import ScoringReference, percentile_rank
 
@@ -44,7 +45,29 @@ def metric_available(df: pd.DataFrame, column: str) -> pd.Series:
     if column not in df.columns:
         return pd.Series(False, index=df.index)
 
-    return pd.to_numeric(df[column], errors="coerce").notna()
+    numeric = pd.to_numeric(df[column], errors="coerce").notna()
+    if "field_evidence" not in df.columns:
+        return numeric
+    allowed = df["field_evidence"].map(
+        lambda evidence: (
+            not isinstance(evidence, dict)
+            or str((evidence.get(column) or {}).get("status", "present"))
+            == DataValueStatus.PRESENT.value
+        )
+    )
+    return numeric & allowed
+
+
+def metric_applicable(df: pd.DataFrame, column: str) -> pd.Series:
+    if "field_evidence" not in df.columns:
+        return pd.Series(True, index=df.index)
+    return df["field_evidence"].map(
+        lambda evidence: (
+            not isinstance(evidence, dict)
+            or str((evidence.get(column) or {}).get("status", "present"))
+            != DataValueStatus.NOT_APPLICABLE.value
+        )
+    )
 
 
 def get_factor_features(features: dict[str, Any], factor: str) -> dict[str, Any]:
@@ -91,7 +114,7 @@ def score_factor(
 
     weighted_sum = pd.Series(0.0, index=df.index)
     available_weight = pd.Series(0.0, index=df.index)
-    total_weight = 0.0
+    applicable_weight = pd.Series(0.0, index=df.index)
     details = pd.DataFrame(index=df.index)
 
     for feature_name, cfg in selected.items():
@@ -112,10 +135,11 @@ def score_factor(
             scope=scope,
         )
         available = metric_available(df, column)
+        applicable = metric_applicable(df, column)
 
-        weighted_sum += score * weight
+        weighted_sum += score * weight * applicable.astype(float)
         available_weight += available.astype(float) * weight
-        total_weight += weight
+        applicable_weight += applicable.astype(float) * weight
 
         safe_label = (
             label.replace("/", "_")
@@ -127,13 +151,12 @@ def score_factor(
 
         details[f"{factor}_{safe_label}_score"] = score.round(1)
         details[f"{factor}_{safe_label}_available"] = available
+        details[f"{factor}_{safe_label}_applicable"] = applicable
 
-    if total_weight <= 0:
-        factor_score = pd.Series(50.0, index=df.index)
-        factor_confidence = pd.Series(0.0, index=df.index)
-    else:
-        factor_score = weighted_sum / total_weight
-        factor_confidence = (available_weight / total_weight * 100).clip(0, 100)
+    factor_score = (weighted_sum / applicable_weight.replace(0, pd.NA)).fillna(50.0)
+    factor_confidence = (
+        available_weight / applicable_weight.replace(0, pd.NA) * 100
+    ).fillna(100.0).clip(0, 100)
 
     return factor_score.round(1), factor_confidence.round(1), details
 
@@ -179,6 +202,9 @@ def score_all_factors(
         factor_scores[factor] = score
         factor_confidences[factor] = confidence
 
+    # Os detalhes por feature são anexados em blocos; consolida o frame antes
+    # das colunas finais para evitar fragmentação em universos amplos.
+    result = result.copy()
     total_weight = sum(float(w) for w in factor_weights.values()) or 1.0
     investment = pd.Series(0.0, index=result.index)
 
@@ -208,8 +234,9 @@ def score_all_factors(
             required_count += 1
             column = str(cfg.get("column") or feature_name)
             available = metric_available(result, column).tolist()
-            for position, present in enumerate(available):
-                if not present:
+            applicable = metric_applicable(result, column).tolist()
+            for position, (present, applies) in enumerate(zip(available, applicable)):
+                if applies and not present:
                     missing_required[position].append(
                         f"{factor_name}:{feature_name}"
                     )

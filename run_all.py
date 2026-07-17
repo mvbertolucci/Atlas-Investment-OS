@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 from analytics.feature_audit import (
     audit_coverage,
@@ -50,6 +51,8 @@ from portfolio.pipeline import (
 from portfolio.report import PortfolioReport
 from portfolio.sell_rules import SellRulesPolicy, load_sell_rules_policy
 from providers.yahoo import fetch_watchlist
+from providers.contracts import ProviderPolicy
+from providers.evidence import apply_sector_applicability, ensure_field_evidence
 from ranking import (
     RankingReport,
     load_ranking_policy,
@@ -300,16 +303,45 @@ def collect_market_data(
         period=settings.get("history_period", "2y"),
         interval=settings.get("history_interval", "1d"),
         failures=failures,
+        provider_policy=ProviderPolicy(
+            timeout_seconds=float(settings.get("provider_timeout_seconds", 30)),
+            max_retries=int(settings.get("provider_max_retries", 2)),
+            backoff_seconds=float(settings.get("provider_backoff_seconds", 0.5)),
+            rate_limit_per_second=float(
+                settings.get("provider_rate_limit_per_second", 2)
+            ),
+        ),
+        raw_snapshot_dir=ROOT
+        / settings.get("raw_snapshot_path", "data/raw_snapshots"),
+        critical_fields=tuple(
+            settings.get(
+                "provider_critical_fields",
+                (
+                    "market_cap",
+                    "enterprise_value",
+                    "total_debt",
+                    "total_cash",
+                    "ebitda",
+                    "free_cashflow",
+                    "current_ratio",
+                    "short_float",
+                ),
+            )
+        ),
     )
 
     for row in rows:
         symbol = str(row.get("symbol", "")).strip().upper()
         row["origin"] = origin_by_symbol.get(symbol, ORIGIN_WATCHLIST)
 
-    enriched = [
-        compute_fundamentals(enrich_technicals(row))
-        for row in rows
-    ]
+    quality_policy = yaml.safe_load(
+        (CONFIG / "data_quality.yaml").read_text(encoding="utf-8")
+    ) or {}
+    enriched = []
+    for row in rows:
+        prepared = compute_fundamentals(enrich_technicals(row))
+        ensure_field_evidence(prepared)
+        enriched.append(apply_sector_applicability(prepared, quality_policy))
 
     df = pd.DataFrame(
         [

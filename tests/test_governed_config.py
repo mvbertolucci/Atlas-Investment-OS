@@ -66,7 +66,39 @@ def test_data_quality_policy_is_pinned() -> None:
             "acceptable_score": 70,
             "stale_score": 0,
         },
+        "not_applicable_by_sector": {
+            "Financial Services": [
+                "altman_z", "current_ratio", "current_liquidity"
+            ],
+            "Banks": ["altman_z", "current_ratio", "current_liquidity"],
+            "Insurance": ["altman_z", "current_ratio", "current_liquidity"],
+            "Utilities": ["altman_z"],
+            "Biotechnology": [
+                "altman_z", "f_score_annual", "net_debt_ebitda"
+            ],
+            "Software": ["current_ratio", "current_liquidity"],
+            "Tobacco": ["current_ratio", "current_liquidity"],
+        },
     }
+
+
+def test_provider_operational_policy_is_pinned() -> None:
+    settings = _load_json("settings.json")
+    assert settings["provider_timeout_seconds"] == 30
+    assert settings["provider_max_retries"] == 2
+    assert settings["provider_backoff_seconds"] == pytest.approx(0.5)
+    assert settings["provider_rate_limit_per_second"] == pytest.approx(2)
+    assert settings["provider_critical_fields"] == [
+        "market_cap",
+        "enterprise_value",
+        "total_debt",
+        "total_cash",
+        "ebitda",
+        "free_cashflow",
+        "current_ratio",
+        "short_float",
+    ]
+    assert settings["raw_snapshot_path"] == "data/raw_snapshots"
 
 
 def test_deal_breakers_thresholds_are_pinned() -> None:

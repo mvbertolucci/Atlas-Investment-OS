@@ -97,8 +97,20 @@ def apply_deal_breakers(
         values: pd.Series,
         exempt: pd.Series,
         label: str,
+        field_name: str | None = None,
     ) -> None:
-        missing = values.isna() & ~exempt.fillna(False)
+        evidence_field = field_name or label
+        not_applicable = pd.Series(False, index=result.index)
+        if "field_evidence" in result.columns:
+            not_applicable = result["field_evidence"].map(
+                lambda evidence: (
+                    isinstance(evidence, dict)
+                    and str(
+                        (evidence.get(evidence_field) or {}).get("status", "")
+                    ) == "not_applicable"
+                )
+            )
+        missing = values.isna() & ~exempt.fillna(False) & ~not_applicable
         for position, active in enumerate(missing.tolist()):
             if active:
                 missing_evidence[position].append(label)
@@ -217,6 +229,7 @@ def apply_deal_breakers(
         liquidity_values,
         current_liquidity_exempt,
         "current_ratio",
+        liquidity_column or "current_ratio",
     )
     add_penalty(
         (liquidity_values < float(min_current_ratio))

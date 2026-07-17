@@ -40,6 +40,15 @@ def _present(value: Any) -> bool:
     return _number(value) is not None
 
 
+def _field_state(row: pd.Series, field_name: str) -> str:
+    evidence = row.get("field_evidence")
+    if isinstance(evidence, dict):
+        payload = evidence.get(field_name)
+        if isinstance(payload, dict) and payload.get("status"):
+            return str(payload["status"]).strip().lower()
+    return "present" if _present(row.get(field_name)) else "missing"
+
+
 def _normalized_set(values: tuple[str, ...]) -> set[str]:
     return {value.casefold() for value in values}
 
@@ -73,10 +82,13 @@ def evaluate_universe(
         market_cap = _number(row.get("market_cap"))
         volume = _number(row.get("volume"))
 
-        missing = [
-            field_name
+        states = {
+            field_name: _field_state(row, field_name)
             for field_name in policy.required_fields
-            if not _present(row.get(field_name))
+        }
+        missing = [
+            field_name for field_name, status in states.items()
+            if status != "present"
         ]
         coverage = round(
             (len(policy.required_fields) - len(missing))
@@ -85,7 +97,11 @@ def evaluate_universe(
             1,
         )
         reasons: list[str] = [
-            f"MISSING_REQUIRED_FIELD:{field_name}"
+            (
+                f"MISSING_REQUIRED_FIELD:{field_name}"
+                if states[field_name] == "missing"
+                else f"REQUIRED_FIELD_{states[field_name].upper()}:{field_name}"
+            )
             for field_name in missing
         ]
 

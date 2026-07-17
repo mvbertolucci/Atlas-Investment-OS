@@ -200,6 +200,14 @@ def test_history_persists_score_reference_metadata(tmp_path: Path) -> None:
                 "Risk Evidence Missing": "short_float",
                 "Observed Risk Penalty": 4.0,
                 "Risk Uncertainty Penalty": 3.0,
+                "field_evidence": {
+                    "market_cap": {
+                        "status": "present",
+                        "retrieved_at": "2026-07-17T09:59:00+00:00",
+                    }
+                },
+                "raw_snapshot_hash": "abc123",
+                "raw_snapshot_path": "data/raw_snapshots/abc123.json",
             }
         ]
     )
@@ -218,3 +226,8 @@ def test_history_persists_score_reference_metadata(tmp_path: Path) -> None:
     assert row["risk_evidence_missing"] == "short_float"
     assert row["observed_risk_penalty"] == 4.0
     assert row["risk_uncertainty_penalty"] == 3.0
+    assert json.loads(row["field_evidence_json"])["market_cap"]["status"] == (
+        "present"
+    )
+    assert row["raw_snapshot_hash"] == "abc123"
+    assert row["raw_snapshot_path"] == "data/raw_snapshots/abc123.json"

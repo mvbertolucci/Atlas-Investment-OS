@@ -41,6 +41,11 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   portfolio and single-ticker analysis, with governed sector-relative features
 - Weighted data coverage, enforced critical features, source/freshness quality
   gates and explicit uncertainty penalties for missing risk evidence
+- Typed provider failures with timeout, exponential retries and rate limiting
+- Per-field timestamps and explicit present/missing/unavailable/invalid/stale/
+  not-applicable evidence states
+- Immutable SHA-256 raw snapshots and critical-field second-source
+  fallback/confirmation contract
 
 ## Current integration status
 

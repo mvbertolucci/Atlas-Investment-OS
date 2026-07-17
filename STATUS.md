@@ -47,12 +47,12 @@
 |---|---|---|
 | `config/model.yaml` | `run_all.py::build_scores` (L320-324); `model_version` gravado no snapshot (L1092-1096) | `model_version: "0.3"`; pesos business 0.35 / valuation 0.30 / financial 0.15 / timing 0.20; confiança limitada a 59 quando falta feature `required` |
 | `config/features.yaml` | `factors/engine.py::score_all_factors` via `scoring/investment.py` (L274); `run_all.py::audit_feature_coverage` (L344) | pesos/`required` por métrica, fonte de verdade desde PR-017.3 |
-| `config/data_quality.yaml` | `scoring/investment.py::score_dataframe` e `analytics/data_quality.py` | qualidade por fonte; frescor 100 até 7 dias, 70 até 35, 0 depois disso ou sem data |
+| `config/data_quality.yaml` | scoring, `analytics/data_quality.py` e `providers/evidence.py` | qualidade por fonte; frescor 100 até 7 dias, 70 até 35; aplicabilidade setorial explícita por campo |
 | `config/deal_breakers.json` | `scoring/investment.py::apply_deal_breakers` (via `build_scores`, L323) | limites observados por risco e penalidade de incerteza de 3 por evidência ausente, limitada a 10 |
 | `config/sell_rules.yaml` | `portfolio.sell_rules.load_sell_rules_policy`, chamado em `run_all.py:1105-1106` e default em `portfolio/pipeline.py:22` | `confidence_gate` (score_coverage≥60, confidence≥60); `distress`, `valuation_stretch` (target_upside<-10%), `fundamental_decay` (f_score_drop≥2, roic_drop≥20%), `relative_decay` (percentil<40); `escalation` (trim@1, sell@2 gatilhos, trim_fraction 50%) |
 | `config/ranking.yaml` | `run_all.py::generate_ranking_report` (L522-527) | mínimos 70 para confiança, cobertura, qualidade da fonte e frescor; requer features críticas completas e ausência de deal breaker |
 | `config/universe.yaml` | `run_all.py::generate_universe_report` (L490-495) | min market cap $1B, min price $5, min volume 100k, EQUITY/USD/US |
-| `config/settings.json` | `run_all.py` L114 — raiz de todos os paths/flags | — |
+| `config/settings.json` | `run_all.py` e `universe/collector.py` | timeout 30s, 2 retries exponenciais, 2 req/s, campos críticos e `data/raw_snapshots` |
 | `config/model_portfolio.yaml` | **só** `portfolio/model_portfolio.py` (CLI standalone), **`run_all.py` não chama** | target_positions 20, max_position_weight 5%, max_sector_weight 20% |
 | `config/portfolio_validation.yaml` | **só** default arg de `backtesting/portfolio_validation.py::main` (CLI manual) | — |
 | `config/universe_adr.yaml` | **existe mas não é lido em produção** — grep no arquivo/chave sem caller fora de testes | — |

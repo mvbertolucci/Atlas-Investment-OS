@@ -64,6 +64,9 @@ class HistoryDatabase:
                 risk_evidence_missing TEXT,
                 observed_risk_penalty REAL,
                 risk_uncertainty_penalty REAL,
+                field_evidence_json  TEXT,
+                raw_snapshot_hash    TEXT,
+                raw_snapshot_path    TEXT,
                 earnings_date       TEXT,
                 quantity            REAL,
                 is_candidate        INTEGER,
@@ -173,6 +176,9 @@ class HistoryDatabase:
             "risk_evidence_missing": "TEXT",
             "observed_risk_penalty": "REAL",
             "risk_uncertainty_penalty": "REAL",
+            "field_evidence_json": "TEXT",
+            "raw_snapshot_hash": "TEXT",
+            "raw_snapshot_path": "TEXT",
             "earnings_date": "TEXT",
             "quantity": "REAL",
             "is_candidate": "INTEGER",
@@ -440,6 +446,18 @@ class HistoryDatabase:
                     row.get("Risk Evidence Missing"),
                     row.get("Observed Risk Penalty"),
                     row.get("Risk Uncertainty Penalty"),
+                    (
+                        json.dumps(
+                            row.get("field_evidence"),
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            default=str,
+                        )
+                        if isinstance(row.get("field_evidence"), dict)
+                        else row.get("field_evidence")
+                    ),
+                    row.get("raw_snapshot_hash"),
+                    row.get("raw_snapshot_path"),
                     row.get("earnings_date"),
                     row.get("quantity"),
                     (
@@ -487,6 +505,9 @@ class HistoryDatabase:
                 risk_evidence_missing,
                 observed_risk_penalty,
                 risk_uncertainty_penalty,
+                field_evidence_json,
+                raw_snapshot_hash,
+                raw_snapshot_path,
                 earnings_date,
                 quantity,
                 is_candidate,
@@ -495,7 +516,7 @@ class HistoryDatabase:
             VALUES
             (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             rows,

@@ -70,7 +70,15 @@ Configuration ownership:
 
 - `config/features.yaml`: feature registry and feature-level weights;
 - `config/model.yaml`: `factor_weights` — the factor-level weight vector;
-- `config/deal_breakers.json`: governed risk-penalty rules and exemptions.
+- `config/data_quality.yaml`: source, freshness and sector-applicability policy;
+- `config/deal_breakers.json`: governed risk-penalty rules and exemptions;
+- `config/ranking.yaml`: candidacy evidence gates.
 
 Changes to these files are financially material and require explicit tests and
 documentation.
+
+Field availability follows ADR-014. `present` contributes normally;
+`missing`, `unavailable`, `invalid` and `stale` do not count as available.
+`not_applicable` is removed from the row's weight denominator and therefore
+does not reduce coverage or violate `required`. Critical-source conflicts are
+marked invalid instead of being averaged or silently resolved.

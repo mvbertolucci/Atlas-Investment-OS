@@ -136,3 +136,36 @@ def test_source_quality_and_freshness_are_independent_metrics() -> None:
     }
     assert not scored["Source Quality"].equals(scored["Data Coverage"])
     assert not scored["Data Freshness"].equals(scored["Model Confidence"])
+
+
+def test_not_applicable_feature_leaves_coverage_denominator_and_required_gate(
+    tmp_path: Path,
+) -> None:
+    features = tmp_path / "features.yaml"
+    features.write_text(
+        "business:\n"
+        "  roe: {weight: 0.5, higher_is_better: true, required: true}\n"
+        "  altman_z: {weight: 0.5, higher_is_better: true, required: true}\n",
+        encoding="utf-8",
+    )
+    model = tmp_path / "model.yaml"
+    model.write_text("factor_weights: {business: 1.0}\n", encoding="utf-8")
+    frame = pd.DataFrame(
+        [
+            {
+                "symbol": "BANK",
+                "roe": 12.0,
+                "altman_z": None,
+                "field_evidence": {
+                    "roe": {"status": "present"},
+                    "altman_z": {"status": "not_applicable"},
+                },
+            }
+        ]
+    )
+
+    scored = score_all_factors(frame, features, model)
+
+    assert scored.loc[0, "Data Coverage"] == 100.0
+    assert scored.loc[0, "Required Features Complete"] == True  # noqa: E712
+    assert scored.loc[0, "Missing Required Features"] == "Nenhum"

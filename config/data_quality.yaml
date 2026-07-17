@@ -19,3 +19,13 @@ freshness:
   acceptable_score: 70
   stale_score: 0
 
+# Ausência estrutural é diferente de falha de coleta: esses campos saem do
+# denominador de cobertura e não contam como feature crítica ausente.
+not_applicable_by_sector:
+  Financial Services: [altman_z, current_ratio, current_liquidity]
+  Banks: [altman_z, current_ratio, current_liquidity]
+  Insurance: [altman_z, current_ratio, current_liquidity]
+  Utilities: [altman_z]
+  Biotechnology: [altman_z, f_score_annual, net_debt_ebitda]
+  Software: [current_ratio, current_liquidity]
+  Tobacco: [current_ratio, current_liquidity]

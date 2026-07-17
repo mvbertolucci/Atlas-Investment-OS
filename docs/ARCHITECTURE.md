@@ -57,10 +57,19 @@ conditional Excel sheets and the Morning Brief.
 ### Data layer
 
 - `providers/`
+- `providers/contracts.py` (timeout, retry, pacing and typed failures)
+- `providers/evidence.py` (per-field state, timestamps and source confirmation)
 - `analytics/mapper.py`
 - `analytics/fundamentals.py`
 - `analytics/indicators.py`
 - `analytics/data_quality.py` (source provenance and cutoff-relative freshness)
+- `storage/raw_snapshots.py` (immutable, SHA-256-addressed provider payloads)
+
+Provider adapter output stays flat for analytical compatibility and carries a
+nested `field_evidence` audit map. Live collection stores the adapter payload
+before enrichment; checkpoints and score history retain its SHA-256. Critical
+fields can be reconciled with a second adapter, with fallback, confirmation and
+conflict represented explicitly. See ADR-014.
 
 ### Feature and scoring layer
 
@@ -103,6 +112,7 @@ combined into the downstream `Risk Penalty`; see ADR-013.
 ### Historical layer
 
 - `storage/history_db.py`
+- `storage/raw_snapshots.py`
 - `analytics/history.py`
 - `analytics/alerts.py`
 - `reports/history_report.py`

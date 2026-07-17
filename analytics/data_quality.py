@@ -5,6 +5,8 @@ from typing import Any
 
 import pandas as pd
 
+from providers.evidence import DataValueStatus
+
 
 def _policy_block(policy: dict[str, Any] | None, name: str) -> dict[str, Any]:
     if not isinstance(policy, dict):
@@ -58,16 +60,40 @@ def freshness_scores(
     if now.tzinfo is None or now.utcoffset() is None:
         now = now.replace(tzinfo=timezone.utc)
     now_timestamp = pd.Timestamp(now).tz_convert("UTC")
-    timestamps = pd.to_datetime(
-        frame.get("as_of", pd.Series(None, index=frame.index)),
-        errors="coerce",
-        utc=True,
-    )
-    ages = (now_timestamp - timestamps).dt.total_seconds() / 86400.0
-    result = pd.Series(stale_score, index=frame.index, dtype="float64")
-    result = result.mask(ages <= acceptable_days, acceptable_score)
-    result = result.mask(ages <= fresh_days, fresh_score)
-    # Timestamp futuro dentro de uma pequena diferença de relógio continua
-    # fresco; valores ausentes permanecem stale_score.
-    result = result.mask(ages < 0, fresh_score)
-    return result.clip(0.0, 100.0).round(1)
+    def timestamp_score(value: Any) -> float:
+        timestamp = pd.to_datetime(value, errors="coerce", utc=True)
+        if pd.isna(timestamp):
+            return stale_score
+        age = (now_timestamp - timestamp).total_seconds() / 86400.0
+        if age < 0 or age <= fresh_days:
+            return fresh_score
+        if age <= acceptable_days:
+            return acceptable_score
+        return stale_score
+
+    def row_score(row: pd.Series) -> float:
+        evidence = row.get("field_evidence")
+        if isinstance(evidence, dict):
+            scores: list[float] = []
+            for item in evidence.values():
+                if not isinstance(item, dict):
+                    continue
+                status = str(item.get("status") or "")
+                if status == DataValueStatus.NOT_APPLICABLE.value:
+                    continue
+                if status == DataValueStatus.STALE.value:
+                    scores.append(stale_score)
+                    continue
+                if status != DataValueStatus.PRESENT.value:
+                    continue
+                timestamp = (
+                    item.get("observed_at")
+                    or item.get("available_at")
+                    or item.get("retrieved_at")
+                )
+                scores.append(timestamp_score(timestamp))
+            if scores:
+                return sum(scores) / len(scores)
+        return timestamp_score(row.get("as_of"))
+
+    return frame.apply(row_score, axis=1).astype(float).clip(0.0, 100.0).round(1)
