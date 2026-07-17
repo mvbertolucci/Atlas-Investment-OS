@@ -4,6 +4,8 @@ from typing import Any
 
 import pandas as pd
 
+from scoring.reference import ScoringReference, percentile_rank
+
 
 # Fallback usado quando config/features.yaml nao traz a secao `valuation`
 # (ou quando score_valuation e chamado sem `features`). A fonte da verdade
@@ -53,23 +55,11 @@ def resolve_valuation_features(
             "weight": float(cfg.get("weight", 1.0)),
             "higher": bool(higher),
             "column": str(cfg.get("column") or name),
+            "percentile_scope": str(
+                cfg.get("percentile_scope", "market")
+            ).strip().lower(),
         }
     return resolved
-
-
-def pct_rank(df: pd.DataFrame, column: str, higher_is_better: bool = True) -> pd.Series:
-    if column not in df.columns:
-        return pd.Series(50.0, index=df.index)
-
-    s = pd.to_numeric(df[column], errors="coerce")
-    if s.notna().sum() <= 1:
-        return pd.Series(50.0, index=df.index)
-
-    r = s.rank(method="average", pct=True) * 100
-    if not higher_is_better:
-        r = 100 - r
-
-    return r.fillna(50.0)
 
 
 def metric_available(df: pd.DataFrame, column: str) -> pd.Series:
@@ -82,6 +72,7 @@ def metric_available(df: pd.DataFrame, column: str) -> pd.Series:
 def score_valuation(
     df: pd.DataFrame,
     features: dict[str, Any] | None = None,
+    reference: ScoringReference | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.DataFrame]:
     valuation_features = resolve_valuation_features(features)
 
@@ -93,7 +84,13 @@ def score_valuation(
 
     for name, cfg in valuation_features.items():
         column = cfg["column"]
-        score = pct_rank(df, column, cfg["higher"])
+        score = percentile_rank(
+            df,
+            column,
+            higher_is_better=cfg["higher"],
+            reference=reference,
+            scope=cfg["percentile_scope"],
+        )
         available = metric_available(df, column)
 
         weighted_sum += score * cfg["weight"]

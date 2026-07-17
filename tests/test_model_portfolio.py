@@ -378,6 +378,14 @@ def test_build_from_collection_labels_output_for_another_screener(
     assert (output_dir / "dados" / "research_ranking_report_market.json").exists()
     assert (output_dir / "relatorios" / "research_candidates_market.csv").exists()
     assert (output_dir / "dados" / "model_portfolio_report_market.json").exists()
+    reference = json.loads(
+        (output_dir / "dados" / "scoring_reference_market.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert reference["universe_id"] == "US_MARKET_ELIGIBLE"
+    assert reference["reference_count"] == 2
+    assert reference["reference_date"] == "2026-07-13"
     assert (output_dir / "relatorios" / "research_report_market.html").exists()
     assert "Mercado Amplo" in (
         output_dir / "relatorios" / "research_report_market.html"

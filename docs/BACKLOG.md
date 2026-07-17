@@ -310,7 +310,8 @@ checkpoint and batch size throughout -- the S&P 500 screener is unchanged.
       snapshot; 134 exhausted provider failures retained explicitly
 - [x] Run ranking / `portfolio.model_portfolio --universe-policy
       config/universe_market.yaml --label market --allow-exhausted-failures`:
-      2,429 eligible companies, 999 safeguarded candidates and a constrained
+      2,429 eligible companies; the official-reference rerun yields 1,042
+      safeguarded candidates and a constrained
       20-position advisory portfolio; ignored `*_market` artifacts generated
 
 ### Third screener: US-listed ADRs

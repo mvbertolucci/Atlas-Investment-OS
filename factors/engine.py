@@ -7,6 +7,7 @@ import pandas as pd
 import yaml
 
 from factors.valuation import score_valuation
+from scoring.reference import ScoringReference, percentile_rank
 
 
 DEFAULT_FACTORS = {
@@ -17,28 +18,24 @@ DEFAULT_FACTORS = {
 }
 
 
+def pct_rank(
+    df: pd.DataFrame,
+    column: str,
+    higher_is_better: bool = True,
+) -> pd.Series:
+    """Interface legada: percentil dentro do lote, sem referência externa."""
+    return percentile_rank(
+        df,
+        column,
+        higher_is_better=higher_is_better,
+    )
+
+
 def load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     return data or {}
-
-
-def pct_rank(df: pd.DataFrame, column: str, higher_is_better: bool = True) -> pd.Series:
-    if column not in df.columns:
-        return pd.Series(50.0, index=df.index)
-
-    s = pd.to_numeric(df[column], errors="coerce")
-
-    if s.notna().sum() <= 1:
-        return pd.Series(50.0, index=df.index)
-
-    r = s.rank(method="average", pct=True) * 100
-
-    if not higher_is_better:
-        r = 100 - r
-
-    return r.fillna(50.0).clip(0, 100)
 
 
 def metric_available(df: pd.DataFrame, column: str) -> pd.Series:
@@ -79,6 +76,7 @@ def score_factor(
     df: pd.DataFrame,
     features: dict[str, Any],
     factor: str,
+    reference: ScoringReference | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.DataFrame]:
     factor = factor.lower()
     selected = get_factor_features(features, factor)
@@ -102,8 +100,15 @@ def score_factor(
         label = str(cfg.get("label") or feature_name)
         weight = float(cfg.get("weight", 1.0))
         higher = bool(cfg.get("higher_is_better", True))
+        scope = str(cfg.get("percentile_scope", "market")).strip().lower()
 
-        score = pct_rank(df, column, higher)
+        score = percentile_rank(
+            df,
+            column,
+            higher_is_better=higher,
+            reference=reference,
+            scope=scope,
+        )
         available = metric_available(df, column)
 
         weighted_sum += score * weight
@@ -135,6 +140,7 @@ def score_all_factors(
     df: pd.DataFrame,
     features_path: Path,
     model_path: Path | None = None,
+    reference: ScoringReference | None = None,
 ) -> pd.DataFrame:
     result = df.copy()
 
@@ -150,9 +156,13 @@ def score_all_factors(
         factor = str(factor).lower()
 
         if factor == "valuation":
-            score, confidence, details = score_valuation(result, features)
+            score, confidence, details = score_valuation(
+                result, features, reference=reference
+            )
         else:
-            score, confidence, details = score_factor(result, features, factor)
+            score, confidence, details = score_factor(
+                result, features, factor, reference=reference
+            )
 
         factor_col = f"{factor.title()} Factor"
         confidence_col = f"{factor.title()} Confidence"

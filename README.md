@@ -37,6 +37,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
 - Deterministic walk-forward replay with SEC fundamentals, paired historical
   prices and split-consistent market capitalization
 - Two-fiscal-year point-in-time Piotroski F-Score with governed Deal Breaker
+- Versioned eligible-U.S.-market percentile reference shared by watchlist,
+  portfolio and single-ticker analysis, with governed sector-relative features
 
 ## Current integration status
 

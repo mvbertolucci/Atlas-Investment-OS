@@ -74,6 +74,7 @@ from priority import (
 )
 from reports.report_engine import build_company_reports
 from scoring.investment import load_yaml, score_dataframe
+from scoring.reference import ScoringReference, load_scoring_reference
 from storage.history_db import HistoryDatabase
 from universe import (
     UniverseReport,
@@ -335,7 +336,68 @@ def collect_market_data(
     return df
 
 
-def build_scores(df: pd.DataFrame) -> pd.DataFrame:
+def load_official_scoring_reference(
+    settings: dict,
+) -> ScoringReference | None:
+    reference_path = ROOT / settings.get(
+        "scoring_reference_path",
+        "output/dados/scoring_reference_market.json",
+    )
+    if not reference_path.exists():
+        logger.warning(
+            "Referência oficial de scoring ausente em %s; usando o lote "
+            "corrente com metadado CURRENT_BATCH.",
+            reference_path,
+        )
+        return None
+    try:
+        reference = load_scoring_reference(reference_path)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        logger.warning(
+            "Referência oficial inválida em %s (%s); usando o lote corrente.",
+            reference_path,
+            exc,
+        )
+        return None
+
+    expected_universe = str(
+        settings.get("scoring_reference_universe_id", "US_MARKET_ELIGIBLE")
+    ).strip()
+    current_model_version = str(
+        load_yaml(CONFIG / "model.yaml").get("model_version", "legacy")
+    ).strip()
+    if reference.universe_id != expected_universe:
+        logger.warning(
+            "Referência %s usa universe_id=%s, esperado=%s; usando o lote "
+            "corrente.",
+            reference_path,
+            reference.universe_id,
+            expected_universe,
+        )
+        return None
+    if reference.model_version != current_model_version:
+        logger.warning(
+            "Referência %s usa model_version=%s, modelo atual=%s; usando o "
+            "lote corrente.",
+            reference_path,
+            reference.model_version,
+            current_model_version,
+        )
+        return None
+    logger.info(
+        "Referência oficial carregada: %s, data=%s, n=%s, versão=%s.",
+        reference.universe_id,
+        reference.reference_date,
+        reference.reference_count,
+        reference.reference_version,
+    )
+    return reference
+
+
+def build_scores(
+    df: pd.DataFrame,
+    scoring_reference: ScoringReference | None = None,
+) -> pd.DataFrame:
     logger.info("Iniciando normalização e scoring.")
 
     result = normalize_columns(df)
@@ -344,6 +406,7 @@ def build_scores(df: pd.DataFrame) -> pd.DataFrame:
         result,
         CONFIG / "model.yaml",
         CONFIG / "deal_breakers.json",
+        scoring_reference=scoring_reference,
     )
 
     logger.info(
@@ -957,35 +1020,18 @@ def run_ticker_mode(symbol: str, settings: dict) -> Path:
     Modo --ticker SYM: gera o one-pager de um símbolo (decomposição de
     score + histórico + tese, se for uma posição real).
 
-    O Atlas pontua CROSS-SECIONALMENTE (percentil dentro do lote analisado,
-    ver docs/SCORING_MODEL.md) -- pontuar o símbolo isolado faria todo
-    percentil cair no neutro 50 (pct_rank exige >=2 valores para comparar).
-    Por isso este modo reaproveita o MESMO lote analisado por --full/
-    --portfolio (watchlist ∪ carteira), acrescentando o símbolo pedido se
-    ele ainda não estiver lá -- não é um fetch leve de 1 símbolo, é o
-    mesmo custo de --portfolio, só que renderiza apenas 1 one-pager no
-    final.
+    O símbolo é pontuado contra a última distribuição oficial do mercado
+    amplo elegível. A watchlist não participa do denominador e, portanto,
+    adicionar ou remover um ticker dela não altera este score.
     """
     symbol = symbol.strip().upper()
-    logger.info("Modo --ticker: analisando %s dentro do lote watchlist+carteira.", symbol)
-
-    watchlist_path, watchlist = load_watchlist(settings)
-    analysis_universe = merge_watchlist_with_portfolio(watchlist, settings)
-
-    existing_symbols = (
-        analysis_universe["symbol"].astype(str).str.strip().str.upper()
+    logger.info("Modo --ticker: analisando %s contra a referência ampla.", symbol)
+    scoring_reference = load_official_scoring_reference(settings)
+    analysis_universe = pd.DataFrame(
+        [{"symbol": symbol, "name": symbol, "origin": "ticker"}]
     )
-    if symbol not in set(existing_symbols):
-        analysis_universe = pd.concat(
-            [
-                analysis_universe,
-                pd.DataFrame([{"symbol": symbol, "name": symbol, "origin": "ticker"}]),
-            ],
-            ignore_index=True,
-        )
-
     df = collect_market_data(settings, analysis_universe)
-    df = build_scores(df)
+    df = build_scores(df, scoring_reference)
 
     symbol_rows = df.index[
         df["symbol"].astype(str).str.strip().str.upper() == symbol
@@ -1093,6 +1139,7 @@ def main() -> None:
         print_health_report(health_report)
 
         settings = load_settings()
+        scoring_reference = load_official_scoring_reference(settings)
 
         watchlist_path, watchlist = load_watchlist(
             settings
@@ -1127,7 +1174,7 @@ def main() -> None:
         metrics.companies = len(df)
 
         with StageTimer(metrics, "scoring_time"):
-            df = build_scores(df)
+            df = build_scores(df, scoring_reference)
 
         feature_coverage_summary = audit_feature_coverage(df)
 

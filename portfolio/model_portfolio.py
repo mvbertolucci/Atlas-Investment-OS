@@ -20,6 +20,7 @@ from ranking import (
 from ranking.models import RankingReport
 from reports.research_html import render_research_report, write_research_report
 from scoring.investment import score_dataframe
+from scoring.reference import build_scoring_reference, write_scoring_reference
 from universe import evaluate_universe, load_universe_policy, write_universe_report
 from universe.collector import CollectionState, load_collection_state
 from universe.sources import load_constituent_snapshot
@@ -401,6 +402,9 @@ def build_from_collection(
     output_label: str = "",
     allow_exhausted_failures: bool = False,
     failure_attempt_budget: int | None = None,
+    reference_universe_id: str | None = None,
+    reference_version: str = "1",
+    reference_min_sector_size: int = 5,
 ) -> ModelPortfolioReport:
     """
     Constrói a carteira-modelo a partir de uma coleta completa.
@@ -430,14 +434,37 @@ def build_from_collection(
     )
 
     frame = normalize_columns(pd.DataFrame(state.observations.values()))
+    universe_policy = load_universe_policy(universe_policy_path)
+    universe_report = evaluate_universe(frame, universe_policy)
+    eligible_symbols = {
+        member.symbol for member in universe_report.members if member.eligible
+    }
+    eligible_frame = frame.loc[
+        frame["symbol"].astype(str).str.strip().str.upper().isin(eligible_symbols)
+    ].copy()
+    if eligible_frame.empty:
+        raise PortfolioConstructionError(
+            "O universo não possui empresas elegíveis para construir a referência."
+        )
+    resolved_universe_id = reference_universe_id or {
+        "": "SP500_ELIGIBLE",
+        "market": "US_MARKET_ELIGIBLE",
+        "adr": "US_ADR_ELIGIBLE",
+    }.get(output_label, f"{output_label.upper()}_ELIGIBLE")
+    scoring_reference = build_scoring_reference(
+        eligible_frame,
+        features_path=ROOT / "config" / "features.yaml",
+        model_path=ROOT / "config" / "model.yaml",
+        universe_id=resolved_universe_id,
+        reference_date=snapshot_date,
+        reference_version=reference_version,
+        min_sector_size=reference_min_sector_size,
+    )
     scored = score_dataframe(
         frame,
         ROOT / "config" / "model.yaml",
         ROOT / "config" / "deal_breakers.json",
-    )
-    universe_report = evaluate_universe(
-        scored,
-        load_universe_policy(universe_policy_path),
+        scoring_reference=scoring_reference,
     )
     ranking_report = rank_companies(
         scored,
@@ -463,6 +490,10 @@ def build_from_collection(
     outputs = Path(output_dir)
     data_dir = outputs / "dados"
     reports_dir = outputs / "relatorios"
+    write_scoring_reference(
+        scoring_reference,
+        data_dir / _labeled_filename("scoring_reference.json", output_label),
+    )
     write_universe_report(
         universe_report,
         data_dir / _labeled_filename("research_universe_report.json", output_label),
@@ -563,6 +594,15 @@ def main() -> None:
         output_label=args.label,
         allow_exhausted_failures=args.allow_exhausted_failures,
         failure_attempt_budget=failure_attempt_budget,
+        reference_universe_id=(
+            str(settings.get("scoring_reference_universe_id", "")).strip()
+            if args.label == "market"
+            else None
+        ),
+        reference_version=str(settings.get("scoring_reference_version", "1")),
+        reference_min_sector_size=int(
+            settings.get("scoring_reference_min_sector_size", 5)
+        ),
     )
     excluded = len(report.excluded_failures)
     print(

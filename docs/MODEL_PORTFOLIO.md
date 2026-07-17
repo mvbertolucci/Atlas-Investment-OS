@@ -62,7 +62,7 @@ differs).
 
 Using the completed 7,093-symbol broad-market snapshot/checkpoint:
 
-- market policy: 6,959 observations, 2,429 eligible companies, 999
+- market policy: 6,959 observations, 2,429 eligible companies, 1,042
   safeguarded candidates and 20 selected positions;
 - ADR policy: the same 6,959 observations, filtered to 501 eligible companies,
   219 safeguarded candidates and 20 selected positions;

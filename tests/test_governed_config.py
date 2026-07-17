@@ -84,6 +84,28 @@ def test_feature_store_factor_weight_blocks_sum_to_one() -> None:
         assert total == pytest.approx(1.0), f"{factor} weights sum to {total}"
 
 
+def test_feature_store_percentile_scopes_are_governed() -> None:
+    features = _load_yaml("features.yaml")
+    sector_features = {
+        "business": {
+            "roic", "roe", "gross_margin", "operating_margin", "net_margin",
+            "debt_to_equity", "current_ratio", "interest_coverage",
+        },
+        "valuation": set(features["valuation"]),
+        "financial": set(features["financial"]),
+    }
+    for factor, names in sector_features.items():
+        for name in names:
+            assert features[factor][name]["percentile_scope"] == "sector"
+    assert features["business"]["f_score_annual"].get(
+        "percentile_scope", "market"
+    ) == "market"
+    assert all(
+        config.get("percentile_scope", "market") == "market"
+        for config in features["timing"].values()
+    )
+
+
 def test_model_portfolio_constraints_are_pinned() -> None:
     policy = _load_yaml("model_portfolio.yaml")
     assert policy == {

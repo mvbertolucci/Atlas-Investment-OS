@@ -12,6 +12,10 @@ from factors.engine import score_all_factors
 from models.conviction_model import apply_conviction
 from models.investment_model import apply_recommendation
 from models.opportunity_model import apply_opportunity
+from scoring.reference import (
+    ScoringReference,
+    attach_reference_metadata,
+)
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -255,6 +259,7 @@ def score_dataframe(
     df: pd.DataFrame,
     config_path: Path,
     deal_breakers_path: Path,
+    scoring_reference: ScoringReference | None = None,
 ) -> pd.DataFrame:
     """
     Executa o pipeline de decisão do Atlas.
@@ -287,6 +292,7 @@ def score_dataframe(
         df,
         features_path=features_path,
         model_path=model_path if model_path.exists() else None,
+        reference=scoring_reference,
     )
 
     result = apply_deal_breakers(
@@ -301,6 +307,7 @@ def score_dataframe(
 
     # Mantida por compatibilidade com relatórios e integrações existentes.
     result = apply_recommendation(result)
+    result = attach_reference_metadata(result, scoring_reference)
 
     sort_columns = [
         column

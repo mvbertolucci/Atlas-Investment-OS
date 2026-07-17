@@ -48,6 +48,10 @@ class HistoryDatabase:
                 confidence_score   REAL,
 
                 model_version      TEXT NOT NULL DEFAULT 'legacy',
+                reference_universe TEXT,
+                reference_date     TEXT,
+                reference_count    INTEGER,
+                reference_version  TEXT,
                 altman_z            REAL,
                 interest_coverage   REAL,
                 target_upside       REAL,
@@ -147,6 +151,10 @@ class HistoryDatabase:
         }
         additions = {
             "model_version": "TEXT NOT NULL DEFAULT 'legacy'",
+            "reference_universe": "TEXT",
+            "reference_date": "TEXT",
+            "reference_count": "INTEGER",
+            "reference_version": "TEXT",
             "altman_z": "REAL",
             "interest_coverage": "REAL",
             "target_upside": "REAL",
@@ -396,6 +404,15 @@ class HistoryDatabase:
                     row.get("Confidence Score"),
 
                     str(model_version).strip() or "legacy",
+                    row.get("reference_universe"),
+                    row.get("reference_date"),
+                    (
+                        int(row["reference_count"])
+                        if "reference_count" in row
+                        and pd.notna(row["reference_count"])
+                        else None
+                    ),
+                    row.get("reference_version"),
                     row.get("altman_z"),
                     row.get("interest_coverage"),
                     row.get("target_upside"),
@@ -433,6 +450,10 @@ class HistoryDatabase:
                 opportunity_score,
                 confidence_score,
                 model_version,
+                reference_universe,
+                reference_date,
+                reference_count,
+                reference_version,
                 altman_z,
                 interest_coverage,
                 target_upside,
@@ -446,7 +467,8 @@ class HistoryDatabase:
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?
             )
             """,
             rows,

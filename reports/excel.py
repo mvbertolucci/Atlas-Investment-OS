@@ -66,6 +66,10 @@ def _company_reports_dataframe(
                 "Timing Score": report.timing_score,
                 "Confidence Score": report.confidence_score,
                 "Risk Penalty": report.risk_penalty,
+                "Reference Universe": report.reference_universe,
+                "Reference Date": report.reference_date,
+                "Reference Count": report.reference_count,
+                "Reference Version": report.reference_version,
                 "Deal Breakers": _join_items(
                     report.deal_breakers
                 ),

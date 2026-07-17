@@ -46,9 +46,9 @@ def compute_symbol_contributions(
 ) -> tuple[tuple[FeatureContribution, ...], tuple[FeatureContribution, ...]]:
     """
     Decompõe o Investment Score de um símbolo nas 3 maiores contribuições
-    positivas e negativas nomeadas. Reaproveita EXATAMENTE o percentil que o
-    score de fato usa (factors.engine.pct_rank + config/features.yaml::
-    higher_is_better) combinado com o peso estrutural já existente
+    positivas e negativas nomeadas. Reaproveita EXATAMENTE a coluna de
+    percentil emitida pelo scoring (inclusive referência oficial/setorial),
+    combinada com o peso estrutural já existente
     (FeatureBinding.contribution) -- nenhuma fórmula nova, só recombinação.
 
     signed_contribution = (percentil - 50) * contribution, em pontos do
@@ -76,8 +76,21 @@ def compute_symbol_contributions(
         if value != value:
             continue
 
-        higher = _higher_is_better(binding, raw_features)
-        percentile = float(pct_rank(df, binding.column, higher).loc[position])
+        safe_label = (
+            binding.label.replace("/", "_")
+            .replace(" ", "_")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("-", "_")
+        )
+        score_column = f"{binding.factor}_{safe_label}_score"
+        if score_column in df.columns:
+            percentile = float(df.loc[position, score_column])
+        else:
+            # Compatibilidade com DataFrames crus usados por consumidores
+            # antigos: sem detalhe pré-calculado, mantém o percentil do lote.
+            higher = _higher_is_better(binding, raw_features)
+            percentile = float(pct_rank(df, binding.column, higher).loc[position])
         signed = round((percentile - 50.0) * binding.contribution, 4)
 
         contributions.append(

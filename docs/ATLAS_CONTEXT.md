@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 609 tests passing / 88.61% production coverage
+**Validation baseline:** 802 tests passing / 87.79% production coverage
 
 ## 1. Product mission
 
@@ -198,7 +198,8 @@ track (none of it changes governed scoring):
 - **Two more screeners**: the broad US-market screener
   (`config/universe_market.yaml`, NASDAQ Trader source, USD 300 million
   floor) has completed its 7,093-symbol snapshot/collection and model run;
-  6,959 observations produced 2,429 eligible companies, 999 safeguarded
+  6,959 observations produced 2,429 eligible companies. The 2026-07-17
+  official-reference rerun produced 1,042 safeguarded
   candidates and a 20-position advisory portfolio, while 134 exhausted
   provider failures remain explicitly attributed. The US-listed ADR screener
   (`config/universe_adr.yaml`, same floor) reuses that collection; its
@@ -341,12 +342,13 @@ A task is complete only when:
 - External Yahoo data can be incomplete or unstable; tests should not depend on live network access.
 - Outcome returns use the first valid Atlas price observed on or after each due
   date; evaluation lag remains explicit.
-- Investment and factor scores are cross-sectional percentile ranks within each
-  run's watchlist batch, not absolute levels; identical fundamentals score
-  differently when watchlist composition changes (measured swing up to ~11–15
-  points on small watchlists). Outcome score-calibration pools buckets across
-  decision dates and is only strictly comparable when the watchlist is stable —
-  treat cross-run calibration as indicative. See `docs/SCORING_MODEL.md`.
+- Live Investment and factor scores are percentile ranks against the versioned
+  eligible U.S. broad-market reference, not the run's watchlist. Every scored
+  row records universe/date/count/version; sector-sensitive governed features
+  use sector distributions. Historical replay remains cutoff-local. A missing
+  or incompatible artifact falls back explicitly to `CURRENT_BATCH`, which is
+  not comparable with official-reference history. See `docs/SCORING_MODEL.md`
+  and ADR-012.
 
 ## 9. First actions for a new Codex session
 

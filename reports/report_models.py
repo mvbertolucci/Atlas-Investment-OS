@@ -85,6 +85,11 @@ class CompanyReport:
     confidence_score: float | None = None
     risk_penalty: float | None = None
 
+    reference_universe: str = ""
+    reference_date: str = ""
+    reference_count: int | None = None
+    reference_version: str = ""
+
     investment_thesis: str = ""
     strengths: tuple[str, ...] = field(default_factory=tuple)
     risks: tuple[str, ...] = field(default_factory=tuple)
@@ -113,6 +118,9 @@ class CompanyReport:
             "decision_rating",
             "suggested_action",
             "investment_thesis",
+            "reference_universe",
+            "reference_date",
+            "reference_version",
         ]
 
         for field_name in text_fields:
@@ -155,6 +163,17 @@ class CompanyReport:
                 self,
                 field_name,
                 _normalize_items(getattr(self, field_name)),
+            )
+
+        if self.reference_count is not None:
+            try:
+                count = int(self.reference_count)
+            except (TypeError, ValueError):
+                count = None
+            object.__setattr__(
+                self,
+                "reference_count",
+                count if count is not None and count >= 0 else None,
             )
 
     @property
@@ -209,6 +228,10 @@ class CompanyReport:
             "timing_score": self.timing_score,
             "confidence_score": self.confidence_score,
             "risk_penalty": self.risk_penalty,
+            "reference_universe": self.reference_universe,
+            "reference_date": self.reference_date,
+            "reference_count": self.reference_count,
+            "reference_version": self.reference_version,
             "investment_thesis": self.investment_thesis,
             "strengths": list(self.strengths),
             "risks": list(self.risks),

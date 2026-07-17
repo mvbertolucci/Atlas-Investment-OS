@@ -7,11 +7,13 @@ business:
     weight: 0.20
     higher_is_better: true
     required: false
+    percentile_scope: sector
   roe:
     label: ROE
     weight: 0.15
     higher_is_better: true
     required: true
+    percentile_scope: sector
   f_score_annual:
     label: Piotroski F-Score
     weight: 0.15
@@ -22,31 +24,37 @@ business:
     weight: 0.10
     higher_is_better: true
     required: false
+    percentile_scope: sector
   operating_margin:
     label: Operating Margin
     weight: 0.10
     higher_is_better: true
     required: false
+    percentile_scope: sector
   net_margin:
     label: Net Margin
     weight: 0.10
     higher_is_better: true
     required: true
+    percentile_scope: sector
   debt_to_equity:
     label: Debt / Equity
     weight: 0.10
     higher_is_better: false
     required: false
+    percentile_scope: sector
   current_ratio:
     label: Current Ratio
     weight: 0.05
     higher_is_better: true
     required: false
+    percentile_scope: sector
   interest_coverage:
     label: Interest Coverage
     weight: 0.05
     higher_is_better: true
     required: false
+    percentile_scope: sector
 
 # NOTA: as chaves aqui sao as COLUNAS ja normalizadas pelo mapper
 # (ev_ebitda, nao ev_to_ebitda) e os labels batem com as colunas de
@@ -60,41 +68,49 @@ valuation:
     weight: 0.20
     higher_is_better: false
     required: true
+    percentile_scope: sector
   forward_pe:
     label: Forward PE
     weight: 0.15
     higher_is_better: false
     required: false
+    percentile_scope: sector
   ev_ebitda:
     label: EV EBITDA
     weight: 0.20
     higher_is_better: false
     required: false
+    percentile_scope: sector
   ev_ebit:
     label: EV EBIT
     weight: 0.15
     higher_is_better: false
     required: false
+    percentile_scope: sector
   peg:
     label: PEG
     weight: 0.10
     higher_is_better: false
     required: false
+    percentile_scope: sector
   pb:
     label: Price Book
     weight: 0.10
     higher_is_better: false
     required: true
+    percentile_scope: sector
   shareholder_yield:
     label: Shareholder Yield
     weight: 0.05
     higher_is_better: true
     required: false
+    percentile_scope: sector
   fcf_yield:
     label: FCF Yield
     weight: 0.05
     higher_is_better: true
     required: false
+    percentile_scope: sector
 
 financial:
   net_debt_ebitda:
@@ -102,26 +118,31 @@ financial:
     weight: 0.30
     higher_is_better: false
     required: false
+    percentile_scope: sector
   net_debt_total_equity:
     label: Net Debt / Total Equity
     weight: 0.25
     higher_is_better: false
     required: false
+    percentile_scope: sector
   debt_to_equity:
     label: Debt / Equity
     weight: 0.20
     higher_is_better: false
     required: false
+    percentile_scope: sector
   current_ratio:
     label: Current Ratio
     weight: 0.15
     higher_is_better: true
     required: false
+    percentile_scope: sector
   interest_coverage:
     label: Interest Coverage
     weight: 0.10
     higher_is_better: true
     required: false
+    percentile_scope: sector
 
 timing:
   rsi_14:
