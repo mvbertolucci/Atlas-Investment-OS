@@ -81,6 +81,7 @@ ADR-015 and ADR-016.
 - `application/scoring.py`
 - `application/history.py`
 - `application/intelligence.py`
+- `application/reporting.py`
 
 `CollectionApplicationService` owns watchlist loading, the in-memory
 watchlist/portfolio merge and provider collection/enrichment.
@@ -90,12 +91,14 @@ normalization/scoring, feature coverage, universe evaluation and ranking.
 portfolio snapshot support, SQLite snapshots, outcome capture/evaluation and
 the aggregate Outcome report. `IntelligenceApplicationService` owns portfolio
 intelligence, watchlist triggers/aging and Atlas Report construction and HTML
-publication. All receive governed paths and the logger explicitly and call
-domain modules directly. The pipeline binds their methods to the narrow
+publication. `ReportingApplicationService` owns the final Excel, Morning
+Brief, priority, performance-validation and dashboard publications. All
+receive governed paths and the logger explicitly and call domain modules
+directly. The pipeline binds their methods to the narrow
 orchestration facades; it does not traverse `run_all.py`. Public functions with
 the historical names remain in `run_all.py` as thin compatibility wrappers and
 construct services from the current module paths, so existing callers and path
-monkeypatches keep working. See ADR-017, ADR-018 and ADR-019.
+monkeypatches keep working. See ADR-017 through ADR-020.
 
 ### Data layer
 

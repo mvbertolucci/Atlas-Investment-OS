@@ -13,6 +13,7 @@ from application import (
     CollectionApplicationService,
     HistoryApplicationService,
     IntelligenceApplicationService,
+    ReportingApplicationService,
     ScoringApplicationService,
 )
 from orchestration.pipeline import (
@@ -196,6 +197,10 @@ def test_run_all_builds_narrow_typed_service_groups() -> None:
     assert isinstance(
         services.intelligence._generate_watchlist_report.__self__,
         IntelligenceApplicationService,
+    )
+    assert isinstance(
+        services.reporting._generate_excel_reports.__self__,
+        ReportingApplicationService,
     )
 
 

@@ -58,6 +58,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   snapshots and Outcome Analytics
 - Concrete intelligence application service for portfolio, watchlist tracking
   and Atlas Report publication
+- Concrete reporting application service for Excel, Morning Brief, priority,
+  performance validation and dashboard publication
 
 ## Current integration status
 

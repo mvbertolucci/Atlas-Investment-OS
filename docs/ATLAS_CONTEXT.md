@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 859 tests passing / 89.85% production coverage
+**Validation baseline:** 862 tests passing / 89.94% production coverage
 
 ## 1. Product mission
 
@@ -51,7 +51,10 @@ implementations now live in `application/collection.py` and
 compatibility wrappers only. Historical context, SQLite snapshots and Outcome
 Analytics now have the same boundary in `application/history.py`. Portfolio
 intelligence, watchlist tracking and Atlas Report publication are owned by
-`application/intelligence.py`.
+`application/intelligence.py`. Final Excel, Morning Brief, priority,
+performance-validation and dashboard publication is owned by
+`application/reporting.py`; the composition root binds one concrete instance
+directly to `ReportingServices`.
 
 ```text
 settings.json + watchlist.csv
@@ -94,6 +97,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 | Application services | `application/collection.py`, `application/scoring.py` | Concrete collection/scoring services integrated; `run_all` wrappers preserved |
 | Historical application service | `application/history.py` | Previous-run context, snapshots and Outcome Analytics integrated; wrappers preserved |
 | Intelligence application service | `application/intelligence.py` | Portfolio, watchlist and Atlas Report integrated; wrappers preserved |
+| Reporting application service | `application/reporting.py` | Excel, Morning Brief, priority, performance validation and dashboard integrated; wrappers preserved |
 | Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, field evidence and SEC fundamental confirmation integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |

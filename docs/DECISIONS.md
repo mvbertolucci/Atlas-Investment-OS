@@ -23,6 +23,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-017 | Move collection and scoring implementations into application services | Accepted 2026-07-17 |
 | ADR-018 | Give history and Outcome Analytics a concrete application service | Accepted 2026-07-17 |
 | ADR-019 | Give portfolio, watchlist and Atlas Report a concrete intelligence service | Accepted 2026-07-17 |
+| ADR-020 | Give final report publication a concrete application service | Accepted 2026-07-17 |
 
 ## Recording a new decision
 

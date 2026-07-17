@@ -8,10 +8,6 @@ from pathlib import Path
 import pandas as pd
 
 from analytics.history import load_history as load_score_history
-from analytics.performance_validation import (
-    build_performance_validation_report,
-    write_performance_validation_report,
-)
 from application import (
     ORIGIN_PORTFOLIO,
     ORIGIN_PRIORITY,
@@ -20,6 +16,7 @@ from application import (
     CollectionApplicationService,
     HistoryApplicationService,
     IntelligenceApplicationService,
+    ReportingApplicationService,
     ScoringApplicationService,
 )
 from atlas_logger import get_logger
@@ -59,16 +56,8 @@ from reports.atlas_report.one_pager import (
 )
 from reports.atlas_report.render import page_shell
 from reports.atlas_report.write import write_one_pager
-from reports.excel import write_latest_and_history
 from reports.morning_brief import render_morning_brief, write_morning_brief
-from dashboard import build_dashboard_view, write_dashboard_view
-from priority import (
-    PriorityReport,
-    build_buy_priority,
-    build_sell_priority,
-    write_priority_report,
-)
-from reports.report_engine import build_company_reports
+from priority import PriorityReport
 from scoring.reference import ScoringReference
 from universe import UniverseReport
 from watchlist import WatchlistReport
@@ -156,6 +145,21 @@ def _intelligence_application_service() -> IntelligenceApplicationService:
         portfolio_report_file=PORTFOLIO_REPORT_FILE,
         watchlist_report_file=WATCHLIST_REPORT_FILE,
         logger=logger,
+    )
+
+
+def _reporting_application_service() -> ReportingApplicationService:
+    return ReportingApplicationService(
+        output_reports=OUTPUT_REPORTS,
+        history_database=HISTORY_DATABASE,
+        morning_brief_file=MORNING_BRIEF_FILE,
+        performance_validation_file=PERFORMANCE_VALIDATION_FILE,
+        dashboard_report_file=DASHBOARD_REPORT_FILE,
+        priority_report_file=PRIORITY_REPORT_FILE,
+        research_ranking_report_file=RESEARCH_RANKING_REPORT_FILE,
+        logger=logger,
+        morning_brief_writer=write_morning_brief,
+        morning_brief_renderer=render_morning_brief,
     )
 
 
@@ -277,28 +281,13 @@ def generate_performance_validation(
     carteira, ranking ou outcome analytics -- só resume o que esses motores
     já produziram nesta run.
     """
-    if not settings.get("performance_validation_enabled", True):
-        logger.info("Performance Validation desabilitado.")
-        return None
-
-    report = build_performance_validation_report(
+    return _reporting_application_service().generate_performance_validation(
         df,
+        settings,
         portfolio_report=portfolio_report,
         outcome_report=outcome_report,
         snapshot_date=snapshot_date,
     )
-
-    path = write_performance_validation_report(
-        report,
-        PERFORMANCE_VALIDATION_FILE,
-    )
-
-    logger.info(
-        "Performance Validation gerado em %s.",
-        path,
-    )
-
-    return path
 
 
 def generate_dashboard(
@@ -316,25 +305,14 @@ def generate_dashboard(
     (mercado, empresas, carteira, outcomes e prioridade); não recomputa nem
     altera nada. Guardado por `dashboard_enabled` (default True).
     """
-    if not settings.get("dashboard_enabled", True):
-        return None
-
-    view = build_dashboard_view(
-        build_company_reports(df),
-        market=universe_report,
-        portfolio=portfolio_report,
-        outcomes=outcome_report,
-        priority=priority_report,
+    return _reporting_application_service().generate_dashboard(
+        df,
+        settings,
+        portfolio_report=portfolio_report,
+        outcome_report=outcome_report,
+        universe_report=universe_report,
+        priority_report=priority_report,
     )
-
-    write_dashboard_view(view, DASHBOARD_REPORT_FILE)
-
-    logger.info(
-        "Dashboard contract gerado em %s (%s empresas).",
-        DASHBOARD_REPORT_FILE,
-        len(view.companies),
-    )
-    return DASHBOARD_REPORT_FILE
 
 
 def generate_priority_report(
@@ -349,49 +327,11 @@ def generate_priority_report(
     distribui peso nem aplica teto de setor -- apenas ordena por qualidade.
     Guardado por priority_enabled (default True).
     """
-    if not settings.get("priority_enabled", True):
-        return None
-
-    weights_by_symbol: dict[str, float] = {}
-    held_symbols: frozenset[str] | None = None
-    rebalance_actions: tuple = ()
-
-    if portfolio_report is not None:
-        weights_by_symbol = dict(
-            portfolio_report.allocation.get("by_symbol", {})
-        )
-        held_symbols = frozenset(weights_by_symbol)
-        rebalance_actions = tuple(
-            portfolio_report.rebalance.get("actions", ())
-        )
-
-    sell = build_sell_priority(
-        ranking_report.to_dict()["companies"] if ranking_report else (),
-        rebalance_actions=rebalance_actions,
-        held_symbols=held_symbols,
-        weights_by_symbol=weights_by_symbol,
+    return _reporting_application_service().generate_priority_report(
+        settings,
+        ranking_report=ranking_report,
+        portfolio_report=portfolio_report,
     )
-
-    buy = None
-    if RESEARCH_RANKING_REPORT_FILE.exists():
-        research_data = json.loads(
-            RESEARCH_RANKING_REPORT_FILE.read_text(encoding="utf-8")
-        )
-        buy = build_buy_priority(
-            research_data["companies"],
-            held_symbols=held_symbols or frozenset(),
-        )
-
-    report = PriorityReport(sell=sell, buy=buy)
-    write_priority_report(report, PRIORITY_REPORT_FILE)
-
-    logger.info(
-        "Priority Report: %s holdings classificados; %s candidatos de "
-        "compra disponíveis.",
-        len(sell.items),
-        len(buy.items) if buy is not None else 0,
-    )
-    return PRIORITY_REPORT_FILE, report
 
 
 def generate_excel_reports(
@@ -399,22 +339,11 @@ def generate_excel_reports(
     portfolio_report: PortfolioReport | None = None,
     outcome_report: OutcomeAnalyticsReport | None = None,
 ) -> tuple[Path, Path | None]:
-    logger.info("Gerando relatórios Excel.")
-
-    history_file, latest_file = write_latest_and_history(
+    return _reporting_application_service().generate_excel_reports(
         df,
-        OUTPUT_REPORTS,
         portfolio_report=portfolio_report,
         outcome_report=outcome_report,
-        database_path=HISTORY_DATABASE,
     )
-
-    logger.info(
-        "Excel histórico gerado em %s.",
-        history_file,
-    )
-
-    return history_file, latest_file
 
 
 def generate_morning_brief(
@@ -422,29 +351,11 @@ def generate_morning_brief(
     portfolio_report: PortfolioReport | None = None,
     outcome_report: OutcomeAnalyticsReport | None = None,
 ) -> tuple[Path, str]:
-    logger.info("Gerando Morning Brief.")
-
-    brief_path = write_morning_brief(
-        current_df=df,
-        database_path=HISTORY_DATABASE,
-        output_path=MORNING_BRIEF_FILE,
+    return _reporting_application_service().generate_morning_brief(
+        df,
         portfolio_report=portfolio_report,
         outcome_report=outcome_report,
     )
-
-    brief_text = render_morning_brief(
-        current_df=df,
-        database_path=HISTORY_DATABASE,
-        portfolio_report=portfolio_report,
-        outcome_report=outcome_report,
-    )
-
-    logger.info(
-        "Morning Brief gerado em %s.",
-        brief_path,
-    )
-
-    return brief_path, brief_text
 
 
 
@@ -644,6 +555,7 @@ def build_pipeline_services() -> PipelineServices:
     scoring_application = _scoring_application_service()
     history_application = _history_application_service()
     intelligence_application = _intelligence_application_service()
+    reporting_application = _reporting_application_service()
     return PipelineServices(
         runtime=RuntimeServices(
             paths=paths,
@@ -716,11 +628,19 @@ def build_pipeline_services() -> PipelineServices:
             ),
         ),
         reporting=ReportingServices(
-            _generate_excel_reports=generate_excel_reports,
-            _generate_morning_brief=generate_morning_brief,
-            _generate_priority_report=generate_priority_report,
-            _generate_performance_validation=generate_performance_validation,
-            _generate_dashboard=generate_dashboard,
+            _generate_excel_reports=(
+                reporting_application.generate_excel_reports
+            ),
+            _generate_morning_brief=(
+                reporting_application.generate_morning_brief
+            ),
+            _generate_priority_report=(
+                reporting_application.generate_priority_report
+            ),
+            _generate_performance_validation=(
+                reporting_application.generate_performance_validation
+            ),
+            _generate_dashboard=reporting_application.generate_dashboard,
         ),
     )
 

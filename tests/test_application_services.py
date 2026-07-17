@@ -8,11 +8,13 @@ import pandas as pd
 
 import application.collection as collection_module
 import application.intelligence as intelligence_module
+import application.reporting as reporting_module
 import application.scoring as scoring_module
 from application import (
     CollectionApplicationService,
     HistoryApplicationService,
     IntelligenceApplicationService,
+    ReportingApplicationService,
     ScoringApplicationService,
 )
 from storage.history_db import HistoryDatabase
@@ -249,6 +251,81 @@ def _intelligence_service(tmp_path: Path) -> IntelligenceApplicationService:
         watchlist_report_file=tmp_path / "watchlist.json",
         logger=_logger(),
     )
+
+
+def _reporting_service(tmp_path: Path, **kwargs) -> ReportingApplicationService:
+    return ReportingApplicationService(
+        output_reports=tmp_path / "reports",
+        history_database=tmp_path / "history.db",
+        morning_brief_file=tmp_path / "morning.md",
+        performance_validation_file=tmp_path / "performance.json",
+        dashboard_report_file=tmp_path / "dashboard.json",
+        priority_report_file=tmp_path / "priority.json",
+        research_ranking_report_file=tmp_path / "research.json",
+        logger=_logger(),
+        **kwargs,
+    )
+
+
+def test_reporting_service_respects_disabled_publications(
+    tmp_path: Path,
+) -> None:
+    service = _reporting_service(tmp_path)
+
+    assert service.generate_dashboard(
+        pd.DataFrame(), {"dashboard_enabled": False}
+    ) is None
+    assert service.generate_performance_validation(
+        pd.DataFrame(), {"performance_validation_enabled": False}
+    ) is None
+    assert service.generate_priority_report(
+        {"priority_enabled": False},
+        ranking_report=None,
+        portfolio_report=None,
+    ) is None
+
+
+def test_reporting_service_uses_governed_excel_paths(
+    tmp_path: Path, monkeypatch
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_write(frame, output, **kwargs):
+        captured.update(output=output, **kwargs)
+        return output / "history.xlsx", output / "latest.xlsx"
+
+    monkeypatch.setattr(
+        reporting_module, "write_latest_and_history", fake_write
+    )
+    service = _reporting_service(tmp_path)
+
+    result = service.generate_excel_reports(pd.DataFrame())
+
+    assert result[0] == tmp_path / "reports" / "history.xlsx"
+    assert captured["output"] == tmp_path / "reports"
+    assert captured["database_path"] == tmp_path / "history.db"
+
+
+def test_reporting_service_injects_morning_brief_ports(
+    tmp_path: Path,
+) -> None:
+    received: list[Path] = []
+
+    def fake_write(**kwargs):
+        received.append(kwargs["output_path"])
+        return kwargs["output_path"]
+
+    service = _reporting_service(
+        tmp_path,
+        morning_brief_writer=fake_write,
+        morning_brief_renderer=lambda **kwargs: "brief",
+    )
+
+    assert service.generate_morning_brief(pd.DataFrame()) == (
+        tmp_path / "morning.md",
+        "brief",
+    )
+    assert received == [tmp_path / "morning.md"]
 
 
 def test_intelligence_service_skips_absent_inputs(tmp_path: Path) -> None:
