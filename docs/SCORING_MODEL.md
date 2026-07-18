@@ -1,18 +1,11 @@
 # Scoring Model
 
-The executable scoring path is:
-
-```text
-config/features.yaml + config/model.yaml
-                  ↓
-          factors/engine.py
-                  ↓
-       scoring/investment.py
-                  ↓
-Investment / Opportunity / Conviction
-                  ↓
-Deal Breakers / Decision / Thesis
-```
+The executable scoring path (`config/features.yaml` + `config/model.yaml` ->
+`factors/engine.py` -> `scoring/investment.py` -> Investment/Opportunity/
+Conviction -> Deal Breakers/Decision/Thesis) is diagrammed in
+`docs/ARCHITECTURE.md`'s "Integrated company-analysis pipeline" -- that is
+the single source for the flow; this document covers the evidence,
+confidence and official-reference contracts the flow depends on.
 
 The four factor scores are Business, Valuation, Financial and Timing.
 `Confidence Score` is the compatibility alias of `Model Confidence`; it is not
