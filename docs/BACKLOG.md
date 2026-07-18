@@ -107,10 +107,13 @@
       2,429-symbol eligible universe (`providers.finnhub_prefetch --all`,
       ~45 minutes cold) and publish real broad coverage, mirroring the
       Massive Float/Grouped Daily broad runs already completed
-- [ ] Run `providers.market_cap_composition_prefetch --all` to completion
-      (~20 minutes cold, SEC EDGAR fair-use pacing) and publish real broad
-      composed market-cap coverage; only a bounded 8-symbol check has run
-      so far
+- [x] Run `providers.market_cap_composition_prefetch --all` to completion:
+      1,724/2,429 (70.98%) composed, no external vendor beyond Massive+SEC.
+      Gaps: 399 shares_unavailable, 300 shares_stale (SEC filing >100 days
+      from the 2026-07-16 price date), 128 SEC fetch errors
+      (`invalid_response`, likely CIK-not-found -- same shape as the
+      SEC public-float audit's "30 issuers without the concept"), 6
+      price_unavailable
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 
