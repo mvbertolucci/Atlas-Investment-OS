@@ -1,5 +1,33 @@
 # Changelog
 
+## Guard live-vs-point-in-time ROIC/Interest Coverage equivalence
+
+### Added
+
+- STATUS.md flagged ROIC/Interest Coverage as diverging between the live
+  path (`analytics/fundamentals.py`, Yahoo EBIT) and the point-in-time
+  backtest path (`backtesting/point_in_time_fundamentals.py`, SEC
+  `operating_income` proxy) with "no equivalence test between the two
+  paths" -- a real, previously measured gap (2-4 p.p. ROIC, larger
+  absolute Interest Coverage gaps for low-debt companies) with nothing
+  guarding it from silently growing if either formula's structure changed.
+- Rather than chase an unreproducible real-company number, isolated the
+  documented hypothesis directly:
+  `tests/test_live_vs_point_in_time_ratios.py` constructs equivalent-
+  scenario inputs for both paths (same EBIT/operating_income, same
+  invested-capital dollar total, same tax inputs) and asserts the two
+  independently-implemented formulas agree exactly. A second test changes
+  only the EBIT-vs-operating_income delta and asserts the resulting gap
+  tracks that difference precisely, proving no second, hidden source of
+  divergence exists in either formula today.
+- Both passed on first run -- confirms the divergence is exactly what the
+  code already documents (the EBIT proxy), not a latent formula bug.
+
+### Validation
+
+- 952 tests green (2 new), 90.50% coverage. No formula or governed
+  configuration changed -- test-only addition.
+
 ## Pin exempt-sector defaults to deal_breakers.json with an equivalence test
 
 ### Fixed
