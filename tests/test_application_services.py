@@ -50,7 +50,10 @@ def test_collection_service_preserves_origin_and_provider_policy(
     monkeypatch.setattr(
         collection_module, "build_sec_secondary_provider", lambda *args: None
     )
-    fmp_provider = SimpleNamespace(fetch_float=lambda symbol: {})
+    fmp_provider = SimpleNamespace(
+        fetch_float=lambda symbol: {},
+        prefetch=lambda symbols: {"mode": "on_demand"},
+    )
     monkeypatch.setattr(
         collection_module,
         "build_fmp_secondary_provider",

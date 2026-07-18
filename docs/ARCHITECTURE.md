@@ -130,7 +130,11 @@ conflict represented explicitly. SEC, FMP and Massive run through independent
 bounded clients and immutable snapshots; each declares the fields it can
 actually confirm. Massive Short Interest composes with FMP Float without
 claiming that either source alone supplied `short_float`. See ADR-014, ADR-023
-and ADR-024.
+and ADR-024. FMP broad prefetch uses a persistent TTL cache, atomic UTC daily
+quota ledger, interactive-call reserve and resumable batch/page boundaries.
+Unsupported responses are negative-cached and remain unavailable rather than
+being inferred as confirmations; live Basic-plan coverage is explicitly
+partial (ADR-025).
 
 ### Feature and scoring layer
 

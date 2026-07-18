@@ -129,6 +129,32 @@ class CollectionApplicationService:
 
         secondary_fetcher = build_sec_secondary_provider(self.root, settings)
         fmp_fetcher = build_fmp_secondary_provider(self.root, settings)
+        if fmp_fetcher is not None:
+            prefetch_summary = fmp_fetcher.prefetch(
+                watchlist.get("symbol", pd.Series(dtype=str)).tolist()
+            )
+            if prefetch_summary.get("mode") == "batch_cache":
+                self.logger.info(
+                    "FMP batch/cache: requested=%s, market=%s, float=%s, "
+                    "enterprise=%s, quota=%s/%s, missing=%s/%s/%s.",
+                    prefetch_summary.get("requested"),
+                    prefetch_summary.get("market_cached"),
+                    prefetch_summary.get("float_cached"),
+                    prefetch_summary.get("enterprise_cached"),
+                    prefetch_summary.get("quota_used_after"),
+                    settings.get("fmp_daily_call_limit", 250),
+                    prefetch_summary.get("market_missing"),
+                    prefetch_summary.get("float_missing"),
+                    prefetch_summary.get("enterprise_missing"),
+                )
+                if prefetch_summary.get("errors"):
+                    self.logger.warning(
+                        "FMP batch/cache registrou %s erros explícitos.",
+                        prefetch_summary.get(
+                            "error_count",
+                            len(prefetch_summary["errors"]),
+                        ),
+                    )
         massive_fetcher = build_massive_secondary_provider(
             self.root,
             settings,

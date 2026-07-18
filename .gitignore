@@ -36,6 +36,7 @@ data/*.sqlite3
 data/research_universe_collection*.json
 data/research_universe_collection*.tmp
 data/raw_snapshots/
+data/provider_cache/
 data/*.log
 !data/.gitkeep
 

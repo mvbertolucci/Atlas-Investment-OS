@@ -102,6 +102,15 @@ def test_provider_operational_policy_is_pinned() -> None:
     assert settings["sec_secondary_enabled"] is True
     assert settings["massive_secondary_enabled"] is True
     assert settings["fmp_secondary_enabled"] is True
+    assert settings["fmp_daily_call_limit"] == 250
+    assert settings["fmp_prefetch_reserve_calls"] == 25
+    assert settings["fmp_prefetch_threshold"] == 100
+    assert settings["fmp_prefetch_universe_path"].endswith(
+        "research_universe_report_market.json"
+    )
+    assert settings["fmp_market_batch_size"] == 100
+    assert settings["fmp_float_page_size"] == 1000
+    assert settings["fmp_float_max_pages"] == 100
     assert settings["provider_secrets_path"] == "config/provider_secrets.json"
 
 

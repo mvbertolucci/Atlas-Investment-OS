@@ -67,8 +67,11 @@
       enterprise value against Yahoo
 - [x] Combine Massive Short Interest with dated FMP Float and confirm AAPL
       `short_float` without relaxing the 45-day alignment rule
-- [ ] Add batch/cache orchestration before applying FMP confirmation to a broad
-      universe; the free plan is limited to 250 calls per day
+- [x] Add persistent FMP batch/cache orchestration, UTC daily-quota accounting,
+      a 25-call interactive reserve, resumable prefetch and negative caching
+- [ ] Select another legally usable free source for the eligible symbols FMP
+      Basic does not expose, or formally accept limited second-source coverage;
+      the 2026-07-17 live scan found market-cap/float data for only 67/2,429
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

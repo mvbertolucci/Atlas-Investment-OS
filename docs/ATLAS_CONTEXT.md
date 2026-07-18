@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 888 tests passing / 90.47% production coverage
+**Validation baseline:** 902 tests passing / 90.36% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -31,11 +31,18 @@ wrappers and `main()`; no pipeline stage traverses it as a service locator.
 The free FMP and Massive adapters are active with protected personal keys. A
 bounded AAPL check confirmed `market_cap` and derived `enterprise_value` with
 FMP, plus `short_float` from 2026-06-30 Massive Short Interest and 2026-07-15
-FMP Float. All three agreed with Yahoo within the governed 5% tolerance. The
+FMP Float. All three agreed with Yahoo within the governed 5% tolerance.
+
+FMP broad prefetch now has persistent TTL/negative caching, an atomic UTC daily
+quota ledger, a 25-call interactive reserve and resumable batch/page collection.
+The 2026-07-17 live scan used the 225-call prefetch budget and found market-cap
+and float evidence for only 67/2,429 eligible symbols; enterprise evidence was
+available for 6 before the ceiling. This is an actual Basic-entitlement limit,
+not broad confirmation. Remaining fields stay `secondary_unavailable`. The
 next work should proceed in this order:
 
-1. Add FMP batch/cache and daily-quota orchestration before extending secondary
-   confirmation beyond ticker, watchlist and portfolio-sized runs.
+1. Select another legally usable free source for the remaining eligible
+   symbols, or formally publish and accept limited second-source coverage.
 2. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 3. Run broad portfolio validation and publish coverage limitations before any

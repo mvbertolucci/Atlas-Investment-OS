@@ -21,8 +21,8 @@ recent float under a documented free request allowance.
 4. Keep credentials isolated and snapshot each provider/composition without
    keys.
 5. Skip the denied Massive Ratios call whenever FMP is active.
-6. Do not run the per-symbol FMP adapter over the broad universe until batch,
-   caching, persistence and daily-quota controls are implemented.
+6. Do not run the per-symbol FMP adapter over the broad universe; use the
+   persistent batch/cache/quota orchestration defined by ADR-025.
 
 ## Consequences
 
@@ -31,8 +31,9 @@ recent float under a documented free request allowance.
 - The resulting `short_float` names both contributing providers; it is not
   misrepresented as a native FMP or Massive field.
 - Ticker, watchlist and portfolio coverage is immediately useful.
-- Broad-universe confirmation remains quota-limited and is explicit backlog,
-  not silently partial coverage.
+- Broad-universe confirmation is quota- and entitlement-limited. The live
+  Basic scan exposed market-cap/float records for only 67/2,429 eligible
+  symbols; all other cases remain explicitly unavailable.
 
 ## Rollback
 
