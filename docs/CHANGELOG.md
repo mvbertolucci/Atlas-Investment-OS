@@ -1,5 +1,38 @@
 # Changelog
 
+## Pin exempt-sector defaults to deal_breakers.json with an equivalence test
+
+### Fixed
+
+- STATUS.md flagged the exempt-sector lists duplicated between
+  `scoring/investment.py` (via `config/deal_breakers.json`) and
+  `portfolio/sell_rules.py` (via `config/sell_rules.yaml`) as reconciled
+  content with "no automatic equivalence test." Writing that test found a
+  real, if currently inert, discrepancy: `portfolio/sell_rules.py`'s
+  hardcoded Python fallbacks (`DEFAULT_SOLVENCY_EXEMPT_SECTORS`,
+  `DEFAULT_LIQUIDITY_EXEMPT_SECTORS`) were missing "Biotechnology" and
+  "Tobacco" respectively, and `net_debt_ebitda_exempt_sectors`/
+  `f_score_exempt_sectors` fell back to an empty tuple instead of
+  `("Biotechnology",)`. Harmless today only because `config/sell_rules.yaml`
+  always specifies every key explicitly, so the stale fallback was never
+  actually read -- it would have silently diverged from
+  `deal_breakers.json` the day a key was ever omitted from the YAML.
+- `portfolio/sell_rules.py` fallbacks corrected to match
+  `deal_breakers.json` exactly; two new named constants
+  (`DEFAULT_NET_DEBT_EBITDA_EXEMPT_SECTORS`, `DEFAULT_F_SCORE_EXEMPT_SECTORS`)
+  replace the two bare `()` fallbacks for consistency with the other two.
+- `tests/test_governed_config.py` gained two tests:
+  `test_exempt_sectors_match_between_deal_breakers_and_sell_rules` (the two
+  governed config files agree) and
+  `test_sell_rules_python_defaults_match_deal_breakers` (the Python
+  fallbacks agree with the same source), closing the gap STATUS.md had
+  flagged.
+
+### Validation
+
+- 950 tests green (2 new), 90.50% coverage. No governed config value
+  changed; only the never-read Python fallback was corrected.
+
 ## Align point-in-time invested_capital with total debt (measured ROIC divergence)
 
 ### Measured

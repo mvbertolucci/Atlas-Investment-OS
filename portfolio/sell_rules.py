@@ -16,14 +16,22 @@ RULE_NAMES = (
 )
 
 # Isenções padrão herdadas de config/deal_breakers.json (o deal-breaker
-# binário que distress substitui) -- ver docstring de _distress.
+# binário que distress substitui) -- ver docstring de _distress. Mantidas
+# em sincronia manual com deal_breakers.json; tests/test_governed_config.py
+# trava a equivalência para evitar que voltem a divergir silenciosamente
+# (achado real: estas duas ficaram desatualizadas -- faltava "Biotechnology"
+# e "Tobacco" -- sem afetar o comportamento hoje só porque
+# config/sell_rules.yaml sempre especifica as chaves explicitamente).
 DEFAULT_SOLVENCY_EXEMPT_SECTORS = (
     "Utilities",
     "Financial Services",
     "Banks",
     "Insurance",
+    "Biotechnology",
 )
-DEFAULT_LIQUIDITY_EXEMPT_SECTORS = ("Software",)
+DEFAULT_LIQUIDITY_EXEMPT_SECTORS = ("Software", "Tobacco")
+DEFAULT_NET_DEBT_EBITDA_EXEMPT_SECTORS = ("Biotechnology",)
+DEFAULT_F_SCORE_EXEMPT_SECTORS = ("Biotechnology",)
 
 
 def _number(value: Any) -> float | None:
@@ -275,7 +283,10 @@ def _distress(context: SellRuleContext, policy: SellRulesPolicy) -> RuleEvaluati
     leverage_exempt = _sector_matches(
         context.sector,
         context.industry,
-        config.get("net_debt_ebitda_exempt_sectors", ()),
+        config.get(
+            "net_debt_ebitda_exempt_sectors",
+            DEFAULT_NET_DEBT_EBITDA_EXEMPT_SECTORS,
+        ),
     )
     if not leverage_exempt:
         net_debt_ebitda = _number(context.current.get("net_debt_ebitda"))
@@ -319,7 +330,7 @@ def _distress(context: SellRuleContext, policy: SellRulesPolicy) -> RuleEvaluati
     f_score_exempt = _sector_matches(
         context.sector,
         context.industry,
-        config.get("f_score_exempt_sectors", ()),
+        config.get("f_score_exempt_sectors", DEFAULT_F_SCORE_EXEMPT_SECTORS),
     )
     if not f_score_exempt:
         f_score = _number(

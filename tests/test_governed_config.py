@@ -208,3 +208,74 @@ def test_model_portfolio_constraints_are_pinned() -> None:
         "cash_weight": 0.0,
         "max_initial_turnover": 1.0,
     }
+
+
+def test_exempt_sectors_match_between_deal_breakers_and_sell_rules() -> None:
+    """scoring/investment.py (deal_breakers.json) and portfolio/sell_rules.py
+    (sell_rules.yaml) maintain two independent, hand-edited exempt-sector
+    lists for the same underlying risk checks -- STATUS.md documents this as
+    a known drift risk with no automatic equivalence guard. This test is
+    that guard: it fails if either governed file's exempt-sector list is
+    edited without updating its counterpart.
+
+    Key-name mapping (the two surfaces name the same concept differently):
+    altman_z <-> altman_z, interest_coverage -> altman_z (sell_rules folds
+    both solvency checks into the same exemption), net_debt_ebitda <->
+    net_debt_ebitda, current_liquidity <-> current_ratio, f_score <-> f_score.
+    """
+    deal_breakers = _load_json("deal_breakers.json")
+    sell_rules = _load_yaml("sell_rules.yaml")["distress"]
+
+    assert (
+        deal_breakers["altman_z_exempt_sectors"]
+        == sell_rules["altman_z_exempt_sectors"]
+        == sell_rules["interest_coverage_exempt_sectors"]
+    )
+    assert (
+        deal_breakers["current_liquidity_exempt_sectors"]
+        == sell_rules["current_ratio_exempt_sectors"]
+    )
+    assert (
+        deal_breakers["net_debt_ebitda_exempt_sectors"]
+        == sell_rules["net_debt_ebitda_exempt_sectors"]
+    )
+    assert (
+        deal_breakers["f_score_exempt_sectors"]
+        == sell_rules["f_score_exempt_sectors"]
+    )
+
+
+def test_sell_rules_python_defaults_match_deal_breakers() -> None:
+    """portfolio/sell_rules.py's DEFAULT_* fallbacks only apply when
+    sell_rules.yaml omits a key -- today it never does, so a stale default
+    (found and fixed alongside this test: DEFAULT_SOLVENCY_EXEMPT_SECTORS
+    was missing "Biotechnology", DEFAULT_LIQUIDITY_EXEMPT_SECTORS was
+    missing "Tobacco") silently does nothing until the day someone trims
+    sell_rules.yaml and the fallback quietly diverges from
+    deal_breakers.json. This locks the fallback to the governed source.
+    """
+    from portfolio.sell_rules import (
+        DEFAULT_F_SCORE_EXEMPT_SECTORS,
+        DEFAULT_LIQUIDITY_EXEMPT_SECTORS,
+        DEFAULT_NET_DEBT_EBITDA_EXEMPT_SECTORS,
+        DEFAULT_SOLVENCY_EXEMPT_SECTORS,
+    )
+
+    deal_breakers = _load_json("deal_breakers.json")
+
+    assert (
+        list(DEFAULT_SOLVENCY_EXEMPT_SECTORS)
+        == deal_breakers["altman_z_exempt_sectors"]
+    )
+    assert (
+        list(DEFAULT_LIQUIDITY_EXEMPT_SECTORS)
+        == deal_breakers["current_liquidity_exempt_sectors"]
+    )
+    assert (
+        list(DEFAULT_NET_DEBT_EBITDA_EXEMPT_SECTORS)
+        == deal_breakers["net_debt_ebitda_exempt_sectors"]
+    )
+    assert (
+        list(DEFAULT_F_SCORE_EXEMPT_SECTORS)
+        == deal_breakers["f_score_exempt_sectors"]
+    )
