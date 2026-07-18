@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 934 tests passing / 90.43% production coverage
+**Validation baseline:** 948 tests passing / 90.50% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -55,7 +55,19 @@ does not disclose the exact price basis and the newest positive observation was
 290 days old. Raw SEC evidence is content-addressed and the classification
 report is ignored runtime data. The next work should proceed in this order:
 
-1. **Grouped Daily price mechanism landed (2026-07-18, ADR-029)** —
+1. **Finnhub added as primary live market_cap/enterprise_value source
+   (2026-07-18, ADR-030)** — free tier, 60 calls/minute with no observed
+   daily cap, one call returns vendor-computed `market_cap` and
+   `enterprise_value` directly (no debt/cash composition needed, unlike
+   Massive or FMP). Placed ahead of Massive in
+   `application/collection.py`'s live per-symbol reconciliation chain;
+   live-verified (AAPL) that it is really queried and recorded as the
+   confirming source. Cannot feed Atlas's own Altman Z/ROIC/Interest
+   Coverage formulas (no raw debt/cash on the free tier, only ratios) — SEC
+   EDGAR is unchanged for those. A bounded 20-symbol broad-prefetch check
+   ran with 0 errors; the full 2,429-symbol broad run (~45 minutes) has not
+   been executed yet.
+3. **Grouped Daily price mechanism landed (2026-07-18, ADR-029)** —
    `MassiveMarketDataProvider.fetch_grouped_daily` reads one Basic-plan bulk
    endpoint per trade date instead of the 8-hour per-symbol Ticker Details
    scan; live-verified against the real eligible universe: one call matched
@@ -65,9 +77,9 @@ report is ignored runtime data. The next work should proceed in this order:
    45-day alignment discipline as EV/short_float) is the remaining half of
    the original item and is not done yet; the 6 unmatched symbols are
    unclassified, not confirmed unavailable.
-2. Run the implemented historical execution and total-return adapters against
+4. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
-3. Run broad portfolio validation and publish coverage limitations before any
+5. Run broad portfolio validation and publish coverage limitations before any
    calibration claim. Do not change governed scoring semantics without
    versioned out-of-sample evidence.
 

@@ -14,6 +14,7 @@ from portfolio.exceptions import PortfolioError
 from portfolio.loader import load_portfolio_csv
 from providers.contracts import ProviderPolicy
 from providers.evidence import apply_sector_applicability, ensure_field_evidence
+from providers.finnhub import build_finnhub_secondary_provider
 from providers.fmp import build_fmp_secondary_provider
 from providers.massive import build_massive_secondary_provider
 from providers.sec_companyfacts import build_sec_secondary_provider
@@ -165,6 +166,19 @@ class CollectionApplicationService:
             ),
             fundamentals_fetcher=secondary_fetcher,
         )
+        finnhub_fetcher = build_finnhub_secondary_provider(self.root, settings)
+        if (
+            bool(settings.get("finnhub_secondary_enabled", False))
+            and finnhub_fetcher is None
+        ):
+            self.logger.warning(
+                "Segunda fonte Finnhub habilitada, mas finnhub_api_key não "
+                "foi encontrada em %s ou FINNHUB_API_KEY.",
+                settings.get(
+                    "provider_secrets_path",
+                    "config/provider_secrets.json",
+                ),
+            )
         if (
             bool(settings.get("sec_secondary_enabled", False))
             and secondary_fetcher is None
@@ -224,7 +238,11 @@ class CollectionApplicationService:
             secondary_fetcher=secondary_fetcher,
             secondary_fetchers=tuple(
                 fetcher
-                for fetcher in (massive_fetcher, fmp_fetcher)
+                for fetcher in (
+                    finnhub_fetcher,
+                    massive_fetcher,
+                    fmp_fetcher,
+                )
                 if fetcher is not None
             ),
             critical_fields=tuple(

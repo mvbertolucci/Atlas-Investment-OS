@@ -95,6 +95,15 @@
       cached market-cap snapshot; classify the 6 unmatched Grouped Daily
       symbols instead of assuming them unavailable; retain Ticker Details for
       targeted single-symbol confirmation
+- [x] Add Finnhub as a free `market_cap`/`enterprise_value` secondary source
+      (60 calls/minute, no observed daily cap, vendor-computed EV in one
+      call, no composition needed) and place it ahead of Massive in the live
+      per-symbol reconciliation chain, ahead of FMP's 250-call/day wall
+      (67/2,429 broad coverage). Live-verified end to end — see ADR-030
+- [ ] Run the Finnhub broad prefetch to completion against the full
+      2,429-symbol eligible universe (`providers.finnhub_prefetch --all`,
+      ~45 minutes cold) and publish real broad coverage, mirroring the
+      Massive Float/Grouped Daily broad runs already completed
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

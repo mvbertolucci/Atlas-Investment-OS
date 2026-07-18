@@ -3,7 +3,13 @@
 ## Purpose
 
 `providers/fmp.py` uses the personal-use FMP Basic plan without a paid
-subscription. After ADR-026 it is a lower-priority fallback that can provide:
+subscription. After ADR-026 it was a lower-priority fallback behind Massive
+for `market_cap`/`enterprise_value`; after ADR-030 Finnhub claims both fields
+ahead of Massive too (a single call returns vendor-computed values with no
+composition, at 55/minute vs FMP's 250/day), so FMP's role for those two
+fields is now confirmation/fallback of last resort in the live per-symbol
+chain. It remains the accepted Float fallback inside Massive's own
+composition, and its broad prefetch CLI stays available. FMP can provide:
 
 - `market_cap`, from the current Market Capitalization endpoint;
 - `enterprise_value`, derived as current FMP market cap plus the latest FMP
