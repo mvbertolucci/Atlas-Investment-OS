@@ -118,5 +118,12 @@ slow quota on a large batch. `compose_market_cap` gained a `shares_source`
 parameter so composed records and their evidence detail say which source
 actually supplied the count. Live-verified: ABNB itself composed correctly
 once Massive supplied `share_class_shares_outstanding`; a bounded 5-symbol
-run recovered 5/5. Coverage before the full run: 80.24%+; full run tracked
-in `docs/BACKLOG.md`.
+run recovered 5/5. Full `--all` run: 310/323 fallback attempts succeeded,
+raising coverage to **92.80% (2,254/2,429)** -- up from the original
+70.98% across three real, measured rounds (window widening, extraction
+bug fix, Massive fallback), none of them guessed. Below Finnhub's 98.76%
+(ADR-030), which composes nothing and depends on one vendor instead of
+two -- expected, and not a reason to prefer this path over Finnhub for
+the live reconciliation chain; this composition's value is remaining
+useful as the vendor-independent fallback it was scoped to be from the
+start.

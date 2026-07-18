@@ -56,8 +56,14 @@ repeated invocations make progress without re-requesting cached symbols.
 Default batch size is 55 per invocation (matches the 55/minute pacing, one
 minute of calls); `--all` runs until the whole eligible universe is covered
 (~44 minutes cold). Coverage is written to the ignored
-`output/dados/finnhub_coverage.json`. Bounded live check (2026-07-18, 20
-symbols): 0 errors, all 20 cached and available.
+`output/dados/finnhub_coverage.json`. Full broad run (2026-07-18):
+**2,399/2,429 composed (98.76%)** -- the highest broad market_cap/EV
+coverage of any source in this repo. The first attempt hit the OneDrive
+file-lock (`ADR-032`, fixed after this run started -- a mid-run process
+keeps the code it loaded at start) and logged 12 transient errors; a clean
+rerun on the fixed code reproduced the identical 98.76% with 0 errors,
+confirming the number is stable and the transient errors did not cost any
+real coverage.
 
 ## Safety and evidence
 

@@ -59,11 +59,12 @@ assumed.
   Facts` and `Massive` -- all three ran; Yahoo's own value won because it was
   already present (the reconciliation chain is a fallback/confirmation net,
   not an override).
-- Broad coverage: a bounded 20-symbol live prefetch run against the real
-  eligible universe completed with 0 errors. A full 2,429-symbol cold run is
-  estimated at ~45 minutes (55-60/minute vs FMP's 250/day quota wall or
-  Massive Ticker Details' ~8-hour scan) and has not been run to completion
-  yet -- tracked as a follow-up in `docs/BACKLOG.md`.
+- Broad coverage: the full 2,429-symbol run completed --
+  **2,399 composed (98.76%)**, in ~55 minutes (55-60/minute vs FMP's
+  250/day quota wall or Massive Ticker Details' ~8-hour scan). Highest
+  broad market_cap/EV coverage of any source in this repo, well above the
+  Massive+SEC composition's 92.80% (ADR-031) -- confirms Finnhub as the
+  right primary choice for the live reconciliation chain.
 - No governed scoring weight, threshold or formula changes. Massive's SEC-
   composed EV mechanism (ADR-026) and the Grouped Daily price mechanism
   (ADR-033) are unchanged and still available -- this ADR does not retire

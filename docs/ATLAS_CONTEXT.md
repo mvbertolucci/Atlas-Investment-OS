@@ -64,9 +64,9 @@ report is ignored runtime data. The next work should proceed in this order:
    live-verified (AAPL) that it is really queried and recorded as the
    confirming source. Cannot feed Atlas's own Altman Z/ROIC/Interest
    Coverage formulas (no raw debt/cash on the free tier, only ratios) — SEC
-   EDGAR is unchanged for those. A bounded 20-symbol broad-prefetch check
-   ran with 0 errors; the full 2,429-symbol broad run (~45 minutes) has not
-   been executed yet.
+   EDGAR is unchanged for those. Full 2,429-symbol broad run: **2,399
+   composed (98.76%)** -- the highest broad coverage of any market_cap/EV
+   source in this repo, confirming Finnhub as the right primary choice.
 3. **Grouped Daily price mechanism landed (2026-07-18, ADR-033)** —
    `MassiveMarketDataProvider.fetch_grouped_daily` reads one Basic-plan bulk
    endpoint per trade date instead of the 8-hour per-symbol Ticker Details
@@ -83,11 +83,13 @@ report is ignored runtime data. The next work should proceed in this order:
    and fixed a real bug while investigating the gap: `backtesting/
    sec_edgar.py::extract_observations` aborted a company's entire
    extraction over one malformed XBRL entry in an unrelated field (ADR-034)
-   -- now skips only that entry. Full 2,429-symbol broad run: **1,944
-   composed (80.03%)**, no external vendor beyond Massive+SEC. Remaining
-   gap (323 shares_unavailable, mostly closed-end funds with no 10-K/10-Q
-   XBRL) needs a second shares-outstanding source, tracked in
-   `docs/BACKLOG.md`.
+   -- now skips only that entry. Added a Massive Ticker Details fallback
+   for symbols with no SEC shares_outstanding at all (e.g. ABNB, whose SEC
+   `dei` taxonomy is genuinely empty -- confirmed live, not a bug). Full
+   2,429-symbol broad run: **2,254 composed (92.80%)**, no external vendor
+   beyond Massive+SEC -- up from an initial 70.98% across three measured
+   rounds. Below Finnhub's 98.76% (item 1), as expected; this path's value
+   is being the vendor-independent fallback, not beating Finnhub's coverage.
 4. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 5. Run broad portfolio validation and publish coverage limitations before any

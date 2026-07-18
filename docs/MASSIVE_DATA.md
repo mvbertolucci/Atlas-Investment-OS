@@ -122,9 +122,9 @@ describe current state. Coverage is written to the ignored
 This snapshot supplies the price leg (`close`). Composition with SEC
 `shares_outstanding` into `market_cap` at scale is implemented in
 `providers/market_cap_composition.py` + `market_cap_composition_prefetch`
-(CLI) — see ADR-031. The full 2,429-symbol broad run composed 1,944
-(80.03%), no external vendor beyond Massive+SEC; remaining gaps tracked in
-`docs/BACKLOG.md`.
+(CLI) — see ADR-031, which also adds a Massive Ticker Details fallback for
+symbols with no SEC shares_outstanding. The full 2,429-symbol broad run
+composed 2,254 (92.80%), no external vendor beyond Massive+SEC.
 
 ## Safety and evidence
 

@@ -103,10 +103,12 @@
       call, no composition needed) and place it ahead of Massive in the live
       per-symbol reconciliation chain, ahead of FMP's 250-call/day wall
       (67/2,429 broad coverage). Live-verified end to end — see ADR-030
-- [ ] Run the Finnhub broad prefetch to completion against the full
-      2,429-symbol eligible universe (`providers.finnhub_prefetch --all`,
-      ~45 minutes cold) and publish real broad coverage, mirroring the
-      Massive Float/Grouped Daily broad runs already completed
+- [x] Run the Finnhub broad prefetch to completion against the full
+      2,429-symbol eligible universe: **2,399/2,429 composed (98.76%)** --
+      highest broad market_cap/EV coverage of any source in this repo.
+      First attempt hit the OneDrive lock (ADR-032, fixed mid-run so this
+      process kept the old code); a clean rerun on the fixed code
+      reproduced the identical 98.76% with 0 errors
 - [x] Run `providers.market_cap_composition_prefetch --all` to completion:
       **80.03% (1,944/2,429)** composed, no external vendor beyond
       Massive+SEC. Two real fixes along the way, not just running the job:
@@ -129,8 +131,10 @@
       specifically (no error, genuinely no `shares_outstanding`) and found
       its SEC `dei` taxonomy is completely empty -- a real SEC-side gap for
       (likely) dual-class filers, not something Atlas's code can fix.
-      Bounded 5-symbol live check: 5/5 recovered via Massive. See ADR-031's
-      second update. Full `--all` run in progress
+      Bounded 5-symbol live check: 5/5 recovered via Massive. Full `--all`
+      run completed: **92.80% (2,254/2,429)** composed, no external vendor
+      beyond Massive+SEC -- up from the original 70.98%. See ADR-031's
+      second update.
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 
