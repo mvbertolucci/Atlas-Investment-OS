@@ -1,5 +1,37 @@
 # Changelog
 
+## Extract shared atomic-write retry, fix the OneDrive lock everywhere it existed
+
+### Fixed
+
+- `providers.market_cap_composition_prefetch --all` crashed mid-run with
+  `PermissionError: [WinError 5]` on `sec_shares_cache.py`'s atomic
+  rename -- this repository lives under OneDrive, which transiently locks
+  a file during sync. The exact same failure was already found and fixed
+  once before, in `universe/collector.py::write_collection_state` and
+  `backtesting/sec_edgar_collector.py` (their tests literally read
+  `raise PermissionError("OneDrive lock")`), but the fix was never
+  extracted or propagated. An audit found the same unprotected
+  `temporary.replace(path)` in nine more places, including
+  `scoring/reference.py::write_scoring_reference` -- the official
+  ADR-012 scoring-reference artifact, previously with zero retry
+  protection.
+- New `storage/atomic_write.py` (`replace_with_retry`,
+  `atomic_write_json`) extracts the already-proven retry loop; applied at
+  every identified call site (four provider caches, the shared
+  `_atomic_write` used by five prefetch CLIs, and the scoring reference
+  writer). The two original sites now delegate instead of duplicating the
+  loop, same public signature, no behavior change for their existing
+  callers or tests.
+
+### Validation
+
+- `tests/test_atomic_write.py` (6 new): recovers within budget, re-raises
+  once exhausted, never swallows a non-`PermissionError`, rejects a
+  non-positive attempt count. Both pre-existing OneDrive-lock regression
+  tests still pass against the refactored implementation unchanged. 986
+  tests green, 90.64% coverage. See ADR-032.
+
 ## Guard live-vs-point-in-time ROIC/Interest Coverage equivalence
 
 ### Added

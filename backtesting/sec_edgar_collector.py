@@ -17,6 +17,7 @@ from backtesting.sec_edgar import (
     fetch_company_facts,
     fetch_ticker_cik_map,
 )
+from storage.atomic_write import replace_with_retry
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -157,14 +158,13 @@ def write_collection_state(
         ),
         encoding="utf-8",
     )
-    for attempt in range(replace_attempts):
-        try:
-            temporary.replace(output)
-            break
-        except PermissionError:
-            if attempt == replace_attempts - 1:
-                raise
-            sleeper(retry_delay)
+    replace_with_retry(
+        temporary,
+        output,
+        replace_attempts=replace_attempts,
+        retry_delay=retry_delay,
+        sleeper=sleeper,
+    )
     return output
 
 

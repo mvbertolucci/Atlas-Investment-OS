@@ -165,5 +165,5 @@ silenciosamente ao mover o Excel para `output/relatorios/`. Agora recebe
 
 ## Última atualização
 - **Data**: 2026-07-18
-- **Commit**: pendente (`feat(watchlist): add a friendlier Excel front end for promote_to_watchlist`)
-- **Baseline de validação**: 980 testes verdes, 90,61% cobertura
+- **Commit**: pendente (`fix(storage): extract shared atomic-write retry for the OneDrive file-lock`)
+- **Baseline de validação**: 986 testes verdes, 90,64% cobertura

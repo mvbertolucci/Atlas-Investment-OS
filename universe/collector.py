@@ -20,6 +20,7 @@ from providers.evidence import (
     ensure_field_evidence,
     reconcile_critical_fields,
 )
+from storage.atomic_write import replace_with_retry
 from storage.raw_snapshots import store_raw_snapshot
 from providers.sec_companyfacts import build_sec_secondary_provider
 from universe.sources import (
@@ -185,14 +186,13 @@ def write_collection_state(
         json.dumps(state.to_dict(), ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
     )
-    for attempt in range(replace_attempts):
-        try:
-            temporary.replace(output)
-            break
-        except PermissionError:
-            if attempt == replace_attempts - 1:
-                raise
-            sleeper(retry_delay)
+    replace_with_retry(
+        temporary,
+        output,
+        replace_attempts=replace_attempts,
+        retry_delay=retry_delay,
+        sleeper=sleeper,
+    )
     return output
 
 

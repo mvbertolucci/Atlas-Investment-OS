@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from providers.contracts import ProviderError, ProviderErrorKind
+from storage.atomic_write import replace_with_retry
 
 
 CACHE_VERSION = 1
@@ -93,7 +94,7 @@ class FmpCacheStore:
             json.dumps(data, indent=2, sort_keys=True),
             encoding="utf-8",
         )
-        temporary.replace(self.path)
+        replace_with_retry(temporary, self.path)
         self._state = data
 
     def _save_quota(self, payload: Mapping[str, Any]) -> None:
@@ -107,7 +108,7 @@ class FmpCacheStore:
             json.dumps(data, indent=2, sort_keys=True),
             encoding="utf-8",
         )
-        temporary.replace(self.quota_path)
+        replace_with_retry(temporary, self.quota_path)
         self._quota_state = data
 
     def get(

@@ -8,18 +8,19 @@ from typing import Any, Mapping, Sequence
 
 from providers.massive import build_massive_secondary_provider
 from providers.prefetch_symbols import load_symbols
+from storage.atomic_write import atomic_write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _atomic_write(payload: Mapping[str, Any], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-    )
-    temporary.replace(path)
+    # Kept as a thin wrapper: several other prefetch CLIs import this exact
+    # name from this module (finnhub_prefetch, massive_float_prefetch,
+    # massive_grouped_daily_prefetch, sec_public_float_audit,
+    # market_cap_composition_prefetch) -- renaming would touch all of them
+    # for no behavioral gain.
+    atomic_write_json(path, payload, indent=2, sort_keys=True)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

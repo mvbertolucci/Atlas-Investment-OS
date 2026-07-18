@@ -10,6 +10,8 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from storage.atomic_write import replace_with_retry
+
 
 CONTRACT_VERSION = "1.0"
 DEFAULT_REFERENCE_VERSION = "1"
@@ -197,7 +199,7 @@ def write_scoring_reference(
         json.dumps(reference.to_dict(), ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8",
     )
-    temporary.replace(output)
+    replace_with_retry(temporary, output)
     return output
 
 

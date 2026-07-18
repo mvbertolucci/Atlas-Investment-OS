@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from storage.atomic_write import replace_with_retry
+
 
 CACHE_VERSION = 1
 Clock = Callable[[], datetime]
@@ -50,7 +52,7 @@ class FinnhubMetricCache:
         temporary.write_text(
             json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
         )
-        temporary.replace(self.path)
+        replace_with_retry(temporary, self.path)
 
     def get(self, symbol: str, *, max_age_days: float) -> Any | None:
         entry = self.load()["records"].get(str(symbol).strip().upper())
