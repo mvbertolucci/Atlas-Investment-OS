@@ -100,6 +100,30 @@ longer the preferred way to collect broad free float; it remains useful for
 per-company market-cap metadata until a more efficient broad derivation is
 implemented.
 
+## Broad market-cap price snapshot (Grouped Daily)
+
+The per-symbol Ticker Details scan above is a slow way to price the whole
+eligible universe (8.1 hours cold). `GET /v2/aggs/grouped/locale/us/market/
+stocks/{date}` returns every US stock ticker's OHLC for one trade date in a
+single Basic-plan call. Live-verified 2026-07-16: one request returned 12,452
+market records and matched 2,423/2,429 eligible symbols (99.75%).
+
+```powershell
+.\.venv\Scripts\python.exe -m providers.massive_grouped_daily_prefetch --date 2026-07-16
+```
+
+The resumable snapshot is stored in the ignored file
+`data/provider_cache/massive_grouped_daily.json`, keyed by trade date. A past
+date's bars are immutable, so a cache hit never re-requests the network — this
+cache never expires, unlike the Ticker Details or Float caches above, which
+describe current state. Coverage is written to the ignored
+`output/dados/massive_grouped_daily_coverage.json`.
+
+This snapshot supplies only the price leg (`close`). Composing it with SEC
+`shares_outstanding` into `market_cap` at scale — the actual replacement for
+the broad Ticker Details scan — is tracked separately in `docs/BACKLOG.md`;
+see ADR-029.
+
 ## Safety and evidence
 
 - The key is loaded from `MASSIVE_API_KEY` or ignored
@@ -115,6 +139,7 @@ implemented.
 - `GET /v3/reference/tickers/{ticker}`
 - `GET /stocks/v1/short-interest`
 - `GET /stocks/vX/float`
+- `GET /v2/aggs/grouped/locale/us/market/stocks/{date}`
 
 Official references:
 

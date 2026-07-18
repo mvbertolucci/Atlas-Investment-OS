@@ -27,6 +27,8 @@
   "massive_float_page_limit": 1000,
   "massive_float_max_pages_per_run": 100,
   "massive_float_coverage_report_path": "output/dados/massive_float_coverage.json",
+  "massive_grouped_daily_cache_path": "data/provider_cache/massive_grouped_daily.json",
+  "massive_grouped_daily_coverage_report_path": "output/dados/massive_grouped_daily_coverage.json",
   "fmp_secondary_enabled": true,
   "fmp_automatic_prefetch_enabled": false,
   "fmp_cache_path": "data/provider_cache/fmp.json",

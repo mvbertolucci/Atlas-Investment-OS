@@ -86,9 +86,15 @@
 - [ ] Revisit the 64 residuals only when a source supplies a dated share count
       under a comparable non-affiliate definition; do not derive it from SEC
       monetary public float or outstanding shares
-- [ ] Replace the slow per-symbol broad Ticker Details scan with a composed
-      market-cap path based on Massive Grouped Daily prices and aligned SEC
-      shares; retain Ticker Details for targeted confirmation
+- [x] Add the Massive Grouped Daily price mechanism: bounded live-verified
+      Basic-plan access, `fetch_grouped_daily`, an immutable per-trade-date
+      cache and a prefetch CLI. Live-verified 2026-07-16: one call matched
+      2,423/2,429 eligible symbols (99.75%) — see ADR-029
+- [ ] Compose `market_cap = Grouped Daily close × SEC shares_outstanding`
+      (same 45-day alignment discipline as EV/short_float) into a broad,
+      cached market-cap snapshot; classify the 6 unmatched Grouped Daily
+      symbols instead of assuming them unavailable; retain Ticker Details for
+      targeted single-symbol confirmation
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

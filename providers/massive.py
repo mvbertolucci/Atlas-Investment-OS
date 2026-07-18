@@ -21,6 +21,7 @@ from providers.contracts import (
 from providers.evidence import DataValueStatus, FieldEvidence
 from providers.massive_cache import (
     MassiveFloatSnapshotCache,
+    MassiveGroupedDailyCache,
     MassiveTickerDetailsCache,
 )
 
@@ -167,6 +168,7 @@ class MassiveMarketDataProvider:
     float_snapshot_cache: MassiveFloatSnapshotCache | None = None
     float_snapshot_cache_days: float = 7.0
     float_page_limit: int = 1000
+    grouped_daily_cache: MassiveGroupedDailyCache | None = None
     prefetch_policy: ProviderPolicy = ProviderPolicy()
     request_limit_per_minute: int = 5
     sleeper: Callable[[float], None] = field(default=time.sleep, repr=False)
@@ -444,6 +446,61 @@ class MassiveMarketDataProvider:
             complete=bool(final_state["complete"]),
         )
         return summary
+
+    def fetch_grouped_daily(self, trade_date: str) -> dict[str, dict[str, Any]]:
+        """Full-market EOD bars for one date in a single request.
+
+        Replaces the per-symbol Ticker Details scan (~8h at 5 calls/minute)
+        as the broad market-cap price source: one call returns every US
+        stock ticker's close for the date. A past date's bars are immutable,
+        so a cache hit never re-requests the network.
+        """
+        try:
+            normalized_date = date.fromisoformat(str(trade_date)[:10]).isoformat()
+        except ValueError as exc:
+            raise ValueError(
+                f"Massive grouped daily trade_date inválida: {trade_date!r}"
+            ) from exc
+        if self.grouped_daily_cache is not None:
+            cached = self.grouped_daily_cache.get_date(normalized_date)
+            if cached is not None:
+                return {symbol: dict(bar) for symbol, bar in cached.items()}
+        client = ProviderClient("Massive", self.prefetch_policy)
+        payload = client.execute(
+            "grouped_daily",
+            self._get,
+            f"/v2/aggs/grouped/locale/us/market/stocks/{normalized_date}",
+            adjusted="true",
+        )
+        if not isinstance(payload, Mapping) or not isinstance(
+            payload.get("results"), list
+        ):
+            raise ProviderError(
+                "Massive",
+                "grouped_daily",
+                ProviderErrorKind.INVALID_RESPONSE,
+                "Massive grouped daily response has no results list",
+                retryable=False,
+            )
+        records: dict[str, dict[str, Any]] = {}
+        for row in payload["results"]:
+            if not isinstance(row, Mapping):
+                continue
+            symbol = str(row.get("T") or "").strip().upper()
+            close = _number(row.get("c"))
+            if not symbol or close is None:
+                continue
+            records[symbol] = {
+                "trade_date": normalized_date,
+                "close": close,
+                "open": _number(row.get("o")),
+                "high": _number(row.get("h")),
+                "low": _number(row.get("l")),
+                "volume": _number(row.get("v")),
+            }
+        if self.grouped_daily_cache is not None:
+            self.grouped_daily_cache.put_date(normalized_date, records)
+        return records
 
     def __call__(
         self,
@@ -723,6 +780,15 @@ def build_massive_secondary_provider(
             settings.get("massive_float_cache_days", 7)
         ),
         float_page_limit=int(settings.get("massive_float_page_limit", 1000)),
+        grouped_daily_cache=MassiveGroupedDailyCache(
+            Path(root)
+            / str(
+                settings.get(
+                    "massive_grouped_daily_cache_path",
+                    "data/provider_cache/massive_grouped_daily.json",
+                )
+            )
+        ),
         prefetch_policy=ProviderPolicy(
             timeout_seconds=float(settings.get("provider_timeout_seconds", 30)),
             max_retries=int(settings.get("provider_max_retries", 2)),

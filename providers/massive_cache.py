@@ -193,3 +193,79 @@ class MassiveFloatSnapshotCache:
             None,
         )
         return (row if isinstance(row, Mapping) else None, payload["complete"])
+
+
+@dataclass
+class MassiveGroupedDailyCache:
+    """Caches one full-market end-of-day bar snapshot per trade date.
+
+    A past trade date's OHLC bars never change, so entries never expire --
+    unlike ticker details or float snapshots, which describe current state.
+    """
+
+    path: Path
+    clock: Clock = _utc_now
+    _state: dict[str, Any] | None = field(default=None, init=False, repr=False)
+
+    @staticmethod
+    def _empty() -> dict[str, Any]:
+        return {"version": CACHE_VERSION, "updated_at": None, "dates": {}}
+
+    def load(self) -> dict[str, Any]:
+        if self._state is not None:
+            return self._state
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, TypeError, json.JSONDecodeError):
+            payload = self._empty()
+        if not isinstance(payload, dict) or payload.get("version") != CACHE_VERSION:
+            payload = self._empty()
+        if not isinstance(payload.get("dates"), dict):
+            payload["dates"] = {}
+        self._state = payload
+        return self._state
+
+    def _save(self) -> None:
+        payload = self.load()
+        payload["version"] = CACHE_VERSION
+        payload["updated_at"] = self.clock().isoformat(timespec="seconds")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+        temporary.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        temporary.replace(self.path)
+
+    def get_date(self, trade_date: str) -> dict[str, Mapping[str, Any]] | None:
+        entry = self.load()["dates"].get(str(trade_date))
+        if not isinstance(entry, Mapping) or not isinstance(
+            entry.get("records"), Mapping
+        ):
+            return None
+        return dict(entry["records"])
+
+    def put_date(
+        self, trade_date: str, records: Mapping[str, Mapping[str, Any]]
+    ) -> None:
+        self.load()["dates"][str(trade_date)] = {
+            "fetched_at": self.clock().isoformat(timespec="seconds"),
+            "record_count": len(records),
+            "records": {
+                str(symbol): dict(bar) for symbol, bar in records.items()
+            },
+        }
+        self._save()
+
+    def lookup(
+        self, trade_date: str, symbol: str
+    ) -> Mapping[str, Any] | None:
+        records = self.get_date(trade_date)
+        if records is None:
+            return None
+        normalized = str(symbol).strip().upper()
+        candidates = (normalized, normalized.replace("-", "."))
+        for candidate in candidates:
+            row = records.get(candidate)
+            if isinstance(row, Mapping):
+                return row
+        return None

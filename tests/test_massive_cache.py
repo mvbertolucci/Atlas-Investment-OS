@@ -5,6 +5,7 @@ from pathlib import Path
 
 from providers.massive_cache import (
     MassiveFloatSnapshotCache,
+    MassiveGroupedDailyCache,
     MassiveTickerDetailsCache,
 )
 
@@ -58,7 +59,6 @@ def test_massive_float_cache_checkpoints_pages_without_credentials(
         {"cursor": "next-cursor"},
     )
     assert "apiKey" not in cache.path.read_text(encoding="utf-8")
-    assert not cache.path.with_suffix(".json.tmp").exists()
 
     cache.append_page(
         [
@@ -73,6 +73,44 @@ def test_massive_float_cache_checkpoints_pages_without_credentials(
     }
     assert cache.lookup("UNKNOWN", max_age_days=7) == (None, True)
     assert cache.next_request(initial_limit=1000) is None
+
+
+def test_massive_grouped_daily_cache_never_expires_a_past_date(
+    tmp_path: Path,
+) -> None:
+    current = [datetime(2026, 7, 17, tzinfo=timezone.utc)]
+    cache = MassiveGroupedDailyCache(
+        tmp_path / "grouped.json", clock=lambda: current[0]
+    )
+
+    cache.put_date("2026-07-16", {"AAPL": {"close": 150.0}})
+    current[0] += timedelta(days=400)
+
+    assert cache.get_date("2026-07-16") == {"AAPL": {"close": 150.0}}
+    assert cache.lookup("2026-07-16", "aapl") == {"close": 150.0}
+    assert cache.get_date("2026-07-15") is None
+    assert cache.path.exists()
+    assert not cache.path.with_suffix(".json.tmp").exists()
+
+
+def test_massive_grouped_daily_cache_matches_hyphenated_share_classes(
+    tmp_path: Path,
+) -> None:
+    cache = MassiveGroupedDailyCache(tmp_path / "grouped.json")
+    cache.put_date("2026-07-16", {"BRK.B": {"close": 400.0}})
+
+    assert cache.lookup("2026-07-16", "BRK-B") == {"close": 400.0}
+
+
+def test_massive_grouped_daily_cache_recovers_from_malformed_data(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "grouped.json"
+    path.write_text("not-json", encoding="utf-8")
+    assert MassiveGroupedDailyCache(path).load()["dates"] == {}
+
+    path.write_text('{"version": 999}', encoding="utf-8")
+    assert MassiveGroupedDailyCache(path).load()["version"] == 1
 
 
 def test_massive_float_cache_expires_stale_snapshot(tmp_path: Path) -> None:

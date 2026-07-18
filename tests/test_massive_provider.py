@@ -12,10 +12,11 @@ from providers.massive import (
     build_massive_secondary_provider,
     load_massive_api_key,
 )
-from providers.contracts import ProviderPolicy
+from providers.contracts import ProviderError, ProviderPolicy
 from providers.fmp_cache import FmpQuotaExceeded
 from providers.massive_cache import (
     MassiveFloatSnapshotCache,
+    MassiveGroupedDailyCache,
     MassiveTickerDetailsCache,
 )
 
@@ -606,3 +607,71 @@ def test_massive_float_prefetch_rejects_unsafe_cursor_and_invalid_config(
     )
     with pytest.raises(ValueError, match="max_pages"):
         provider.prefetch_float_universe(["AAPL"], max_pages=0)
+
+
+def test_massive_grouped_daily_normalizes_symbols_and_prices(
+    tmp_path: Path,
+) -> None:
+    calls = []
+
+    def transport(path, params, api_key, timeout):
+        calls.append((path, dict(params)))
+        return {
+            "results": [
+                {"T": "aapl", "o": 210.0, "h": 213.0, "l": 209.0, "c": 212.5, "v": 5.0e7},
+                {"T": "BRK.B", "o": 401.0, "h": 402.0, "l": 399.0, "c": 400.5, "v": 3.0e6},
+                {"T": "", "c": 10.0},
+                {"T": "ZZZ"},
+            ]
+        }
+
+    provider = MassiveMarketDataProvider(
+        "secret",
+        transport=transport,
+        grouped_daily_cache=MassiveGroupedDailyCache(tmp_path / "grouped.json"),
+        prefetch_policy=ProviderPolicy(max_retries=0, rate_limit_per_second=100_000),
+    )
+
+    records = provider.fetch_grouped_daily("2026-07-16")
+
+    assert records["AAPL"] == {
+        "trade_date": "2026-07-16",
+        "close": 212.5,
+        "open": 210.0,
+        "high": 213.0,
+        "low": 209.0,
+        "volume": 5.0e7,
+    }
+    assert records["BRK.B"]["close"] == 400.5
+    assert "" not in records and "ZZZ" not in records
+    assert calls == [
+        (
+            "/v2/aggs/grouped/locale/us/market/stocks/2026-07-16",
+            {"adjusted": "true"},
+        )
+    ]
+
+
+def test_massive_grouped_daily_cache_hit_skips_network(tmp_path: Path) -> None:
+    def transport(path, params, api_key, timeout):
+        raise AssertionError("grouped daily must not be re-requested from cache")
+
+    cache = MassiveGroupedDailyCache(tmp_path / "grouped.json")
+    cache.put_date("2026-07-16", {"AAPL": {"close": 212.5}})
+    provider = MassiveMarketDataProvider(
+        "secret", transport=transport, grouped_daily_cache=cache
+    )
+
+    assert provider.fetch_grouped_daily("2026-07-16") == {
+        "AAPL": {"close": 212.5}
+    }
+
+
+def test_massive_grouped_daily_rejects_invalid_date_and_response() -> None:
+    provider = MassiveMarketDataProvider(
+        "secret", transport=lambda *a, **k: {"results": "not-a-list"}
+    )
+    with pytest.raises(ValueError, match="trade_date"):
+        provider.fetch_grouped_daily("not-a-date")
+    with pytest.raises(ProviderError, match="results list"):
+        provider.fetch_grouped_daily("2026-07-16")

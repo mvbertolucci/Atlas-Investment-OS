@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 925 tests passing / 90.39% production coverage
+**Validation baseline:** 934 tests passing / 90.43% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -55,8 +55,16 @@ does not disclose the exact price basis and the newest positive observation was
 290 days old. Raw SEC evidence is content-addressed and the classification
 report is ignored runtime data. The next work should proceed in this order:
 
-1. Replace the eight-hour broad Ticker Details path with Massive Grouped Daily
-   prices plus aligned SEC shares for market-cap composition.
+1. **Grouped Daily price mechanism landed (2026-07-18, ADR-029)** —
+   `MassiveMarketDataProvider.fetch_grouped_daily` reads one Basic-plan bulk
+   endpoint per trade date instead of the 8-hour per-symbol Ticker Details
+   scan; live-verified against the real eligible universe: one call matched
+   2,423/2,429 symbols (99.75%). The cache never expires (a past date's bars
+   are immutable) and a prefetch CLI publishes coverage. Composing this price
+   with SEC `shares_outstanding` into a broad `market_cap` snapshot (same
+   45-day alignment discipline as EV/short_float) is the remaining half of
+   the original item and is not done yet; the 6 unmatched symbols are
+   unclassified, not confirmed unavailable.
 2. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 3. Run broad portfolio validation and publish coverage limitations before any
