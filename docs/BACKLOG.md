@@ -108,20 +108,24 @@
       ~45 minutes cold) and publish real broad coverage, mirroring the
       Massive Float/Grouped Daily broad runs already completed
 - [x] Run `providers.market_cap_composition_prefetch --all` to completion:
-      1,870/2,429 (76.99%) composed, no external vendor beyond Massive+SEC.
-      Alignment window widened 100->140 days after measuring the real age
-      distribution (142/300 "stale" symbols were only 101-130 days old,
-      consistent with SEC's worst-case quarterly filing cadence; 119 were
-      365+ days, correctly left excluded as dead/shell-company data, not
-      a filing-cadence question) -- see ADR-031's update. Remaining gaps:
-      399 shares_unavailable, 128 of those explicit SEC fetch errors
-      (`invalid_response`/`not_found`, likely CIK-not-found -- same shape
-      as the SEC public-float audit's "30 issuers without the concept"),
-      154 shares_stale (365+ days), 6 price_unavailable
+      **80.03% (1,944/2,429)** composed, no external vendor beyond
+      Massive+SEC. Two real fixes along the way, not just running the job:
+      (1) alignment window widened 100->140 days after measuring the real
+      age distribution (142/300 "stale" symbols were only 101-130 days
+      old, matching SEC's worst-case quarterly filing cadence; 119 were
+      365+ days, correctly left excluded as dead/shell-company data --
+      ADR-031's update); (2) `backtesting/sec_edgar.py::extract_observations`
+      was aborting a company's ENTIRE extraction over one malformed entry
+      in an unrelated field -- fixed to skip only that entry (ADR-034),
+      recovering 74 more symbols. Remaining gap: 323 shares_unavailable
+      (50 explicit errors -- 48 closed-end funds with no 10-K/10-Q XBRL,
+      2 CIK-not-found, both legitimate), 156 shares_stale (365+ days,
+      correctly excluded), 6 price_unavailable
 - [ ] Add Massive Ticker Details' `share_class_shares_outstanding` as a
-      second shares-outstanding source for the 399 `shares_unavailable`
-      gap (the field is already in the raw payload, currently unused);
-      bounded by Massive's 5-call/minute limit, ~80 min for ~400 symbols
+      second shares-outstanding source for the remaining 323
+      `shares_unavailable` gap (the field is already in the raw payload,
+      currently unused); bounded by Massive's 5-call/minute limit, ~65 min
+      for the residual
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

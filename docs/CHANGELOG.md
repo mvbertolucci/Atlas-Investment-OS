@@ -1,5 +1,40 @@
 # Changelog
 
+## Stop a malformed SEC XBRL entry from aborting a company's whole extraction
+
+### Fixed
+
+- Investigating why the broad market-cap composition run (76.99% coverage)
+  had 128 SEC fetch errors found the real cause: `backtesting/sec_edgar.py::
+  extract_observations` raised out of the whole function when a single XBRL
+  entry, in *any* of the ~17 tracked fields, had `end` (period) after
+  `filed` (filing date) -- `HistoricalObservation` correctly rejects that
+  entry, but the exception propagated past every other field's perfectly
+  good data for the same company. Classified all 128: 78 were this exact
+  pattern (in fields like `total_assets`, `dividends_paid`, `net_income` --
+  never the field actually being sought), 48 were closed-end funds with no
+  10-K/10-Q XBRL at all (legitimate absence), 2 were genuine
+  CIK-not-found.
+- Now catches the `ValueError` per entry and skips only that one, leaving
+  every other field's observations intact -- matching the function's own
+  documented principle that an absent concept stays absent, never
+  approximated, instead of one odd data point wiping out an entire company.
+- Live-verified: ADBE, CL, AFL, ALGT and AMSC now return real
+  `shares_outstanding` that a previously-unrelated field's bad entry was
+  blocking. Broad composition coverage rose from 76.99% (1,870/2,429) to
+  80.03% (1,944/2,429); fetch errors dropped from 128 to 50 (the two
+  legitimate-absence categories only).
+- Shared code: also benefits `backtesting/sec_edgar_collector.py`'s
+  checkpointed collection and point-in-time replay, which were silently
+  losing whole companies to the same failure mode.
+
+### Validation
+
+- New regression test reproduces the exact measured shape (a bad
+  `total_assets` entry alongside a clean `shares_outstanding` one) and
+  asserts only the malformed field is dropped. 987 tests green (1 new),
+  full backtesting suite unaffected. See ADR-034.
+
 ## Extract shared atomic-write retry, fix the OneDrive lock everywhere it existed
 
 ### Fixed

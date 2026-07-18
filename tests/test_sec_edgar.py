@@ -244,3 +244,46 @@ def test_extract_observations_covers_the_widened_native_tag_set() -> None:
         "operating_income": 30.0,
         "interest_expense": 40.0,
     }
+
+
+def test_extract_observations_skips_only_the_malformed_entry() -> None:
+    """A real, measured SEC EDGAR pattern (2026-07-18 broad market_cap
+    composition run): some XBRL entries have `end` after `filed` --
+    HistoricalObservation correctly rejects that single entry (available_at
+    can't precede observed_on), but it must not take down every other field
+    for the same company. Reproduces the exact shape found for AGM
+    (total_assets: end=2021-12-31, filed=2021-05-06) alongside a clean
+    shares_outstanding entry that should still come through."""
+    facts = {
+        "facts": {
+            "us-gaap": {
+                "Assets": {
+                    "units": {
+                        "USD": [
+                            _entry(end="2021-12-31", filed="2021-05-06", val=1.0)
+                        ]
+                    }
+                },
+            },
+            "dei": {
+                "EntityCommonStockSharesOutstanding": {
+                    "units": {
+                        "shares": [
+                            _entry(
+                                end="2025-12-31",
+                                filed="2026-02-01",
+                                val=500_000_000.0,
+                            )
+                        ]
+                    }
+                },
+            },
+        }
+    }
+
+    observations = extract_observations("AGM", facts)
+
+    fields = {o.field_name for o in observations}
+    assert "total_assets" not in fields
+    assert fields == {"shares_outstanding"}
+    assert observations[0].value == 500_000_000.0

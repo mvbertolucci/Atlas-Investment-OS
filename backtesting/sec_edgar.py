@@ -196,6 +196,18 @@ def extract_observations(
     Restrito a formulários 10-K/10-Q (o núcleo periódico) -- outros tipos de
     filing que carregam XBRL (ex.: exibições de 8-K) ficam de fora nesta
     fatia.
+
+    Uma entrada individual cujo `end` (período) fica depois do `filed`
+    (`HistoricalObservation` recusa isso -- não dá pra saber de um período
+    antes de ele existir) é descartada só ELA, não a extração inteira.
+    Medido contra 128 símbolos reais que falhavam na composição de
+    market_cap: 78 tinham essa violação isolada num único campo (ex.:
+    `total_assets` da AGM, `dividends_paid` da ALGT) que antes abortava a
+    extração de TODOS os ~17 campos rastreados da mesma empresa --
+    inclusive campos sem nenhum problema, como `shares_outstanding` da
+    própria empresa. Isso contradizia o princípio já documentado aqui
+    ("conceito ausente fica simplesmente ausente") -- um ponto de dado
+    esquisito virava ausência de tudo, não só daquele ponto.
     """
     symbol = _text(symbol, "symbol").upper()
     facts_by_taxonomy = company_facts.get("facts", {})
@@ -229,8 +241,8 @@ def extract_observations(
                         continue
                     seen_identities.add(identity)
 
-                    observations.append(
-                        HistoricalObservation(
+                    try:
+                        observation = HistoricalObservation(
                             symbol=symbol,
                             field_name=field_name,
                             value=entry["val"],
@@ -241,6 +253,11 @@ def extract_observations(
                             source=f"SEC EDGAR ({form}, {taxonomy}:{tag})",
                             revision_id=revision_id,
                         )
-                    )
+                    except ValueError:
+                        # available_at antes de observed_on -- entrada
+                        # isolada malformada, tratada como ausente (ver
+                        # docstring); não aborta os demais campos.
+                        continue
+                    observations.append(observation)
 
     return tuple(observations)

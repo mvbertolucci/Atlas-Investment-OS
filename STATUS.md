@@ -165,5 +165,5 @@ silenciosamente ao mover o Excel para `output/relatorios/`. Agora recebe
 
 ## Última atualização
 - **Data**: 2026-07-18
-- **Commit**: pendente (`fix(storage): extract shared atomic-write retry for the OneDrive file-lock`)
-- **Baseline de validação**: 986 testes verdes, 90,64% cobertura
+- **Commit**: pendente (`fix(backtesting): stop malformed SEC XBRL entries from aborting whole-company extraction`)
+- **Baseline de validação**: 987 testes verdes, 90,64% cobertura

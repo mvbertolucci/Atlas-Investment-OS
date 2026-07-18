@@ -37,6 +37,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-031 | Compose broad market cap from Grouped Daily price x SEC shares | Accepted 2026-07-18 |
 | ADR-032 | Shared retry-on-lock for every atomic JSON write | Accepted 2026-07-18 |
 | ADR-033 | Massive Grouped Daily as the broad market-cap price source | Accepted 2026-07-18 |
+| ADR-034 | A malformed SEC XBRL entry no longer aborts a company's whole extraction | Accepted 2026-07-18 |
 
 ## Recording a new decision
 

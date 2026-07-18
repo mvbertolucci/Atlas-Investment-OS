@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 962 tests passing / 90.56% production coverage
+**Validation baseline:** 987 tests passing / 90.64% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -79,10 +79,15 @@ report is ignored runtime data. The next work should proceed in this order:
    (not 45; share count only moves via deliberate buybacks/issuance and is
    filed quarterly, unlike debt/cash -- widened from an initial 100 days
    after measuring the real age distribution of the broad run's gaps,
-   consistent with SEC's worst-case quarterly filing cadence). Full
-   2,429-symbol broad run: 1,870 composed (76.99%), no external vendor
-   beyond Massive+SEC. Remaining gap (399 shares_unavailable) needs a
-   second shares-outstanding source, tracked in `docs/BACKLOG.md`.
+   consistent with SEC's worst-case quarterly filing cadence). Also found
+   and fixed a real bug while investigating the gap: `backtesting/
+   sec_edgar.py::extract_observations` aborted a company's entire
+   extraction over one malformed XBRL entry in an unrelated field (ADR-034)
+   -- now skips only that entry. Full 2,429-symbol broad run: **1,944
+   composed (80.03%)**, no external vendor beyond Massive+SEC. Remaining
+   gap (323 shares_unavailable, mostly closed-end funds with no 10-K/10-Q
+   XBRL) needs a second shares-outstanding source, tracked in
+   `docs/BACKLOG.md`.
 4. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 5. Run broad portfolio validation and publish coverage limitations before any
