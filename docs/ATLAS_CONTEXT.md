@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 987 tests passing / 90.64% production coverage
+**Validation baseline:** 992 tests passing / 90.64% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -67,7 +67,7 @@ report is ignored runtime data. The next work should proceed in this order:
    EDGAR is unchanged for those. Full 2,429-symbol broad run: **2,399
    composed (98.76%)** -- the highest broad coverage of any market_cap/EV
    source in this repo, confirming Finnhub as the right primary choice.
-3. **Grouped Daily price mechanism landed (2026-07-18, ADR-033)** —
+2. **Grouped Daily price mechanism landed (2026-07-18, ADR-033)** —
    `MassiveMarketDataProvider.fetch_grouped_daily` reads one Basic-plan bulk
    endpoint per trade date instead of the 8-hour per-symbol Ticker Details
    scan; live-verified against the real eligible universe: one call matched

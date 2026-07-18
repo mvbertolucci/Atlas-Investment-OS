@@ -38,6 +38,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-032 | Shared retry-on-lock for every atomic JSON write | Accepted 2026-07-18 |
 | ADR-033 | Massive Grouped Daily as the broad market-cap price source | Accepted 2026-07-18 |
 | ADR-034 | A malformed SEC XBRL entry no longer aborts a company's whole extraction | Accepted 2026-07-18 |
+| ADR-035 | Wikipedia "Selected changes" table as a real source for historical S&P 500 membership (proof of concept) | Proposed 2026-07-18 |
 
 ## Recording a new decision
 

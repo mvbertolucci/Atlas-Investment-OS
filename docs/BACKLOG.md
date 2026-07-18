@@ -435,6 +435,34 @@ policy, not missing data.
       distinct constrained 20-position advisory portfolio; ignored `*_adr`
       artifacts generated
 
+### Historical index-membership reconstruction (PR-033/034 blocker)
+
+No free source of real historical S&P 500 membership was known to exist --
+the hardest of the three real blockers on running walk-forward validation
+against a real broad dataset (the other two, broad point-in-time
+fundamentals and real total-return/execution-calendar evidence, already
+have adapters, just not run at scale).
+
+- [x] Prove a real, free source exists: Wikipedia's "Selected changes to
+      the list of S&P 500 components" table (`universe/sp500_changes.py`,
+      proof of concept, not integrated). Live-verified: 407 changes,
+      1976-2026, cross-checked against Tesla's real 2020-12-21 addition
+      date exactly. Density measured by decade: sparse before 2000 (table
+      says "Selected", not "Complete"), dense 2010s (218) through 2020s --
+      exactly the window SEC XBRL point-in-time fundamentals can also
+      cover. See ADR-035.
+- [ ] Reconstruct actual `UniverseMembership` half-open intervals from the
+      parsed change log (handle rows with only one side populated, same-day
+      multiple changes) -- not done yet, deliberately out of scope for the
+      proof of concept
+- [ ] Solve the "membership at the earliest reliably-covered date" baseline
+      problem the change log alone does not answer
+- [ ] Only after both of the above: run broad point-in-time fundamentals
+      acquisition and real total-return/execution-calendar evidence at
+      scale against the reconstructed membership (adapters already exist,
+      proven for 2 companies, per `docs/WALK_FORWARD_BACKTEST.md` /
+      `docs/HISTORICAL_MODEL_PORTFOLIO.md`)
+
 ### Deferred platform effects
 
 - [ ] Scheduling — resume after the analytical method is validated
