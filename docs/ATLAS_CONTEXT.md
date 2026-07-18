@@ -136,11 +136,11 @@ technical enrichment + derived fundamentals
           ↓
 normalization
           ↓
-Investment / Opportunity / Conviction scoring
-          ↓
-Deal Breakers + Decision Engine + Thesis
-          ↓
-CompanyReport objects
+Investment / Opportunity / Conviction scoring   [config/features.yaml,
+          ↓                                       config/model.yaml,
+Deal Breakers + Decision Engine + Thesis          config/deal_breakers.json,
+          ↓                                       config/data_quality.yaml --
+CompanyReport objects                             see section 4]
           ↓
 optional portfolio.csv enrichment and PortfolioReport
           ↓
@@ -148,6 +148,14 @@ SQLite history + Outcome Snapshot capture and evaluation
           ↓
 Outcome JSON + Excel + Morning Brief + execution metrics
 ```
+
+The scoring/deal-breaker stage is the only place governed config enters this
+flow (`config/features.yaml`: per-feature weight + `percentile_scope`;
+`config/model.yaml`: `factor_weights` + confidence cap; `config/deal_breakers.json`:
+observed-risk rules and sector exemptions; `config/data_quality.yaml`: source-quality/
+freshness policy — full list in section 4). There is no `config/weights.json` —
+it was removed as dead config (score-integrity track); `model.yaml::factor_weights`
+is the only weight source, pinned by `tests/test_governed_config.py`.
 
 ### Portfolio behavior
 
