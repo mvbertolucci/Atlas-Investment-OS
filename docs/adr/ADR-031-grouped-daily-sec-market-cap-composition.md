@@ -86,3 +86,37 @@ errors) is a separate gap this widening does not address -- would need a
 second shares-outstanding source (Massive Ticker Details returns
 `share_class_shares_outstanding`, unused today) as a tracked follow-up in
 `docs/BACKLOG.md`.
+
+## Update (2026-07-18) — malformed-entry fix (ADR-034) and Massive fallback
+
+Two more rounds after the window widening, prompted by the user asking for
+more coverage than 76.99% (window widening) and then again past 80.03%
+(ADR-034's extraction fix): investigated instead of guessing each time.
+
+ADR-034 fixed `backtesting/sec_edgar.py::extract_observations` aborting a
+company's *entire* extraction over one malformed entry in an unrelated
+field -- recovered 74 symbols, 76.99% -> 80.03%.
+
+Investigating the remaining `shares_unavailable` gap found ABNB (Airbnb) --
+no error, `shares_outstanding` genuinely `None`. Live-checked ABNB's raw SEC
+company facts directly: its `dei` taxonomy is completely empty, no
+`EntityCommonStockSharesOutstanding` or `CommonStockSharesOutstanding` tag
+at all -- not a bug, a real SEC-side gap (plausibly its dual-class share
+structure never rolls up into a flat cover-page fact the way single-class
+filers' does). This confirmed the remaining gap is genuinely two separate
+real limitations, not a hidden third bug: closed-end funds with no 10-K/10-Q
+XBRL, and companies whose SEC tagging has no clean shares-outstanding fact.
+
+Implemented the Massive Ticker Details fallback flagged above:
+`_fetch_massive_shares` in `market_cap_composition_prefetch` tries Massive's
+`share_class_shares_outstanding` (computed through Massive's own pipeline,
+independent of raw SEC XBRL) only when SEC has none, bounded by its own
+5-call/minute pacing and a separate per-run budget
+(`market_cap_composition_massive_fallback_batch_size`, default 5;
+unbounded under `--all`) so a normal run never accidentally burns Massive's
+slow quota on a large batch. `compose_market_cap` gained a `shares_source`
+parameter so composed records and their evidence detail say which source
+actually supplied the count. Live-verified: ABNB itself composed correctly
+once Massive supplied `share_class_shares_outstanding`; a bounded 5-symbol
+run recovered 5/5. Coverage before the full run: 80.24%+; full run tracked
+in `docs/BACKLOG.md`.

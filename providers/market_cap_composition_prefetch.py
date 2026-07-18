@@ -9,6 +9,7 @@ from typing import Any, Sequence
 
 from providers.contracts import ProviderClient, ProviderError, ProviderPolicy
 from providers.market_cap_composition import compose_market_cap
+from providers.massive import build_massive_secondary_provider
 from providers.massive_cache import MassiveGroupedDailyCache
 from providers.massive_prefetch import _atomic_write
 from providers.prefetch_symbols import load_symbols
@@ -45,6 +46,39 @@ def _fetch_shares(
     observed_at = evidence.get("observed_at")
     if cache is not None:
         cache.put(symbol, {"shares_outstanding": shares, "observed_at": observed_at})
+    return shares, observed_at, None
+
+
+def _fetch_massive_shares(
+    symbol: str,
+    provider: Any,
+) -> tuple[float | None, str | None, str | None]:
+    """Fallback source for shares_outstanding when SEC has no usable fact
+    for the symbol (e.g. dual/multi-class share structures like ABNB,
+    whose SEC company facts carry no dei:EntityCommonStockSharesOutstanding
+    at all -- confirmed live, not assumed). Massive computes
+    share_class_shares_outstanding through its own pipeline, independent of
+    raw SEC XBRL, so it can cover exactly this gap. `fetch_ticker_details`
+    has its own persistent 7-day cache and 5-call/minute pacing built in
+    (providers/massive.py), so no separate cache/client is needed here.
+    Returns (shares_outstanding, observed_at, error_message); observed_at
+    is "now" (Massive's Ticker Details has no reliable per-field as-of date
+    for this field) -- always current, so it always aligns with a recent
+    Grouped Daily price.
+    """
+    try:
+        payload = provider.fetch_ticker_details(symbol)
+    except Exception as exc:  # noqa: BLE001 -- provider raises RuntimeError/ValueError, not ProviderError, here
+        return None, None, type(exc).__name__
+    results = payload.get("results") if isinstance(payload, dict) else None
+    shares = (results or {}).get("share_class_shares_outstanding")
+    try:
+        shares = float(shares) if shares is not None else None
+    except (TypeError, ValueError):
+        shares = None
+    if shares is None:
+        return None, None, None
+    observed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     return shares, observed_at, None
 
 
@@ -114,6 +148,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     )
     sec_cache_days = float(settings.get("sec_shares_cache_days", 30))
+    massive_provider = build_massive_secondary_provider(ROOT, settings)
     client = ProviderClient(
         "SEC EDGAR Company Facts",
         ProviderPolicy(
@@ -132,7 +167,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     max_symbols = None if args.all else args.limit if args.limit is not None else int(
         settings.get("market_cap_composition_batch_size", 100)
     )
+    massive_fallback_budget = (
+        None
+        if args.all
+        else int(
+            settings.get(
+                "market_cap_composition_massive_fallback_batch_size", 5
+            )
+        )
+    )
     requested_this_run = 0
+    massive_fallback_attempted = 0
     fetch_errors: list[dict[str, str]] = []
     composed: dict[str, dict[str, Any]] = {}
     for symbol in symbols:
@@ -150,6 +195,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         if error is not None:
             fetch_errors.append({"symbol": symbol, "error": error})
+        shares_source = "SEC EDGAR Company Facts"
+        if (
+            shares is None
+            and massive_provider is not None
+            and (
+                massive_fallback_budget is None
+                or massive_fallback_attempted < massive_fallback_budget
+            )
+        ):
+            massive_fallback_attempted += 1
+            fallback_shares, fallback_observed_at, fallback_error = (
+                _fetch_massive_shares(symbol, massive_provider)
+            )
+            if fallback_shares is not None:
+                shares, observed_at = fallback_shares, fallback_observed_at
+                shares_source = "Massive Ticker Details"
+            elif fallback_error is not None:
+                fetch_errors.append(
+                    {"symbol": symbol, "error": f"massive_fallback:{fallback_error}"}
+                )
         composed[symbol] = compose_market_cap(
             symbol,
             grouped_daily_row=price_records.get(symbol)
@@ -157,6 +222,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             shares_outstanding=shares,
             shares_observed_at=observed_at,
             shares_alignment_days=alignment_days,
+            shares_source=shares_source,
         )
 
     status_counts = Counter(row["status"] for row in composed.values())
@@ -169,6 +235,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "alignment_days": alignment_days,
         "requested": len(symbols),
         "requested_this_run": requested_this_run,
+        "massive_fallback_attempted": massive_fallback_attempted,
+        "massive_sourced": sum(
+            1 for row in composed.values() if row.get("shares_source") == "Massive Ticker Details"
+        ),
         "composed": status_counts.get("composed", 0),
         "coverage_pct": (
             round(100 * status_counts.get("composed", 0) / len(symbols), 2)

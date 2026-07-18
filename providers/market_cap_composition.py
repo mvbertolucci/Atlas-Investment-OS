@@ -37,6 +37,7 @@ def compose_market_cap(
     shares_outstanding: float | None,
     shares_observed_at: str | None,
     shares_alignment_days: int,
+    shares_source: str = "SEC EDGAR Company Facts",
 ) -> dict[str, Any]:
     """market_cap = Grouped Daily close x SEC shares_outstanding.
 
@@ -66,18 +67,18 @@ def compose_market_cap(
     shares = _number(shares_outstanding)
 
     status = "composed"
-    detail = "Massive Grouped Daily close x SEC shares_outstanding"
+    detail = f"Massive Grouped Daily close x {shares_source} shares_outstanding"
     market_cap: float | None = None
     if close is None:
         status = "price_unavailable"
         detail = "no Grouped Daily close for this symbol/date"
     elif shares is None:
         status = "shares_unavailable"
-        detail = "no SEC shares_outstanding for this symbol"
+        detail = f"no shares_outstanding for this symbol ({shares_source})"
     elif not _dates_within_days(price_date, shares_observed_at, shares_alignment_days):
         status = "shares_stale"
         detail = (
-            f"SEC shares_outstanding observed_at={shares_observed_at or 'unavailable'} "
+            f"{shares_source} shares_outstanding observed_at={shares_observed_at or 'unavailable'} "
             f"outside {shares_alignment_days}-day window of price_date={price_date or 'unavailable'}"
         )
     else:
@@ -85,7 +86,7 @@ def compose_market_cap(
 
     return {
         "symbol": normalized,
-        "source": "Massive Grouped Daily + SEC EDGAR Company Facts",
+        "source": f"Massive Grouped Daily + {shares_source}",
         "as_of": retrieved_at,
         "status": status,
         "market_cap": market_cap,
@@ -93,6 +94,7 @@ def compose_market_cap(
         "price_date": price_date,
         "shares_outstanding": shares,
         "shares_observed_at": shares_observed_at,
+        "shares_source": shares_source,
         "field_evidence": {
             "market_cap": FieldEvidence(
                 status=(

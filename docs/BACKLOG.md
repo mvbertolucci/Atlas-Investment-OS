@@ -121,11 +121,16 @@
       (50 explicit errors -- 48 closed-end funds with no 10-K/10-Q XBRL,
       2 CIK-not-found, both legitimate), 156 shares_stale (365+ days,
       correctly excluded), 6 price_unavailable
-- [ ] Add Massive Ticker Details' `share_class_shares_outstanding` as a
-      second shares-outstanding source for the remaining 323
-      `shares_unavailable` gap (the field is already in the raw payload,
-      currently unused); bounded by Massive's 5-call/minute limit, ~65 min
-      for the residual
+- [x] Add Massive Ticker Details' `share_class_shares_outstanding` as a
+      second shares-outstanding source for the `shares_unavailable` gap
+      (`_fetch_massive_shares` in `market_cap_composition_prefetch`, tried
+      only when SEC has none, own budget separate from SEC's). Confirmed
+      the gap is two real limitations, not a hidden bug: investigated ABNB
+      specifically (no error, genuinely no `shares_outstanding`) and found
+      its SEC `dei` taxonomy is completely empty -- a real SEC-side gap for
+      (likely) dual-class filers, not something Atlas's code can fix.
+      Bounded 5-symbol live check: 5/5 recovered via Massive. See ADR-031's
+      second update. Full `--all` run in progress
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 
