@@ -132,37 +132,14 @@ directly to `ReportingServices`. Governed single-symbol analysis and one-pager
 publication are composed in `application/ticker.py` and exposed separately by
 `TickerServices`, rather than as a runtime operation.
 
-```text
-settings.json + watchlist.csv
-          ↓
-Yahoo provider
-          ↓
-bounded provider contract + immutable raw snapshot + field evidence
-          ↓
-technical enrichment + derived fundamentals
-          ↓
-normalization
-          ↓
-Investment / Opportunity / Conviction scoring   [config/features.yaml,
-          ↓                                       config/model.yaml,
-Deal Breakers + Decision Engine + Thesis          config/deal_breakers.json,
-          ↓                                       config/data_quality.yaml --
-CompanyReport objects                             see section 4]
-          ↓
-optional portfolio.csv enrichment and PortfolioReport
-          ↓
-SQLite history + Outcome Snapshot capture and evaluation
-          ↓
-Outcome JSON + Excel + Morning Brief + execution metrics
-```
-
-The scoring/deal-breaker stage is the only place governed config enters this
-flow (`config/features.yaml`: per-feature weight + `percentile_scope`;
-`config/model.yaml`: `factor_weights` + confidence cap; `config/deal_breakers.json`:
-observed-risk rules and sector exemptions; `config/data_quality.yaml`: source-quality/
-freshness policy — full list in section 4). There is no `config/weights.json` —
-it was removed as dead config (score-integrity track); `model.yaml::factor_weights`
-is the only weight source, pinned by `tests/test_governed_config.py`.
+See `docs/ARCHITECTURE.md`'s "Integrated company-analysis pipeline" diagram
+for the full step-by-step flow, including exactly where each governed
+config file enters (that diagram is the single source for this -- it used
+to be duplicated here in prose form, with its own drift risk; consolidated
+2026-07-18). In short: `settings.json` + `watchlist.csv` in, Yahoo +
+evidence-tracked secondary providers, factor scoring, Deal Breakers,
+Decision Engine, `CompanyReport`, optional portfolio enrichment, SQLite
+history/Outcome capture, then Excel/Morning Brief/execution metrics out.
 
 ### Portfolio behavior
 

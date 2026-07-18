@@ -3,21 +3,25 @@
 ## Integrated company-analysis pipeline
 
 ```text
+settings.json + watchlist.csv
+      ↓
 Yahoo Provider
+      ↓
+bounded provider contract + immutable raw snapshot + field evidence
       ↓
 Normalization and Validation
       ↓
 Feature and Factor Engines
       ↓
-Business / Valuation / Financial / Timing
-      ↓
+Business / Valuation / Financial / Timing   [config/features.yaml: per-feature
+      ↓                                       weight + percentile_scope]
 Investment Score
       ↓
-Deal Breakers and Risk Penalties
-      ↓
-Opportunity Score
-      ↓
-Conviction Score
+Deal Breakers and Risk Penalties            [config/model.yaml: factor_weights +
+      ↓                                       confidence cap; config/deal_breakers.json:
+Opportunity Score                            observed-risk rules + sector exemptions;
+      ↓                                       config/data_quality.yaml: source-quality/
+Conviction Score                             freshness policy]
       ↓
 Decision Engine
       ↓
@@ -29,6 +33,12 @@ CompanyReport
       ↓
 History / Alerts / Excel / Morning Brief
 ```
+
+The scoring/deal-breaker stage is the only place governed config enters this
+flow -- see the Feature and scoring layer below for the full config list.
+There is no `config/weights.json` -- it was removed as dead config
+(score-integrity track); `model.yaml::factor_weights` is the only weight
+source, pinned by `tests/test_governed_config.py`.
 
 ## Portfolio Intelligence domain
 
