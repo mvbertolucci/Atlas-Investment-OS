@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
@@ -237,6 +238,9 @@ class SecCompanyFactsProvider:
     ticker_map_fetcher: Callable[..., dict[str, str]] = fetch_ticker_cik_map
     facts_fetcher: Callable[..., dict[str, Any]] = fetch_company_facts
     _cik_by_ticker: dict[str, str] | None = field(default=None, init=False)
+    _records_by_ticker: dict[str, dict[str, Any]] = field(
+        default_factory=dict, init=False
+    )
 
     def __post_init__(self) -> None:
         identity = str(self.user_agent).strip()
@@ -255,11 +259,15 @@ class SecCompanyFactsProvider:
                 user_agent=self.user_agent
             )
         normalized = str(symbol).strip().upper()
+        if normalized in self._records_by_ticker:
+            return deepcopy(self._records_by_ticker[normalized])
         cik = self._cik_by_ticker.get(normalized)
         if cik is None:
             raise RuntimeError(f"404 CIK not found for {normalized}")
         facts = self.facts_fetcher(cik, user_agent=self.user_agent)
-        return record_from_company_facts(normalized, facts, cik=cik)
+        record = record_from_company_facts(normalized, facts, cik=cik)
+        self._records_by_ticker[normalized] = record
+        return deepcopy(record)
 
 
 def build_sec_secondary_provider(

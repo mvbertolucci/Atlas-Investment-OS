@@ -128,9 +128,11 @@ before enrichment; checkpoints and score history retain its SHA-256. Critical
 fields can be reconciled with a second adapter, with fallback, confirmation and
 conflict represented explicitly. SEC, FMP and Massive run through independent
 bounded clients and immutable snapshots; each declares the fields it can
-actually confirm. Massive Short Interest composes with FMP Float without
-claiming that either source alone supplied `short_float`. See ADR-014, ADR-023
-and ADR-024. FMP broad prefetch uses a persistent TTL cache, atomic UTC daily
+actually confirm. Massive Basic Ticker Details supplies current market cap and
+composes it with SEC debt/cash for enterprise value. Massive Short Interest
+uses native Massive Float when aligned, then dated FMP Float as fallback,
+without claiming either source alone supplied a composed field. See ADR-014,
+ADR-023, ADR-024 and ADR-026. FMP broad prefetch uses a persistent TTL cache, atomic UTC daily
 quota ledger, interactive-call reserve and resumable batch/page boundaries.
 Unsupported responses are negative-cached and remain unavailable rather than
 being inferred as confirmations; live Basic-plan coverage is explicitly

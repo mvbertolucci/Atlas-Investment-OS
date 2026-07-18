@@ -3,7 +3,7 @@
 ## Purpose
 
 `providers/fmp.py` uses the personal-use FMP Basic plan without a paid
-subscription. It provides independent evidence for:
+subscription. After ADR-026 it is a lower-priority fallback that can provide:
 
 - `market_cap`, from the current Market Capitalization endpoint;
 - `enterprise_value`, derived as current FMP market cap plus the latest FMP
@@ -11,9 +11,11 @@ subscription. It provides independent evidence for:
 - free-float shares, consumed only as the denominator of the governed
   `short_float` calculation.
 
-Massive supplies dated short-interest shares. The composed secondary derives
-`short_float = Massive short_interest / FMP floatShares` only when the two
-observation dates are no more than 45 days apart.
+Massive first supplies market cap, dated short-interest shares and native
+Float. FMP Float is requested only when the native observation is missing or
+more than 45 days from Short Interest; the fallback is accepted only when its
+own dates align. Automatic broad FMP prefetch is disabled; the explicit CLI
+remains available for a controlled fallback scan.
 
 ## Security and evidence
 

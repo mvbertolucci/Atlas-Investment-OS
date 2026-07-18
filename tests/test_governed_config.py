@@ -102,6 +102,7 @@ def test_provider_operational_policy_is_pinned() -> None:
     assert settings["sec_secondary_enabled"] is True
     assert settings["massive_secondary_enabled"] is True
     assert settings["fmp_secondary_enabled"] is True
+    assert settings["fmp_automatic_prefetch_enabled"] is False
     assert settings["fmp_daily_call_limit"] == 250
     assert settings["fmp_prefetch_reserve_calls"] == 25
     assert settings["fmp_prefetch_threshold"] == 100

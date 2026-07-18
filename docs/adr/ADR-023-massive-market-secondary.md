@@ -3,8 +3,9 @@
 **Status:** Accepted
 **Date:** 2026-07-17
 
-ADR-024 supersedes the market-cap/enterprise-value and native-Float portions
-when free FMP access is configured. Massive remains the Short Interest source.
+ADR-026 supersedes the market-cap/enterprise-value priority described by
+ADR-024. Massive now supplies Basic Ticker Details market cap, composes EV with
+SEC components and prefers its native Float before FMP fallback.
 
 ## Context
 
@@ -37,17 +38,17 @@ publishes dated FINRA short interest, allowing the correct ratio to be derived.
 
 ## Consequences
 
-- SEC remains authoritative for comparable filing fundamentals. Under ADR-024,
-  Massive owns Short Interest while FMP owns market cap, EV components and
-  Float.
+- SEC remains authoritative for comparable filing fundamentals. Under ADR-026,
+  Massive owns market cap, Short Interest and first-choice Float; SEC supplies
+  the debt/cash components of EV and FMP is the dated Float fallback.
 - Missing credentials cause a warning only when explicitly enabled and never
   expose or invent a value.
 - Market/ownership confirmation becomes possible without changing scores,
   thresholds or Deal Breakers.
 - The experimental Massive Float endpoint remains only a fallback maintenance
   risk.
-- Broad-universe confirmation is constrained by the free FMP daily quota and
-  requires batch/cache orchestration, not a paid Massive plan.
+- Broad Massive coverage must still be measured with persistent, resumable
+  collection before a market-wide coverage claim.
 - The 2026-07-17 AAPL verification confirmed Short Interest and Float endpoint
   access, but did not confirm `short_float`: their 2026-06-30 and 2026-03-05
   observations exceeded the 45-day alignment rule. Financial Ratios returned

@@ -2,12 +2,12 @@
 
 **Release:** v1.2.0
 **Baseline:** PR-033 + point-in-time acquisition/derivation (including `timing` and extended `valuation`) + deterministic PR-034 target/execution-evidence/total-return-evidence/execution/validation cores
-**Test baseline:** 902 passing / 90.36% production coverage
+**Test baseline:** 905 passing / 90.39% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
 | Market/fundamental collection | Yes | Yes | Yes | Yes | Operational |
-| Provider resilience and raw evidence | Yes | Yes | No | No | SEC confirms reported fundamentals; FMP has persistent batch/cache/quota controls but Basic live coverage was only 67/2,429 for market cap/float; Massive Short Interest plus aligned FMP Float confirms short float where both are available |
+| Provider resilience and raw evidence | Yes | Yes | No | No | Massive Basic confirms market cap; Massive + SEC derives EV; Massive Short Interest uses aligned native Float then FMP fallback. FMP broad fallback remains explicitly limited to 67/2,429 in its live scan |
 | Technical enrichment | Yes | Yes | Yes | Yes | Operational; 100% direct coverage |
 | Investment scoring | Yes | Yes | Yes | Yes | Operational |
 | Opportunity and conviction | Yes | Yes | Yes | Yes | Operational |

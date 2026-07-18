@@ -12,23 +12,23 @@ from providers.massive import (
     build_massive_secondary_provider,
     load_massive_api_key,
 )
+from providers.fmp_cache import FmpQuotaExceeded
 
 
 def _transport(path, params, api_key, timeout):
-    assert params["ticker"] == "AAPL"
     assert api_key == "secret-key"
     assert timeout == 7
-    if path.endswith("/ratios"):
+    if "/reference/tickers/" in path:
+        assert path.endswith("/AAPL")
         return {
-            "results": [
-                {
-                    "ticker": "AAPL",
-                    "date": "2026-07-16",
-                    "market_cap": 3_000_000_000_000,
-                    "enterprise_value": 3_100_000_000_000,
-                }
-            ]
+            "results": {
+                "ticker": "AAPL",
+                "market_cap": 3_000_000_000_000,
+                "last_updated_utc": "2026-07-16T20:00:00Z",
+                "share_class_shares_outstanding": 15_000_000_000,
+            }
         }
+    assert params["ticker"] == "AAPL"
     if path.endswith("/short-interest"):
         return {
             "results": [
@@ -50,9 +50,24 @@ def _transport(path, params, api_key, timeout):
     }
 
 
+def _sec_fundamentals(symbol):
+    assert symbol == "AAPL"
+    return {
+        "total_debt": 150_000_000_000,
+        "total_cash": 50_000_000_000,
+        "field_evidence": {
+            "total_debt": {"observed_at": "2026-06-30"},
+            "total_cash": {"observed_at": "2026-06-30"},
+        },
+    }
+
+
 def test_massive_maps_comparable_market_and_short_float_fields() -> None:
     provider = MassiveMarketDataProvider(
-        "secret-key", timeout_seconds=7, transport=_transport
+        "secret-key",
+        timeout_seconds=7,
+        transport=_transport,
+        fundamentals_fetcher=_sec_fundamentals,
     )
 
     record = provider("aapl")
@@ -61,7 +76,7 @@ def test_massive_maps_comparable_market_and_short_float_fields() -> None:
     assert record["enterprise_value"] == 3_100_000_000_000
     assert record["short_float"] == pytest.approx(0.01)
     assert record["field_evidence"]["market_cap"]["observed_at"] == (
-        "2026-07-16"
+        "2026-07-16T20:00:00Z"
     )
     assert record["field_evidence"]["short_float"]["observed_at"] == (
         "2026-06-30"
@@ -132,15 +147,15 @@ def test_massive_rejects_empty_key_and_isolates_invalid_payload() -> None:
     assert record["enterprise_value"] is None
     assert record["short_float"] is None
     assert set(record["massive_endpoint_errors"]) == {
-        "ratios",
+        "ticker_details",
         "short_interest",
         "float",
     }
 
 
-def test_massive_keeps_short_float_when_ratios_are_forbidden() -> None:
+def test_massive_keeps_short_float_when_ticker_details_are_forbidden() -> None:
     def transport(path, params, api_key, timeout):
-        if path.endswith("/ratios"):
+        if "/reference/tickers/" in path:
             raise RuntimeError("Massive HTTP 403")
         return _transport(path, params, api_key, 7)
 
@@ -151,7 +166,7 @@ def test_massive_keeps_short_float_when_ratios_are_forbidden() -> None:
     assert record["market_cap"] is None
     assert record["enterprise_value"] is None
     assert record["short_float"] == pytest.approx(0.01)
-    assert record["massive_endpoint_errors"]["ratios"]["message"] == (
+    assert record["massive_endpoint_errors"]["ticker_details"]["message"] == (
         "Massive HTTP 403"
     )
     assert record["field_evidence"]["market_cap"]["status"] == (
@@ -159,12 +174,15 @@ def test_massive_keeps_short_float_when_ratios_are_forbidden() -> None:
     )
 
 
-def test_massive_uses_fmp_float_and_skips_paid_ratios() -> None:
+def test_massive_uses_fmp_float_when_native_period_is_misaligned() -> None:
     requested_paths = []
 
     def transport(path, params, api_key, timeout):
         requested_paths.append(path)
-        return _transport(path, params, api_key, 7)
+        payload = _transport(path, params, api_key, 7)
+        if path.endswith("/float"):
+            payload["results"][0]["effective_date"] = "2025-12-31"
+        return payload
 
     provider = MassiveMarketDataProvider(
         "secret-key",
@@ -175,18 +193,80 @@ def test_massive_uses_fmp_float_and_skips_paid_ratios() -> None:
             "observed_at": "2026-07-15 22:36:05",
             "_raw_fmp_float": [{"symbol": symbol}],
         },
-        use_ratios=False,
     )
 
     record = provider("AAPL")
 
-    assert requested_paths == ["/stocks/v1/short-interest"]
+    assert requested_paths == [
+        "/v3/reference/tickers/AAPL",
+        "/stocks/v1/short-interest",
+        "/stocks/vX/float",
+    ]
     assert record["short_float"] == pytest.approx(
         150_000_000 / 14_662_387_495
     )
     assert record["source"] == "Massive + Financial Modeling Prep"
     assert record["field_evidence"]["short_float"]["source"] == (
         "Massive + Financial Modeling Prep"
+    )
+
+
+def test_massive_prefers_aligned_native_float_without_fmp_call() -> None:
+    fallback_calls = []
+    provider = MassiveMarketDataProvider(
+        "secret-key",
+        timeout_seconds=7,
+        transport=_transport,
+        float_fetcher=lambda symbol: fallback_calls.append(symbol) or {},
+    )
+
+    record = provider("AAPL")
+
+    assert fallback_calls == []
+    assert record["short_float"] == pytest.approx(0.01)
+    assert record["field_evidence"]["short_float"]["source"] == "Massive"
+
+
+def test_massive_requires_aligned_sec_components_for_enterprise_value() -> None:
+    def misaligned(symbol):
+        payload = _sec_fundamentals(symbol)
+        payload["field_evidence"]["total_cash"]["observed_at"] = "2025-12-31"
+        return payload
+
+    record = MassiveMarketDataProvider(
+        "secret-key",
+        timeout_seconds=7,
+        transport=_transport,
+        fundamentals_fetcher=misaligned,
+    )("AAPL")
+
+    assert record["market_cap"] == 3_000_000_000_000
+    assert record["enterprise_value"] is None
+    assert "cash_period=2025-12-31" in record["field_evidence"][
+        "enterprise_value"
+    ]["detail"]
+
+
+def test_massive_isolates_fmp_quota_failure_and_keeps_native_evidence() -> None:
+    def transport(path, params, api_key, timeout):
+        payload = _transport(path, params, api_key, 7)
+        if path.endswith("/float"):
+            payload["results"][0]["effective_date"] = "2025-12-31"
+        return payload
+
+    def exhausted(_symbol):
+        raise FmpQuotaExceeded("reserved")
+
+    record = MassiveMarketDataProvider(
+        "secret-key",
+        timeout_seconds=7,
+        transport=transport,
+        float_fetcher=exhausted,
+    )("AAPL")
+
+    assert record["short_float"] is None
+    assert record["massive_endpoint_errors"]["float_fallback"]["type"] == (
+        "FmpQuotaExceeded"
     )
 
 
@@ -231,6 +311,11 @@ def test_massive_helpers_reject_malformed_and_unusable_values() -> None:
     with pytest.raises(ValueError, match="results list"):
         massive_module._latest_result({}, "date")
     assert massive_module._latest_result({"results": []}, "date") == {}
+    with pytest.raises(ValueError, match="results object"):
+        massive_module._result_object({"results": []})
+    assert massive_module._result_object({"results": {"ticker": "AAPL"}}) == {
+        "ticker": "AAPL"
+    }
     assert massive_module._number("invalid") is None
     assert massive_module._number(-1) is None
     assert massive_module._dates_within_days(None, "2026-01-01", 45) is False

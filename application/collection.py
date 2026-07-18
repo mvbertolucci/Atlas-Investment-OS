@@ -129,7 +129,9 @@ class CollectionApplicationService:
 
         secondary_fetcher = build_sec_secondary_provider(self.root, settings)
         fmp_fetcher = build_fmp_secondary_provider(self.root, settings)
-        if fmp_fetcher is not None:
+        if fmp_fetcher is not None and bool(
+            settings.get("fmp_automatic_prefetch_enabled", False)
+        ):
             prefetch_summary = fmp_fetcher.prefetch(
                 watchlist.get("symbol", pd.Series(dtype=str)).tolist()
             )
@@ -161,6 +163,7 @@ class CollectionApplicationService:
             float_fetcher=(
                 fmp_fetcher.fetch_float if fmp_fetcher is not None else None
             ),
+            fundamentals_fetcher=secondary_fetcher,
         )
         if (
             bool(settings.get("sec_secondary_enabled", False))
@@ -221,7 +224,7 @@ class CollectionApplicationService:
             secondary_fetcher=secondary_fetcher,
             secondary_fetchers=tuple(
                 fetcher
-                for fetcher in (fmp_fetcher, massive_fetcher)
+                for fetcher in (massive_fetcher, fmp_fetcher)
                 if fetcher is not None
             ),
             critical_fields=tuple(

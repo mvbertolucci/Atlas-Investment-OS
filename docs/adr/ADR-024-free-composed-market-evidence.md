@@ -5,6 +5,9 @@
 
 ## Context
 
+ADR-026 supersedes FMP as the first-choice market-cap and EV source. This
+decision remains active for the FMP fallback and its quota boundary.
+
 Massive Basic permits Short Interest and Float but denies Financial Ratios.
 Its AAPL Float observation was also too old to align with current Short
 Interest under Atlas's 45-day rule. Buying a ratios expansion is unnecessary:

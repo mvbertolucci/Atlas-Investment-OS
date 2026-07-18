@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 902 tests passing / 90.36% production coverage
+**Validation baseline:** 905 tests passing / 90.39% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -28,10 +28,13 @@ reporting, ticker-analysis and operational-runtime services. `run_all.py` is
 limited to governed path definitions, dependency construction, compatibility
 wrappers and `main()`; no pipeline stage traverses it as a service locator.
 
-The free FMP and Massive adapters are active with protected personal keys. A
-bounded AAPL check confirmed `market_cap` and derived `enterprise_value` with
-FMP, plus `short_float` from 2026-06-30 Massive Short Interest and 2026-07-15
-FMP Float. All three agreed with Yahoo within the governed 5% tolerance.
+The free FMP and Massive adapters are active with protected personal keys.
+Massive Basic Ticker Details now supplies market cap without the denied paid
+Ratios endpoint. Enterprise value composes that current market cap with dated
+SEC debt and cash; short float prefers aligned Massive Float and falls back to
+aligned FMP Float. Live checks produced market cap for AAPL, AVAV and BNTX, EV
+for AAPL/AVAV, and short float for all three. BNTX EV remained explicitly
+unavailable because comparable SEC components were incomplete.
 
 FMP broad prefetch now has persistent TTL/negative caching, an atomic UTC daily
 quota ledger, a 25-call interactive reserve and resumable batch/page collection.
@@ -41,8 +44,8 @@ available for 6 before the ceiling. This is an actual Basic-entitlement limit,
 not broad confirmation. Remaining fields stay `secondary_unavailable`. The
 next work should proceed in this order:
 
-1. Select another legally usable free source for the remaining eligible
-   symbols, or formally publish and accept limited second-source coverage.
+1. Add persistent/resumable Massive Ticker Details collection and measure its
+   actual coverage over all 2,429 eligible symbols.
 2. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 3. Run broad portfolio validation and publish coverage limitations before any
@@ -130,7 +133,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 | Intelligence application service | `application/intelligence.py` | Portfolio, watchlist and Atlas Report integrated; wrappers preserved |
 | Reporting application service | `application/reporting.py` | Excel, Morning Brief, priority, performance validation and dashboard integrated; wrappers preserved |
 | Ticker application service | `application/ticker.py` | Broad-reference single-symbol analysis and one-pager publication integrated; wrapper preserved |
-| Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, field evidence, SEC confirmation and credential-gated Massive adapter integrated |
+| Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, SEC confirmation, Massive Basic market cap/SEC-composed EV and dated Massive/FMP short-float composition integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |
 | Decision and thesis | `decision/` | Integrated |
@@ -157,7 +160,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
   pacing, critical fields and raw-snapshot location.
 - `config/provider_secrets.json`: ignored local provider identity and keys;
   create from `provider_secrets.example.json`. Never commit its SEC User-Agent
-  contact or Massive API key.
+  contact, Massive API key or FMP API key.
 - `config/watchlist.csv`: manually curated research symbols -- assets the
   user chose to track, not the real portfolio. Edited by hand only; never
   written to by the pipeline.

@@ -47,8 +47,11 @@ def test_collection_service_preserves_origin_and_provider_policy(
         ]
 
     monkeypatch.setattr(collection_module, "fetch_watchlist", fake_fetch)
+    sec_provider = object()
     monkeypatch.setattr(
-        collection_module, "build_sec_secondary_provider", lambda *args: None
+        collection_module,
+        "build_sec_secondary_provider",
+        lambda *args: sec_provider,
     )
     fmp_provider = SimpleNamespace(
         fetch_float=lambda symbol: {},
@@ -60,10 +63,14 @@ def test_collection_service_preserves_origin_and_provider_policy(
         lambda *args: fmp_provider,
     )
     massive_provider = object()
+    massive_kwargs = {}
+
+    def build_massive(*args, **kwargs):
+        massive_kwargs.update(kwargs)
+        return massive_provider
+
     monkeypatch.setattr(
-        collection_module,
-        "build_massive_secondary_provider",
-        lambda *args, **kwargs: massive_provider,
+        collection_module, "build_massive_secondary_provider", build_massive
     )
     monkeypatch.setattr(
         collection_module, "enrich_technicals", lambda row: row
@@ -97,9 +104,11 @@ def test_collection_service_preserves_origin_and_provider_policy(
     assert policy.max_retries == 4
     assert policy.rate_limit_per_second == 3
     assert captured["secondary_fetchers"] == (
-        fmp_provider,
         massive_provider,
+        fmp_provider,
     )
+    assert captured["secondary_fetcher"] is sec_provider
+    assert massive_kwargs["fundamentals_fetcher"] is sec_provider
 
 
 def test_scoring_service_uses_governed_paths(

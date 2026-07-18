@@ -13,6 +13,7 @@
   "sec_secondary_enabled": true,
   "massive_secondary_enabled": true,
   "fmp_secondary_enabled": true,
+  "fmp_automatic_prefetch_enabled": false,
   "fmp_cache_path": "data/provider_cache/fmp.json",
   "fmp_prefetch_universe_path": "output/dados/research_universe_report_market.json",
   "fmp_daily_call_limit": 250,

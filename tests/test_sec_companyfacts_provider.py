@@ -72,6 +72,7 @@ def test_companyfacts_maps_comparable_critical_fields() -> None:
 
 def test_sec_provider_caches_ticker_map() -> None:
     map_calls = 0
+    facts_calls = 0
 
     def map_fetcher(*, user_agent: str):
         nonlocal map_calls
@@ -79,15 +80,21 @@ def test_sec_provider_caches_ticker_map() -> None:
         assert "Marcus" in user_agent
         return {"AAA": "0000000001"}
 
+    def facts_fetcher(_cik, *, user_agent):
+        nonlocal facts_calls
+        facts_calls += 1
+        return _facts()
+
     provider = SecCompanyFactsProvider(
         "Atlas Marcus contact@example.com",
         ticker_map_fetcher=map_fetcher,
-        facts_fetcher=lambda _cik, *, user_agent: _facts(),
+        facts_fetcher=facts_fetcher,
     )
 
     assert provider("AAA")["total_cash"] == 50
     assert provider("AAA")["total_cash"] == 50
     assert map_calls == 1
+    assert facts_calls == 1
 
 
 def test_sec_provider_has_typed_not_found_input_for_boundary() -> None:
