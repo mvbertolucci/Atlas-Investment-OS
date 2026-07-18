@@ -52,6 +52,18 @@ The portfolio flow is integrated into the company pipeline through
 `portfolio/pipeline.py` and the same `PortfolioReport` is exported to JSON,
 conditional Excel sheets and the Morning Brief.
 
+**Deliberate scope boundary, not an omission**: "Advisory Rebalance" is
+fundamentals/score-based only (`portfolio/sell_rules.py`'s four named rules --
+distress, valuation_stretch, fundamental_decay, relative_decay -- read Altman
+Z, F-Score, `target_upside`, percentile rank; none reads a raw price level).
+Price-based triggers are explicitly out of scope: the brokerage already
+covers that in real time, and this is enforced, not just stated --
+`tests/test_watchlist_triggers.py::test_no_price_field_exists_in_whitelist`
+is a negative test that fails if any price field (`price`, `target_price`,
+`sma_50`, ...) ever enters a trigger whitelist, in either this domain or
+`watchlist/`. A diagram reader should not expect this box to promise
+price-alert automation.
+
 ## Layers
 
 ### Orchestration layer
