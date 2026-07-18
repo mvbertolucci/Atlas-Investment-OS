@@ -9,7 +9,7 @@ import threading
 import time
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from providers.contracts import (
@@ -19,7 +19,10 @@ from providers.contracts import (
     ProviderPolicy,
 )
 from providers.evidence import DataValueStatus, FieldEvidence
-from providers.massive_cache import MassiveTickerDetailsCache
+from providers.massive_cache import (
+    MassiveFloatSnapshotCache,
+    MassiveTickerDetailsCache,
+)
 
 
 JsonTransport = Callable[[str, Mapping[str, str], str, float], Any]
@@ -161,6 +164,9 @@ class MassiveMarketDataProvider:
     use_ratios: bool = False
     ticker_details_cache: MassiveTickerDetailsCache | None = None
     ticker_details_cache_days: float = 7.0
+    float_snapshot_cache: MassiveFloatSnapshotCache | None = None
+    float_snapshot_cache_days: float = 7.0
+    float_page_limit: int = 1000
     prefetch_policy: ProviderPolicy = ProviderPolicy()
     request_limit_per_minute: int = 5
     sleeper: Callable[[float], None] = field(default=time.sleep, repr=False)
@@ -179,6 +185,8 @@ class MassiveMarketDataProvider:
             raise ValueError("Massive timeout_seconds deve ser positivo.")
         if self.ticker_details_cache_days <= 0:
             raise ValueError("Massive ticker_details_cache_days deve ser positivo.")
+        if self.float_snapshot_cache_days <= 0 or self.float_page_limit <= 0:
+            raise ValueError("Massive float cache settings devem ser positivos.")
         if self.request_limit_per_minute <= 0:
             raise ValueError(
                 "Massive request_limit_per_minute deve ser positivo."
@@ -317,6 +325,126 @@ class MassiveMarketDataProvider:
         )
         return summary
 
+    @staticmethod
+    def _next_request_from_url(
+        value: Any,
+    ) -> tuple[str, dict[str, str]] | None:
+        if not value:
+            return None
+        parsed = urlparse(str(value))
+        if parsed.netloc and parsed.netloc.casefold() != "api.massive.com":
+            raise ValueError("Massive next_url host inválido.")
+        if not parsed.path.startswith("/stocks/"):
+            raise ValueError("Massive next_url path inválido.")
+        params = {
+            key: item
+            for key, item in parse_qsl(parsed.query, keep_blank_values=True)
+            if key.casefold() != "apikey"
+        }
+        return parsed.path, params
+
+    def prefetch_float_universe(
+        self,
+        symbols: list[str] | tuple[str, ...],
+        *,
+        max_pages: int | None,
+    ) -> dict[str, Any]:
+        if self.float_snapshot_cache is None:
+            raise RuntimeError("Massive float snapshot cache não configurado.")
+        if max_pages is not None and max_pages <= 0:
+            raise ValueError("Massive max_pages deve ser positivo.")
+        normalized = sorted(
+            {
+                str(symbol).strip().upper()
+                for symbol in symbols
+                if str(symbol).strip()
+            }
+        )
+        state = self.float_snapshot_cache.prepare(
+            max_age_days=self.float_snapshot_cache_days
+        )
+        pages_before = int(state.get("page_count", 0))
+        summary: dict[str, Any] = {
+            "requested": len(normalized),
+            "pages_before": pages_before,
+            "pages_fetched": 0,
+            "error_count": 0,
+            "errors": [],
+            "stopped_reason": None,
+        }
+        client = ProviderClient("Massive", self.prefetch_policy)
+        while not self.float_snapshot_cache.load()["complete"]:
+            if max_pages is not None and summary["pages_fetched"] >= max_pages:
+                summary["stopped_reason"] = "page_limit"
+                break
+            request = self.float_snapshot_cache.next_request(
+                initial_limit=self.float_page_limit
+            )
+            if request is None:
+                break
+            path, params = request
+            try:
+                payload = client.execute(
+                    "float_page", self._get, path, **params
+                )
+                if not isinstance(payload, Mapping) or not isinstance(
+                    payload.get("results"), list
+                ):
+                    raise ValueError("Massive Float page has no results list")
+                rows = [
+                    row
+                    for row in payload["results"]
+                    if isinstance(row, Mapping)
+                ]
+                next_request = self._next_request_from_url(
+                    payload.get("next_url")
+                )
+                self.float_snapshot_cache.append_page(rows, next_request)
+                summary["pages_fetched"] += 1
+            except (ProviderError, ValueError) as exc:
+                typed = (
+                    exc
+                    if isinstance(exc, ProviderError)
+                    else ProviderError(
+                        "Massive",
+                        "float_page",
+                        ProviderErrorKind.INVALID_RESPONSE,
+                        str(exc),
+                        retryable=False,
+                    )
+                )
+                summary["error_count"] += 1
+                summary["errors"].append(typed.to_dict())
+                summary["stopped_reason"] = typed.kind.value
+                break
+        final_state = self.float_snapshot_cache.load()
+        records = final_state["records"]
+        eligible_rows = [
+            self.float_snapshot_cache.lookup(
+                symbol, max_age_days=self.float_snapshot_cache_days
+            )[0]
+            for symbol in normalized
+        ]
+        available = sum(
+            _number((row or {}).get("free_float")) is not None
+            for row in eligible_rows
+        )
+        matched = sum(row is not None for row in eligible_rows)
+        summary.update(
+            pages_total=int(final_state.get("page_count", 0)),
+            market_record_count=len(records),
+            matched=matched,
+            available=available,
+            missing=len(normalized) - available,
+            coverage_pct=(
+                round(100 * available / len(normalized), 2)
+                if normalized
+                else 0.0
+            ),
+            complete=bool(final_state["complete"]),
+        )
+        return summary
+
     def __call__(
         self,
         symbol: str,
@@ -372,13 +500,29 @@ class MassiveMarketDataProvider:
             sort="settlement_date.desc",
         )
         float_source = "Massive"
-        float_data = latest(
-            "float",
-            "/stocks/vX/float",
-            "effective_date",
-            ticker=normalized,
-            limit="10",
-        )
+        bulk_float = None
+        bulk_complete = False
+        if self.float_snapshot_cache is not None:
+            bulk_float, bulk_complete = self.float_snapshot_cache.lookup(
+                normalized, max_age_days=self.float_snapshot_cache_days
+            )
+        if bulk_float is not None:
+            float_data = bulk_float
+            raw_payloads["float_bulk"] = bulk_float
+        elif bulk_complete:
+            float_data = {}
+            raw_payloads["float_bulk"] = {
+                "unavailable": True,
+                "complete_snapshot": True,
+            }
+        else:
+            float_data = latest(
+                "float",
+                "/stocks/vX/float",
+                "effective_date",
+                ticker=normalized,
+                limit="10",
+            )
         native_float = _number(float_data.get("free_float"))
         native_float_date = (
             str(float_data.get("effective_date") or "") or None
@@ -566,6 +710,19 @@ def build_massive_secondary_provider(
         ticker_details_cache_days=float(
             settings.get("massive_ticker_details_cache_days", 7)
         ),
+        float_snapshot_cache=MassiveFloatSnapshotCache(
+            Path(root)
+            / str(
+                settings.get(
+                    "massive_float_cache_path",
+                    "data/provider_cache/massive_float.json",
+                )
+            )
+        ),
+        float_snapshot_cache_days=float(
+            settings.get("massive_float_cache_days", 7)
+        ),
+        float_page_limit=int(settings.get("massive_float_page_limit", 1000)),
         prefetch_policy=ProviderPolicy(
             timeout_seconds=float(settings.get("provider_timeout_seconds", 30)),
             max_retries=int(settings.get("provider_max_retries", 2)),

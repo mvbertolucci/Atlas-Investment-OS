@@ -110,6 +110,10 @@ def test_provider_operational_policy_is_pinned() -> None:
         0.075
     )
     assert settings["massive_request_limit_per_minute"] == 5
+    assert settings["massive_float_cache_path"].endswith("massive_float.json")
+    assert settings["massive_float_cache_days"] == 7
+    assert settings["massive_float_page_limit"] == 1000
+    assert settings["massive_float_max_pages_per_run"] == 100
     assert settings["massive_prefetch_universe_path"].endswith(
         "research_universe_report_market.json"
     )

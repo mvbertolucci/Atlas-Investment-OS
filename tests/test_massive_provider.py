@@ -14,7 +14,10 @@ from providers.massive import (
 )
 from providers.contracts import ProviderPolicy
 from providers.fmp_cache import FmpQuotaExceeded
-from providers.massive_cache import MassiveTickerDetailsCache
+from providers.massive_cache import (
+    MassiveFloatSnapshotCache,
+    MassiveTickerDetailsCache,
+)
 
 
 def _transport(path, params, api_key, timeout):
@@ -475,3 +478,131 @@ def test_massive_internal_pacing_honors_call_window() -> None:
     provider._get("/three")
 
     assert sleeps == [60.0]
+
+
+def test_massive_bulk_float_prefetch_resumes_pages_and_strips_api_key(
+    tmp_path: Path,
+) -> None:
+    calls = []
+
+    def transport(path, params, api_key, timeout):
+        calls.append((path, dict(params)))
+        if "cursor" not in params:
+            return {
+                "results": [
+                    {
+                        "ticker": "AAA",
+                        "free_float": 80,
+                        "effective_date": "2026-07-01",
+                    }
+                ],
+                "next_url": (
+                    "https://api.massive.com/stocks/vX/float?"
+                    "cursor=next-page&apiKey=must-not-persist"
+                ),
+            }
+        return {
+            "results": [
+                {
+                    "ticker": "BBB",
+                    "free_float": 90,
+                    "effective_date": "2026-07-01",
+                }
+            ]
+        }
+
+    cache = MassiveFloatSnapshotCache(tmp_path / "float.json")
+    provider = MassiveMarketDataProvider(
+        "secret",
+        transport=transport,
+        float_snapshot_cache=cache,
+        request_limit_per_minute=100,
+        prefetch_policy=ProviderPolicy(
+            max_retries=0, rate_limit_per_second=100_000
+        ),
+    )
+
+    first = provider.prefetch_float_universe(
+        ["AAA", "BBB", "CCC"], max_pages=1
+    )
+    second = provider.prefetch_float_universe(
+        ["AAA", "BBB", "CCC"], max_pages=10
+    )
+    third = provider.prefetch_float_universe(
+        ["AAA", "BBB", "CCC"], max_pages=10
+    )
+
+    assert first["pages_fetched"] == 1
+    assert first["stopped_reason"] == "page_limit"
+    assert second["pages_fetched"] == 1
+    assert second["complete"] is True
+    assert second["available"] == 2
+    assert second["missing"] == 1
+    assert third["pages_fetched"] == 0
+    assert calls == [
+        ("/stocks/vX/float", {"limit": "1000", "sort": "ticker.asc"}),
+        ("/stocks/vX/float", {"cursor": "next-page"}),
+    ]
+    assert "must-not-persist" not in cache.path.read_text(encoding="utf-8")
+
+
+def test_massive_provider_uses_complete_bulk_float_without_symbol_call(
+    tmp_path: Path,
+) -> None:
+    cache = MassiveFloatSnapshotCache(tmp_path / "float.json")
+    cache.append_page(
+        [
+            {
+                "ticker": "AAPL",
+                "free_float": 15_000_000_000,
+                "effective_date": "2026-06-15",
+            }
+        ],
+        None,
+    )
+    requested_paths = []
+
+    def transport(path, params, api_key, timeout):
+        requested_paths.append(path)
+        if path.endswith("/float"):
+            raise AssertionError("per-symbol Float must not be called")
+        return _transport(path, params, api_key, 7)
+
+    record = MassiveMarketDataProvider(
+        "secret-key",
+        timeout_seconds=7,
+        transport=transport,
+        float_snapshot_cache=cache,
+    )("AAPL")
+
+    assert record["short_float"] == pytest.approx(0.01)
+    assert "/stocks/vX/float" not in requested_paths
+    assert record["_raw_massive"]["float_bulk"]["free_float"] == (
+        15_000_000_000
+    )
+
+
+def test_massive_float_prefetch_rejects_unsafe_cursor_and_invalid_config(
+    tmp_path: Path,
+) -> None:
+    assert MassiveMarketDataProvider._next_request_from_url(None) is None
+    with pytest.raises(ValueError, match="host"):
+        MassiveMarketDataProvider._next_request_from_url(
+            "https://evil.example/stocks/vX/float?cursor=x"
+        )
+    with pytest.raises(ValueError, match="path"):
+        MassiveMarketDataProvider._next_request_from_url(
+            "https://api.massive.com/other?cursor=x"
+        )
+    with pytest.raises(ValueError, match="float cache"):
+        MassiveMarketDataProvider("secret", float_page_limit=0)
+    with pytest.raises(RuntimeError, match="snapshot cache"):
+        MassiveMarketDataProvider("secret").prefetch_float_universe(
+            ["AAPL"], max_pages=1
+        )
+    provider = MassiveMarketDataProvider(
+        "secret",
+        float_snapshot_cache=MassiveFloatSnapshotCache(tmp_path / "float.json"),
+    )
+    with pytest.raises(ValueError, match="max_pages"):
+        provider.prefetch_float_universe(["AAPL"], max_pages=0)

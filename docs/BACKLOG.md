@@ -75,9 +75,17 @@
       bounded live checks passed for AAPL, AVAV and BNTX without a paid plan
 - [x] Add atomic persistent/resumable Massive Ticker Details collection,
       five-call/minute protection and an ignored coverage report
-- [ ] Complete the live Massive checkpoint over all 2,429 eligible symbols;
-      10/2,429 were available after the first two controlled runs, so no broad
-      coverage claim is made yet
+- [x] Use the market-wide Massive Float endpoint with atomic page checkpoints,
+      safe resumable cursors and class-symbol aliases; the live seven-page run
+      covered 2,364/2,429 eligible symbols directly (97.32%) without errors
+- [x] Preserve FMP as dated fallback for one additional symbol (`ET`), taking
+      combined free-float availability to 2,365/2,429 (97.37%)
+- [ ] Classify the remaining 64 free-float gaps by applicability and evaluate
+      SEC `EntityPublicFloat` only where its monetary definition and observation
+      date can be reconciled without substituting outstanding shares
+- [ ] Replace the slow per-symbol broad Ticker Details scan with a composed
+      market-cap path based on Massive Grouped Daily prices and aligned SEC
+      shares; retain Ticker Details for targeted confirmation
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

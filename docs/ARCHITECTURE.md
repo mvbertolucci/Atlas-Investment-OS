@@ -143,6 +143,13 @@ prefetch CLI treats that cache as a checkpoint, publishes available/missing
 coverage against `US_MARKET_ELIGIBLE`, stops on authentication/rate-limit
 boundaries and obeys the Basic five-call/minute rolling limit (ADR-027).
 
+Massive Float uses a market-wide paginated snapshot instead of one request per
+ticker. Each page is atomically checkpointed; stored cursors are restricted to
+Massive stock paths and stripped of credentials. Once a fresh snapshot is
+complete, a missing ticker is authoritative absence for that snapshot and does
+not trigger an N+1 request. Symbol-class aliases bridge Atlas hyphens and
+Massive dots. FMP remains only a dated fallback (ADR-028).
+
 ### Feature and scoring layer
 
 - `factors/`

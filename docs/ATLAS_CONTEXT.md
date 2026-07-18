@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 913 tests passing / 90.50% production coverage
+**Validation baseline:** 920 tests passing / 90.51% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -29,12 +29,12 @@ limited to governed path definitions, dependency construction, compatibility
 wrappers and `main()`; no pipeline stage traverses it as a service locator.
 
 The free FMP and Massive adapters are active with protected personal keys.
-Massive Basic Ticker Details now supplies market cap without the denied paid
-Ratios endpoint. Enterprise value composes that current market cap with dated
-SEC debt and cash; short float prefers aligned Massive Float and falls back to
-aligned FMP Float. Live checks produced market cap for AAPL, AVAV and BNTX, EV
-for AAPL/AVAV, and short float for all three. BNTX EV remained explicitly
-unavailable because comparable SEC components were incomplete.
+Massive Basic Ticker Details supplies targeted market cap without the denied
+paid Ratios endpoint. Enterprise value composes that current market cap with
+dated SEC debt and cash; short float prefers aligned Massive Float and falls
+back to aligned FMP Float. Live checks produced market cap for AAPL, AVAV and
+BNTX, EV for AAPL/AVAV, and short float for all three. BNTX EV remained
+explicitly unavailable because comparable SEC components were incomplete.
 
 FMP broad prefetch now has persistent TTL/negative caching, an atomic UTC daily
 quota ledger, a 25-call interactive reserve and resumable batch/page collection.
@@ -43,17 +43,21 @@ and float evidence for only 67/2,429 eligible symbols; enterprise evidence was
 available for 6 before the ceiling. This is an actual Basic-entitlement limit,
 not broad confirmation. Remaining fields stay `secondary_unavailable`.
 
-Massive Ticker Details now also has an atomic seven-day cache, resumable CLI,
-coverage report and enforcement of the Basic plan's five-call/minute rolling
-limit. The first two controlled runs retained 10/2,429 available records; the
-second batch completed without errors at the governed 4.5-call/minute prefetch
-rate. The next work should proceed in this order:
+Massive Float now uses a separate atomic, page-resumable market snapshot. The
+2026-07-17 live run fetched seven pages and 6,662 records without errors,
+covering 2,364/2,429 eligible symbols directly (97.32%). Dotted/hyphenated share
+classes are reconciled; FMP contributes one additional dated fallback (`ET`),
+for 2,365/2,429 combined availability (97.37%). The remaining 64 gaps are
+explicitly unavailable, never replaced by outstanding shares. The next work
+should proceed in this order:
 
-1. Complete the resumable Massive checkpoint and publish final 2,429-symbol
-   coverage; a cold uninterrupted `--all` run takes approximately 8.1 hours.
-2. Run the implemented historical execution and total-return adapters against
+1. Classify the 64 residual free-float gaps and evaluate dated SEC
+   `EntityPublicFloat` only where definitions are comparable.
+2. Replace the eight-hour broad Ticker Details path with Massive Grouped Daily
+   prices plus aligned SEC shares for market-cap composition.
+3. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
-3. Run broad portfolio validation and publish coverage limitations before any
+4. Run broad portfolio validation and publish coverage limitations before any
    calibration claim. Do not change governed scoring semantics without
    versioned out-of-sample evidence.
 
@@ -138,7 +142,7 @@ Outcome JSON + Excel + Morning Brief + execution metrics
 | Intelligence application service | `application/intelligence.py` | Portfolio, watchlist and Atlas Report integrated; wrappers preserved |
 | Reporting application service | `application/reporting.py` | Excel, Morning Brief, priority, performance validation and dashboard integrated; wrappers preserved |
 | Ticker application service | `application/ticker.py` | Broad-reference single-symbol analysis and one-pager publication integrated; wrapper preserved |
-| Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, SEC confirmation, Massive Basic market cap/SEC-composed EV and dated Massive/FMP short-float composition integrated |
+| Providers and mapping | `providers/`, `storage/raw_snapshots.py`, `analytics/mapper.py`, `analytics/fundamentals.py`, `analytics/indicators.py` | Typed boundary, SEC confirmation, Massive Basic market cap/SEC-composed EV and market-wide cached Massive/FMP short-float composition integrated |
 | Features and fundamentals | `analytics/`, `factors/`, `config/features.yaml` | Integrated |
 | Scoring | `scoring/`, `models/`, governed config files | Integrated |
 | Decision and thesis | `decision/` | Integrated |
