@@ -126,7 +126,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     alignment_days = int(
-        settings.get("market_cap_composition_shares_alignment_days", 100)
+        settings.get("market_cap_composition_shares_alignment_days", 140)
     )
 
     max_symbols = None if args.all else args.limit if args.limit is not None else int(

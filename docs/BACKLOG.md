@@ -108,12 +108,20 @@
       ~45 minutes cold) and publish real broad coverage, mirroring the
       Massive Float/Grouped Daily broad runs already completed
 - [x] Run `providers.market_cap_composition_prefetch --all` to completion:
-      1,724/2,429 (70.98%) composed, no external vendor beyond Massive+SEC.
-      Gaps: 399 shares_unavailable, 300 shares_stale (SEC filing >100 days
-      from the 2026-07-16 price date), 128 SEC fetch errors
-      (`invalid_response`, likely CIK-not-found -- same shape as the
-      SEC public-float audit's "30 issuers without the concept"), 6
-      price_unavailable
+      1,870/2,429 (76.99%) composed, no external vendor beyond Massive+SEC.
+      Alignment window widened 100->140 days after measuring the real age
+      distribution (142/300 "stale" symbols were only 101-130 days old,
+      consistent with SEC's worst-case quarterly filing cadence; 119 were
+      365+ days, correctly left excluded as dead/shell-company data, not
+      a filing-cadence question) -- see ADR-031's update. Remaining gaps:
+      399 shares_unavailable, 128 of those explicit SEC fetch errors
+      (`invalid_response`/`not_found`, likely CIK-not-found -- same shape
+      as the SEC public-float audit's "30 issuers without the concept"),
+      154 shares_stale (365+ days), 6 price_unavailable
+- [ ] Add Massive Ticker Details' `share_class_shares_outstanding` as a
+      second shares-outstanding source for the 399 `shares_unavailable`
+      gap (the field is already in the raw payload, currently unused);
+      bounded by Massive's 5-call/minute limit, ~80 min for ~400 symbols
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

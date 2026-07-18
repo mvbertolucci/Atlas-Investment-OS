@@ -66,3 +66,23 @@ ceiling comparable to FMP's.
 Delete the ignored `data/provider_cache/sec_shares.json` cache and stop
 invoking the prefetch CLI. `compose_market_cap` and `SecSharesCache` are
 additive; nothing else imports them.
+
+## Update (2026-07-18) — alignment window widened to 140 days, measured
+
+The full 2,429-symbol broad run this ADR flagged as not yet executed
+completed: 1,724 composed (70.98%). `shares_stale` (300 symbols) was not a
+uniform bucket -- measuring the real age distribution against the 100-day
+window found 142 symbols only 101-130 days old (consistent with SEC's own
+worst-case quarterly cadence: a non-accelerated filer's 10-Q is due up to 45
+days after quarter-end, ~91 days separate quarters, so two on-time
+consecutive filings can be up to ~136 days apart) against 119 symbols 365+
+days old (one over 6,000 days -- dead/shell-company territory, not a filing-
+cadence question). Widened `market_cap_composition_shares_alignment_days` to
+140 -- grounded in the measured SEC cadence, not the 365+ bucket, which stays
+correctly excluded rather than papered over. The wider window only needed
+recomposing already-cached data (`SecSharesCache` entries were still fresh),
+no new SEC calls. `shares_unavailable` (399, including 128 explicit fetch
+errors) is a separate gap this widening does not address -- would need a
+second shares-outstanding source (Massive Ticker Details returns
+`share_class_shares_outstanding`, unused today) as a tracked follow-up in
+`docs/BACKLOG.md`.

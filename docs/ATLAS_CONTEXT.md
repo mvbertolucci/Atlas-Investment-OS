@@ -75,12 +75,14 @@ report is ignored runtime data. The next work should proceed in this order:
    are immutable) and a prefetch CLI publishes coverage. Composing this price
    with SEC `shares_outstanding` into a broad `market_cap` snapshot is now
    implemented (2026-07-18, ADR-031) — `providers/market_cap_composition.py`
-   + `market_cap_composition_prefetch`, with a 100-day alignment window
+   + `market_cap_composition_prefetch`, with a 140-day alignment window
    (not 45; share count only moves via deliberate buybacks/issuance and is
-   filed quarterly, unlike debt/cash). Live-verified: 7/8 of a bounded
-   8-symbol check composed, AAPL within ~1% of two independently-composed
-   values (Massive Ticker Details, Finnhub). The full 2,429-symbol broad
-   run has not been executed yet.
+   filed quarterly, unlike debt/cash -- widened from an initial 100 days
+   after measuring the real age distribution of the broad run's gaps,
+   consistent with SEC's worst-case quarterly filing cadence). Full
+   2,429-symbol broad run: 1,870 composed (76.99%), no external vendor
+   beyond Massive+SEC. Remaining gap (399 shares_unavailable) needs a
+   second shares-outstanding source, tracked in `docs/BACKLOG.md`.
 4. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 5. Run broad portfolio validation and publish coverage limitations before any

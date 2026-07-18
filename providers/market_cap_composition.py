@@ -44,9 +44,20 @@ def compose_market_cap(
     composed when their dates are within `shares_alignment_days` of each
     other. Unlike debt/cash (which can move materially within a quarter,
     so EV composition elsewhere uses a tight 45-day window), share count
-    only changes via deliberate buybacks/issuance and is reported quarterly
-    -- a much wider window is the correct judgment here, not a copy of the
-    45-day EV convention (see ADR-029 addendum).
+    only changes via deliberate buybacks/issuance and is reported
+    quarterly -- a much wider window is the correct judgment here, not a
+    copy of the 45-day EV convention (see ADR-031/033).
+
+    Default 140 days, not 100: measured against the real 2026-07-18 broad
+    run, 300/2,429 symbols fell outside a 100-day window, but 142 of those
+    were only 101-130 days old -- consistent with SEC's own worst-case
+    quarterly filing cadence for a non-accelerated filer (10-Q due up to
+    45 days after quarter-end, ~91 days between quarters -> up to ~136
+    days between two consecutive on-time filings). 140 days covers that
+    real cadence with a small margin. It does not paper over genuinely
+    stale data: 119 of the 300 were 365+ days old (one over 6,000 days),
+    which is dead/shell-company territory, not a filing-cadence question,
+    and stays excluded regardless of the window.
     """
     normalized = str(symbol).strip().upper()
     retrieved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")

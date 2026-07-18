@@ -32,7 +32,7 @@
   "massive_grouped_daily_coverage_report_path": "output/dados/massive_grouped_daily_coverage.json",
   "sec_shares_cache_path": "data/provider_cache/sec_shares.json",
   "sec_shares_cache_days": 30,
-  "market_cap_composition_shares_alignment_days": 100,
+  "market_cap_composition_shares_alignment_days": 140,
   "market_cap_composition_batch_size": 100,
   "market_cap_composition_report_path": "output/dados/market_cap_composition_coverage.json",
   "market_cap_composition_snapshot_path": "output/dados/market_cap_composition.json",
