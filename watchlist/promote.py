@@ -71,6 +71,8 @@ def promote_to_watchlist(
     source_path: Path = DEFAULT_SOURCE_PATH,
     watchlist_path: Path = DEFAULT_WATCHLIST_PATH,
     today: date | None = None,
+    name: str | None = None,
+    trigger_condition: str = "",
 ) -> PromotionResult:
     """
     Promove um símbolo do output do screener para a watchlist: preenche
@@ -78,6 +80,12 @@ def promote_to_watchlist(
     duplicata -- nunca promove um símbolo já presente. WL -> carteira fica
     fora deste PR (compra é registrada manualmente em config/portfolio.csv,
     ver PR-020). Nunca toca config/portfolio.csv.
+
+    `name`, se informado, sobrescreve o lookup em `source_path` -- usado por
+    `watchlist.apply_candidates_workbook`, que já tem o nome resolvido no
+    momento da exportação e não deve depender do arquivo de origem ainda
+    existir sem mudanças no momento da aplicação. `trigger_condition`
+    permanece vazio por padrão (comportamento inalterado do CLI manual).
     """
     symbol = symbol.strip().upper()
     if not symbol:
@@ -105,15 +113,17 @@ def promote_to_watchlist(
             f"{symbol} já está na watchlist -- promoção recusada."
         )
 
-    name = _lookup_name(symbol, Path(source_path))
+    resolved_name = (
+        name.strip() if name is not None else _lookup_name(symbol, Path(source_path))
+    )
     included_at = (today or date.today()).isoformat()
 
     new_row = {
         "symbol": symbol,
-        "name": name,
+        "name": resolved_name,
         "included_at": included_at,
         "note": reason,
-        "trigger_condition": "",
+        "trigger_condition": trigger_condition.strip(),
     }
 
     # União das colunas existentes (preserva o que já está no arquivo) com as
@@ -135,7 +145,7 @@ def promote_to_watchlist(
 
     return PromotionResult(
         symbol=symbol,
-        name=name,
+        name=resolved_name,
         included_at=included_at,
         note=reason,
         watchlist_path=watchlist_path,

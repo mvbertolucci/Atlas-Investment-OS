@@ -120,6 +120,44 @@ def test_symbol_not_found_in_source_still_promotes_with_empty_name(
     assert result.name == ""
 
 
+def test_name_override_skips_source_lookup(tmp_path: Path) -> None:
+    """watchlist.apply_candidates_workbook already has the resolved name
+    from the exported workbook and must not depend on source_path still
+    matching by the time the workbook is applied."""
+    watchlist_path = _write_watchlist(
+        tmp_path / "watchlist.csv", "symbol,name\nADBE,Adobe\n"
+    )
+
+    result = promote_to_watchlist(
+        "NEM",
+        "motivo",
+        source_path=tmp_path / "does_not_exist.csv",
+        watchlist_path=watchlist_path,
+        name="Newmont Corporation",
+        today=date(2026, 7, 14),
+    )
+
+    assert result.name == "Newmont Corporation"
+
+
+def test_trigger_condition_is_persisted_when_provided(tmp_path: Path) -> None:
+    watchlist_path = _write_watchlist(
+        tmp_path / "watchlist.csv", "symbol,name\nADBE,Adobe\n"
+    )
+
+    promote_to_watchlist(
+        "NEM",
+        "motivo",
+        watchlist_path=watchlist_path,
+        trigger_condition="confidence >= 70",
+        today=date(2026, 7, 14),
+    )
+
+    entries = load_watchlist_csv(watchlist_path)
+    nem = next(entry for entry in entries if entry.symbol == "NEM")
+    assert nem.trigger_condition == "confidence >= 70"
+
+
 def test_requires_non_empty_symbol_and_reason(tmp_path: Path) -> None:
     watchlist_path = _write_watchlist(
         tmp_path / "watchlist.csv", "symbol,name\nADBE,Adobe\n"

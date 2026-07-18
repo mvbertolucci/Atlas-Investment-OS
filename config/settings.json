@@ -2,6 +2,7 @@
   "output_latest": "output/latest.xlsx",
   "output_history_dir": "output/history",
   "watchlist_path": "config/watchlist.csv",
+  "watchlist_candidates_workbook_path": "output/relatorios/watchlist_candidates.xlsx",
   "history_period": "2y",
   "history_interval": "1d",
   "provider_timeout_seconds": 30,
