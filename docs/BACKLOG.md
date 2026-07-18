@@ -451,17 +451,20 @@ have adapters, just not run at scale).
       says "Selected", not "Complete"), dense 2010s (218) through 2020s --
       exactly the window SEC XBRL point-in-time fundamentals can also
       cover. See ADR-035.
-- [ ] Reconstruct actual `UniverseMembership` half-open intervals from the
-      parsed change log (handle rows with only one side populated, same-day
-      multiple changes) -- not done yet, deliberately out of scope for the
-      proof of concept
-- [ ] Solve the "membership at the earliest reliably-covered date" baseline
-      problem the change log alone does not answer
-- [ ] Only after both of the above: run broad point-in-time fundamentals
-      acquisition and real total-return/execution-calendar evidence at
-      scale against the reconstructed membership (adapters already exist,
-      proven for 2 companies, per `docs/WALK_FORWARD_BACKTEST.md` /
-      `docs/HISTORICAL_MODEL_PORTFOLIO.md`)
+- [x] Reconstruct actual `UniverseMembership` half-open intervals from the
+      parsed change log, anchored on today's real constituent list instead
+      of an unknown baseline (`reconstruct_membership`) -- solves the
+      baseline problem and interval reconstruction together, one
+      mechanism. Live-verified across 5 window-start dates: **fully
+      consistent (0 anomalies, 0 mismatches) for 2018-01-01 onward**;
+      2015-01-01 has exactly 1 known ambiguity (AGN ticker reuse); found
+      and correctly handled a same-day ticker-reuse case (FOXA,
+      Disney/Fox) via remove-before-add ordering, not a guess. See ADR-035.
+- [ ] Wire `reconstruct_membership`'s output into an actual
+      `PointInTimeDataset` and run broad point-in-time fundamentals
+      acquisition plus real total-return/execution-calendar evidence at
+      scale against it (adapters already exist, proven for 2 companies,
+      per `docs/WALK_FORWARD_BACKTEST.md` / `docs/HISTORICAL_MODEL_PORTFOLIO.md`)
 
 ### Deferred platform effects
 

@@ -1,6 +1,6 @@
 # ADR-035 — Wikipedia "Selected changes" table as a real source for historical S&P 500 membership (proof of concept)
 
-**Status:** Proposed (parser only, not integrated)
+**Status:** Proposed (parser + reconstruction proven, not integrated)
 **Date:** 2026-07-18
 
 ## Context
@@ -26,14 +26,17 @@ security), `Removed` (ticker + security) and `Reason` per row.
    reason), not a header-name dict lookup.
 2. `fetch_sp500_changes` fetches and parses the live page, reusing the same
    URL constant as the constituents fetcher.
-3. Deliberately does **not** yet reconstruct `backtesting.point_in_time.
-   UniverseMembership` intervals from these changes, and does not wire into
-   any collector, pipeline or CLI. This ADR proves the source is real and
-   parseable; turning a change log into non-overlapping per-symbol
-   membership intervals (handling a change with only one side populated,
-   same-day multiple changes, and the "baseline membership at the earliest
-   covered date" problem this log alone doesn't solve) is separate,
-   larger, and explicitly out of scope here.
+3. `reconstruct_membership` turns the parsed change log into real
+   `backtesting.point_in_time.UniverseMembership` intervals -- anchored on
+   today's real constituent list (`universe.sources.fetch_sp500_constituents`)
+   as ground truth instead of an unknown ancient baseline, walking each
+   symbol's own event history to build alternating intervals. This solves
+   both problems the original scope deferred (interval reconstruction and
+   the baseline problem) with one mechanism: no baseline is needed when you
+   already know the answer today and only need to walk backward.
+   Deliberately **not** wired into any collector, pipeline or CLI yet --
+   this ADR proves the reconstruction is correct, not that it is ready for
+   production use.
 
 ## Consequences
 
@@ -48,9 +51,30 @@ security), `Removed` (ticker + security) and `Reason` per row.
   window SEC XBRL point-in-time fundamentals (this repo's other real
   constraint, per `docs/SEC_EDGAR_DATA.md`) can realistically cover. The
   two constraints happen to align on the same usable window.
-- 6 new offline tests (`tests/test_sp500_changes.py`), synthetic fixtures
-  shaped like the real measured markup, no live network call in the test
-  suite itself. 998 tests green.
+- `reconstruct_membership` live-verified against the real change log and
+  real current constituents across five window-start dates. Two real data
+  anomalies found and handled explicitly rather than guessed or crashed
+  on: AGN removed twice (2015, 2020) with no recorded re-addition between
+  -- reported as ambiguous (`anomalous_symbols`), not resolved; FOXA
+  removed and added on the *same* effective date (2019-03-19, the
+  Disney/Fox transaction: 21st Century Fox out, Fox Corporation in, same
+  reused ticker) -- fixed generically by sorting same-date events
+  remove-before-add, not by comparing security names, so the outgoing
+  entity's interval closes before the incoming one's opens.
+- Measured, not assumed: reconstruction is **fully consistent** (zero
+  anomalies, zero missing, zero unexpected symbols vs. the real current
+  list) for every window starting 2018-01-01 or later. 2015-01-01 has
+  exactly one known ambiguity (AGN). 2010-01-01 introduces three more real
+  ambiguities and four symbols the log's data alone cannot close out
+  correctly that far back. This means any validation window from
+  2015-2018 onward -- comfortably covering the SEC-XBRL-viable range this
+  repo's other real constraint already limits point-in-time fundamentals
+  to -- can use this reconstruction with a *proven*, not assumed,
+  integrity guarantee.
+- 15 new offline tests (`tests/test_sp500_changes.py`), synthetic fixtures
+  shaped like the real measured markup (including both real anomalies
+  found), no live network call in the test suite itself. 1,007 tests
+  green.
 - No governed scoring, no production wiring, no new external dependency.
 
 ## Rollback
@@ -60,7 +84,6 @@ either.
 
 ## Next step (not done here)
 
-Reconstructing actual `UniverseMembership` intervals from this change log --
-and separately solving the "membership at the earliest date this log
-reliably covers" baseline problem -- remains open, tracked in
-`docs/BACKLOG.md`.
+Wiring `reconstruct_membership`'s output into an actual `PointInTimeDataset`
+and running walk-forward/PR-034 against a real reconstructed universe
+remains open, tracked in `docs/BACKLOG.md`.
