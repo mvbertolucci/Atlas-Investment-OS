@@ -89,7 +89,7 @@
 - [x] Add the Massive Grouped Daily price mechanism: bounded live-verified
       Basic-plan access, `fetch_grouped_daily`, an immutable per-trade-date
       cache and a prefetch CLI. Live-verified 2026-07-16: one call matched
-      2,423/2,429 eligible symbols (99.75%) — see ADR-029
+      2,423/2,429 eligible symbols (99.75%) — see ADR-033
 - [x] Compose `market_cap = Grouped Daily close × SEC shares_outstanding`
       into a broad, cached market-cap snapshot (`providers/
       market_cap_composition.py` + `market_cap_composition_prefetch` CLI).

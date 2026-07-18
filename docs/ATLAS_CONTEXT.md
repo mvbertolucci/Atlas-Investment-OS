@@ -67,7 +67,7 @@ report is ignored runtime data. The next work should proceed in this order:
    EDGAR is unchanged for those. A bounded 20-symbol broad-prefetch check
    ran with 0 errors; the full 2,429-symbol broad run (~45 minutes) has not
    been executed yet.
-3. **Grouped Daily price mechanism landed (2026-07-18, ADR-029)** —
+3. **Grouped Daily price mechanism landed (2026-07-18, ADR-033)** —
    `MassiveMarketDataProvider.fetch_grouped_daily` reads one Basic-plan bulk
    endpoint per trade date instead of the 8-hour per-symbol Ticker Details
    scan; live-verified against the real eligible universe: one call matched

@@ -33,6 +33,10 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-027 | Cache and resume Massive broad details within the Basic rate limit | Accepted 2026-07-17 |
 | ADR-028 | Cache the paginated market-wide Massive Float snapshot | Accepted 2026-07-17 |
 | ADR-029 | Keep SEC monetary public float separate from free-float shares | Accepted 2026-07-17 |
+| ADR-030 | Finnhub as the primary live market-cap/enterprise-value secondary source | Accepted 2026-07-18 |
+| ADR-031 | Compose broad market cap from Grouped Daily price x SEC shares | Accepted 2026-07-18 |
+| ADR-032 | Shared retry-on-lock for every atomic JSON write | Accepted 2026-07-18 |
+| ADR-033 | Massive Grouped Daily as the broad market-cap price source | Accepted 2026-07-18 |
 
 ## Recording a new decision
 

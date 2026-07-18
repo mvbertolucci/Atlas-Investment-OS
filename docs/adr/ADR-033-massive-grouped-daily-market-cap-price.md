@@ -1,4 +1,4 @@
-# ADR-029 — Massive Grouped Daily as the broad market-cap price source
+# ADR-033 — Massive Grouped Daily as the broad market-cap price source
 
 **Status:** Accepted
 **Date:** 2026-07-18

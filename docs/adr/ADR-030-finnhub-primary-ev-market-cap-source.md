@@ -66,7 +66,7 @@ assumed.
   yet -- tracked as a follow-up in `docs/BACKLOG.md`.
 - No governed scoring weight, threshold or formula changes. Massive's SEC-
   composed EV mechanism (ADR-026) and the Grouped Daily price mechanism
-  (ADR-029) are unchanged and still available -- this ADR does not retire
+  (ADR-033) are unchanged and still available -- this ADR does not retire
   either; it changes which source is tried first for two specific fields in
   the live reconciliation chain.
 - Finnhub cannot replace SEC EDGAR for Atlas's own formulas (no raw

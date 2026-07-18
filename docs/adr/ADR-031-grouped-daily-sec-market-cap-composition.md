@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-029 built the Grouped Daily price mechanism but deliberately left the
+ADR-033 built the Grouped Daily price mechanism but deliberately left the
 other half of the original BACKLOG item undone: composing
 `market_cap = price x SEC shares_outstanding` into a broad snapshot. ADR-030
 (Finnhub) separately closed the practical need for broad `market_cap`/
@@ -56,7 +56,7 @@ ceiling comparable to FMP's.
   implemented paths.
 - No governed scoring weight, threshold or formula changes; this composed
   snapshot is not wired into any production decision path yet (mirrors
-  ADR-029's own scope boundary).
+  ADR-033's own scope boundary).
 - A full 2,429-symbol broad run has not been executed; SEC EDGAR's fair-use
   pacing (2/second) puts a cold run at roughly 20 minutes, tracked as a
   follow-up in `docs/BACKLOG.md` alongside the Finnhub broad run.
