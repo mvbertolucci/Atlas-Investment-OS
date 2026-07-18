@@ -101,6 +101,18 @@ def test_provider_operational_policy_is_pinned() -> None:
     assert settings["raw_snapshot_path"] == "data/raw_snapshots"
     assert settings["sec_secondary_enabled"] is True
     assert settings["massive_secondary_enabled"] is True
+    assert settings["massive_ticker_details_cache_path"].endswith(
+        "massive_ticker_details.json"
+    )
+    assert settings["massive_ticker_details_cache_days"] == 7
+    assert settings["massive_prefetch_batch_size"] == 5
+    assert settings["massive_prefetch_rate_limit_per_second"] == pytest.approx(
+        0.075
+    )
+    assert settings["massive_request_limit_per_minute"] == 5
+    assert settings["massive_prefetch_universe_path"].endswith(
+        "research_universe_report_market.json"
+    )
     assert settings["fmp_secondary_enabled"] is True
     assert settings["fmp_automatic_prefetch_enabled"] is False
     assert settings["fmp_daily_call_limit"] == 250

@@ -1,17 +1,25 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 import json
 import os
 from pathlib import Path
+import threading
+import time
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from providers.contracts import ProviderError
+from providers.contracts import (
+    ProviderClient,
+    ProviderError,
+    ProviderErrorKind,
+    ProviderPolicy,
+)
 from providers.evidence import DataValueStatus, FieldEvidence
+from providers.massive_cache import MassiveTickerDetailsCache
 
 
 JsonTransport = Callable[[str, Mapping[str, str], str, float], Any]
@@ -151,20 +159,163 @@ class MassiveMarketDataProvider:
     float_fetcher: FloatFetcher | None = None
     fundamentals_fetcher: FundamentalsFetcher | None = None
     use_ratios: bool = False
+    ticker_details_cache: MassiveTickerDetailsCache | None = None
+    ticker_details_cache_days: float = 7.0
+    prefetch_policy: ProviderPolicy = ProviderPolicy()
+    request_limit_per_minute: int = 5
+    sleeper: Callable[[float], None] = field(default=time.sleep, repr=False)
+    monotonic: Callable[[], float] = field(
+        default=time.monotonic, repr=False
+    )
+    request_times: list[float] = field(default_factory=list, repr=False)
+    request_lock: Any = field(
+        default_factory=threading.Lock, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         if not str(self.api_key).strip():
             raise ValueError("Massive api_key não pode ser vazia.")
         if self.timeout_seconds <= 0:
             raise ValueError("Massive timeout_seconds deve ser positivo.")
+        if self.ticker_details_cache_days <= 0:
+            raise ValueError("Massive ticker_details_cache_days deve ser positivo.")
+        if self.request_limit_per_minute <= 0:
+            raise ValueError(
+                "Massive request_limit_per_minute deve ser positivo."
+            )
+
+    def _pace_request(self) -> None:
+        with self.request_lock:
+            now = self.monotonic()
+            self.request_times[:] = [
+                started
+                for started in self.request_times
+                if now - started < 60.0
+            ]
+            if len(self.request_times) >= self.request_limit_per_minute:
+                wait = 60.0 - (now - self.request_times[0])
+                if wait > 0:
+                    self.sleeper(wait)
+                    now = self.monotonic()
+                self.request_times[:] = [
+                    started
+                    for started in self.request_times
+                    if now - started < 60.0
+                ]
+            self.request_times.append(now)
 
     def _get(self, path: str, **params: str) -> Any:
+        self._pace_request()
         return self.transport(
             path,
             params,
             self.api_key,
             self.timeout_seconds,
         )
+
+    def fetch_ticker_details(self, symbol: str) -> Any:
+        normalized = str(symbol).strip().upper()
+        if self.ticker_details_cache is not None:
+            cached = self.ticker_details_cache.get(
+                normalized, max_age_days=self.ticker_details_cache_days
+            )
+            if cached is not None:
+                return cached
+        payload = self._get(f"/v3/reference/tickers/{normalized}")
+        _result_object(payload)
+        if self.ticker_details_cache is not None:
+            self.ticker_details_cache.put(normalized, payload)
+        return payload
+
+    def prefetch_ticker_details(
+        self,
+        symbols: list[str] | tuple[str, ...],
+        *,
+        max_symbols: int | None,
+    ) -> dict[str, Any]:
+        if self.ticker_details_cache is None:
+            raise RuntimeError("Massive ticker-details cache não configurado.")
+        if max_symbols is not None and max_symbols <= 0:
+            raise ValueError("Massive max_symbols deve ser positivo.")
+        normalized = sorted(
+            {
+                str(symbol).strip().upper()
+                for symbol in symbols
+                if str(symbol).strip()
+            }
+        )
+        pending = [
+            symbol
+            for symbol in normalized
+            if self.ticker_details_cache.get(
+                symbol, max_age_days=self.ticker_details_cache_days
+            )
+            is None
+        ]
+        selected = pending if max_symbols is None else pending[:max_symbols]
+        summary: dict[str, Any] = {
+            "requested": len(normalized),
+            "selected": len(selected),
+            "attempted": 0,
+            "succeeded": 0,
+            "negative_cached": 0,
+            "error_count": 0,
+            "errors": [],
+            "stopped_reason": None,
+        }
+        client = ProviderClient("Massive", self.prefetch_policy)
+        for symbol in selected:
+            summary["attempted"] += 1
+            try:
+                client.execute(
+                    "ticker_details",
+                    self.fetch_ticker_details,
+                    symbol,
+                )
+                summary["succeeded"] += 1
+            except ProviderError as exc:
+                summary["error_count"] += 1
+                if len(summary["errors"]) < 20:
+                    summary["errors"].append(
+                        {"symbol": symbol, **exc.to_dict()}
+                    )
+                if exc.kind == ProviderErrorKind.NOT_FOUND:
+                    self.ticker_details_cache.put(symbol, {"results": {}})
+                    summary["negative_cached"] += 1
+                if exc.kind in {
+                    ProviderErrorKind.AUTHENTICATION,
+                    ProviderErrorKind.RATE_LIMITED,
+                }:
+                    summary["stopped_reason"] = exc.kind.value
+                    break
+        payloads = [
+            self.ticker_details_cache.get(
+                symbol, max_age_days=self.ticker_details_cache_days
+            )
+            for symbol in normalized
+        ]
+        available = 0
+        for payload in payloads:
+            try:
+                details = _result_object(payload)
+            except ValueError:
+                continue
+            if _number(details.get("market_cap")) is not None:
+                available += 1
+        cached = sum(payload is not None for payload in payloads)
+        summary.update(
+            cached=cached,
+            available=available,
+            missing=len(normalized) - available,
+            remaining=len(normalized) - cached,
+            coverage_pct=(
+                round(100 * available / len(normalized), 2)
+                if normalized
+                else 0.0
+            ),
+            complete=cached == len(normalized),
+        )
+        return summary
 
     def __call__(
         self,
@@ -199,9 +350,7 @@ class MassiveMarketDataProvider:
                 return {}
 
         try:
-            details_payload = self._get(
-                f"/v3/reference/tickers/{normalized}"
-            )
+            details_payload = self.fetch_ticker_details(normalized)
             raw_payloads["ticker_details"] = details_payload
             details = _result_object(details_payload)
         except (ProviderError, RuntimeError, ValueError) as exc:
@@ -405,4 +554,27 @@ def build_massive_secondary_provider(
         timeout_seconds=float(settings.get("provider_timeout_seconds", 30)),
         float_fetcher=float_fetcher,
         fundamentals_fetcher=fundamentals_fetcher,
+        ticker_details_cache=MassiveTickerDetailsCache(
+            Path(root)
+            / str(
+                settings.get(
+                    "massive_ticker_details_cache_path",
+                    "data/provider_cache/massive_ticker_details.json",
+                )
+            )
+        ),
+        ticker_details_cache_days=float(
+            settings.get("massive_ticker_details_cache_days", 7)
+        ),
+        prefetch_policy=ProviderPolicy(
+            timeout_seconds=float(settings.get("provider_timeout_seconds", 30)),
+            max_retries=int(settings.get("provider_max_retries", 2)),
+            backoff_seconds=float(settings.get("provider_backoff_seconds", 0.5)),
+            rate_limit_per_second=float(
+                settings.get("massive_prefetch_rate_limit_per_second", 0.075)
+            ),
+        ),
+        request_limit_per_minute=int(
+            settings.get("massive_request_limit_per_minute", 5)
+        ),
     )

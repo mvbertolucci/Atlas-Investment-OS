@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 905 tests passing / 90.39% production coverage
+**Validation baseline:** 913 tests passing / 90.50% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -41,11 +41,16 @@ quota ledger, a 25-call interactive reserve and resumable batch/page collection.
 The 2026-07-17 live scan used the 225-call prefetch budget and found market-cap
 and float evidence for only 67/2,429 eligible symbols; enterprise evidence was
 available for 6 before the ceiling. This is an actual Basic-entitlement limit,
-not broad confirmation. Remaining fields stay `secondary_unavailable`. The
-next work should proceed in this order:
+not broad confirmation. Remaining fields stay `secondary_unavailable`.
 
-1. Add persistent/resumable Massive Ticker Details collection and measure its
-   actual coverage over all 2,429 eligible symbols.
+Massive Ticker Details now also has an atomic seven-day cache, resumable CLI,
+coverage report and enforcement of the Basic plan's five-call/minute rolling
+limit. The first two controlled runs retained 10/2,429 available records; the
+second batch completed without errors at the governed 4.5-call/minute prefetch
+rate. The next work should proceed in this order:
+
+1. Complete the resumable Massive checkpoint and publish final 2,429-symbol
+   coverage; a cold uninterrupted `--all` run takes approximately 8.1 hours.
 2. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 3. Run broad portfolio validation and publish coverage limitations before any

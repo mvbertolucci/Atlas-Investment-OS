@@ -2,46 +2,66 @@
 
 ## Purpose
 
-`providers/massive.py` supplies dated Short Interest for the governed
-`short_float` risk metric. When FMP is active, the adapter intentionally skips
-the denied Massive Financial Ratios and experimental Float endpoints. It
-derives `short_float` from Massive Short Interest and FMP Float only when their
-observation dates are no more than 45 days apart.
+`providers/massive.py` uses only endpoints available to the personal Stocks
+Basic plan:
+
+- Ticker Details supplies current `market_cap` and outstanding-share metadata;
+- Short Interest supplies the dated numerator of `short_float`;
+- native Float is the preferred dated denominator;
+- FMP Float is used only when native Float is absent or more than 45 days from
+  Short Interest;
+- `enterprise_value` composes Massive market cap with aligned SEC debt/cash.
+
+No Financial Ratios request is made.
+
+## Cache, resumption and coverage
+
+Stocks Basic documents five API calls per minute. Atlas enforces a five-call
+rolling window internally and runs broad Ticker Details prefetch at 4.5 calls
+per minute (`0.075/s`) to retain safety margin. Every successful response and
+definitive 404 is written atomically to:
+
+`data/provider_cache/massive_ticker_details.json`
+
+The cache is the checkpoint. A repeated command skips fresh records and starts
+at the first unresolved eligible symbol. The default invocation processes five
+new symbols and updates the ignored coverage report:
+
+```powershell
+.\.venv\Scripts\python.exe -m providers.massive_prefetch
+```
+
+To continue until completion in one long process:
+
+```powershell
+.\.venv\Scripts\python.exe -m providers.massive_prefetch --all
+```
+
+At five calls per minute, a cold 2,429-symbol scan takes approximately 8.1
+hours. It can be interrupted safely. Authentication and rate-limit failures
+stop the current batch instead of generating repeated errors. The first live
+run hit HTTP 429 after five calls at the old rate; those five were retained.
+After adopting the official limit, the resumed five-symbol batch completed
+without errors. Current measured checkpoint: 10/2,429 available (0.41%); this
+is progress, not a broad coverage claim.
 
 ## Safety and evidence
 
-- Enabled for this installation with `massive_secondary_enabled: true`; without
-  a local key the provider stays inert and emits a configuration warning.
-- The key is loaded from `MASSIVE_API_KEY` or the ignored
-  `config/provider_secrets.json` field `massive_api_key`.
-- The API key is not included in normalized records or immutable snapshots.
-- SEC, FMP and Massive use separate bounded clients, typed failures and raw
-  snapshots. Failure of either secondary does not discard valid Yahoo data or
-  prevent the other secondary from running. The composed evidence names both
-  Massive and FMP rather than attributing `short_float` to either alone.
-- Each secondary declares only the critical fields it can compare. Fields with
-  no configured capable source stay explicitly `secondary_unavailable`.
-
-## Configuration
-
-1. Create `config/provider_secrets.json` from
-   `config/provider_secrets.example.json`.
-2. Add the personal Massive API key locally.
-3. Configure the free FMP key described in `docs/FMP_DATA.md`.
-4. Set both secondary flags to `true` in local settings.
-5. Run a bounded single-symbol check before portfolio/watchlist runs.
-
-The protected personal keys were validated on 2026-07-17. AAPL `short_float`
-was confirmed from 2026-06-30 Massive Short Interest and 2026-07-15 FMP Float.
-No paid Massive endpoint is required while FMP is active.
+- The key is loaded from `MASSIVE_API_KEY` or ignored
+  `config/provider_secrets.json`.
+- Keys are absent from cache, normalized records, errors and raw snapshots.
+- SEC Company Facts is cached in memory per run to avoid duplicate downloads.
+- Missing Float or SEC components remain unavailable; outstanding shares are
+  never mislabeled as free float.
+- Provider errors remain typed, retry-bounded and source-attributed.
 
 ## Endpoints
 
+- `GET /v3/reference/tickers/{ticker}`
 - `GET /stocks/v1/short-interest`
-- fallback only: `GET /stocks/vX/float` (experimental)
+- `GET /stocks/vX/float`
 
-Official documentation:
+Official references:
 
-- <https://massive.com/docs/rest/stocks/fundamentals/ratios>
-- <https://massive.com/docs/rest/stocks/fundamentals/short-interest>
-- <https://massive.com/docs/rest/stocks/fundamentals/float>
+- <https://massive.com/pricing?product=stocks>
+- <https://massive.com/docs/rest/stocks>

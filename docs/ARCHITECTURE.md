@@ -138,6 +138,11 @@ Unsupported responses are negative-cached and remain unavailable rather than
 being inferred as confirmations; live Basic-plan coverage is explicitly
 partial (ADR-025).
 
+Massive Ticker Details has a separate atomic seven-day response cache. Its
+prefetch CLI treats that cache as a checkpoint, publishes available/missing
+coverage against `US_MARKET_ELIGIBLE`, stops on authentication/rate-limit
+boundaries and obeys the Basic five-call/minute rolling limit (ADR-027).
+
 ### Feature and scoring layer
 
 - `factors/`

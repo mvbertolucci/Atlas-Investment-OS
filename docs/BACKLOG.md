@@ -73,8 +73,11 @@
       derive EV from Massive market cap plus SEC debt minus cash
 - [x] Prefer aligned Massive native Float and use FMP Float only as fallback;
       bounded live checks passed for AAPL, AVAV and BNTX without a paid plan
-- [ ] Add persistent/resumable Massive Ticker Details collection and measure
-      real coverage over all 2,429 eligible symbols before a broad claim
+- [x] Add atomic persistent/resumable Massive Ticker Details collection,
+      five-call/minute protection and an ignored coverage report
+- [ ] Complete the live Massive checkpoint over all 2,429 eligible symbols;
+      10/2,429 were available after the first two controlled runs, so no broad
+      coverage claim is made yet
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

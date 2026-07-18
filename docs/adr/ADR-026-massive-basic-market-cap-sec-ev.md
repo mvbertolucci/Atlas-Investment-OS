@@ -23,6 +23,8 @@ universe. SEC Company Facts already supplies dated debt and cash components.
    repeat EDGAR downloads.
 5. Keep automatic broad FMP prefetch disabled. Its explicit resumable CLI
    remains available.
+6. Use the persistent, rate-bounded broad Massive collection defined by
+   ADR-027 before making market-wide coverage claims.
 
 ## Consequences
 
@@ -31,8 +33,8 @@ universe. SEC Company Facts already supplies dated debt and cash components.
 - Bounded live validation produced market cap for AAPL, AVAV and BNTX; EV for
   AAPL and AVAV; and dated short float for all three. BNTX EV correctly remained
   unavailable because comparable SEC components were not both available.
-- Broad 2,429-symbol Massive coverage is not yet claimed; it requires a
-  persistent, resumable collection run.
+- Broad 2,429-symbol Massive coverage is not yet claimed. ADR-027 implements
+  the required collector; its checkpoint must still be completed.
 
 ## Rollback
 

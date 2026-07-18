@@ -30,6 +30,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-024 | Compose free FMP and Massive evidence instead of buying ratios | Accepted 2026-07-17 |
 | ADR-025 | Bound free FMP broad collection with persistent cache and quota | Accepted 2026-07-17 |
 | ADR-026 | Use Massive Basic market cap and SEC-composed enterprise value | Accepted 2026-07-17 |
+| ADR-027 | Cache and resume Massive broad details within the Basic rate limit | Accepted 2026-07-17 |
 
 ## Recording a new decision
 

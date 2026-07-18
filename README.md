@@ -51,7 +51,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
 - Massive Basic ticker details for market cap and SEC-composed enterprise
   value; Massive short interest/native float derive short float, with FMP float
   only as a dated fallback. FMP batch cache and quota protection remain
-  available for explicit fallback prefetch
+  available for explicit fallback prefetch; Massive Ticker Details broad
+  collection is atomic, resumable and protected at five calls per minute
 - Typed `PipelineContext` and explicit execution stages with validated input
   and output contracts
 - Narrow typed runtime, ticker, collection, scoring, history, intelligence and

@@ -12,7 +12,9 @@ from providers.massive import (
     build_massive_secondary_provider,
     load_massive_api_key,
 )
+from providers.contracts import ProviderPolicy
 from providers.fmp_cache import FmpQuotaExceeded
+from providers.massive_cache import MassiveTickerDetailsCache
 
 
 def _transport(path, params, api_key, timeout):
@@ -358,3 +360,118 @@ def test_massive_marks_short_float_unavailable_without_source_dates() -> None:
 def test_massive_rejects_nonpositive_timeout() -> None:
     with pytest.raises(ValueError, match="timeout_seconds"):
         MassiveMarketDataProvider("secret", timeout_seconds=0)
+
+
+def test_massive_ticker_details_cache_reuses_on_demand_payload(
+    tmp_path: Path,
+) -> None:
+    calls = []
+
+    def transport(path, params, api_key, timeout):
+        calls.append(path)
+        return {"results": {"ticker": "AAPL", "market_cap": 100}}
+
+    provider = MassiveMarketDataProvider(
+        "secret",
+        transport=transport,
+        ticker_details_cache=MassiveTickerDetailsCache(tmp_path / "cache.json"),
+    )
+
+    assert provider.fetch_ticker_details("AAPL")["results"]["market_cap"] == 100
+    assert provider.fetch_ticker_details("aapl")["results"]["market_cap"] == 100
+    assert calls == ["/v3/reference/tickers/AAPL"]
+
+
+def test_massive_prefetch_resumes_and_negative_caches_not_found(
+    tmp_path: Path,
+) -> None:
+    calls = []
+
+    def transport(path, params, api_key, timeout):
+        symbol = path.rsplit("/", 1)[-1]
+        calls.append(symbol)
+        if symbol == "BBB":
+            raise RuntimeError("Massive HTTP 404")
+        return {"results": {"ticker": symbol, "market_cap": 100}}
+
+    provider = MassiveMarketDataProvider(
+        "secret",
+        transport=transport,
+        ticker_details_cache=MassiveTickerDetailsCache(tmp_path / "cache.json"),
+        prefetch_policy=ProviderPolicy(
+            max_retries=0, rate_limit_per_second=100_000
+        ),
+    )
+
+    first = provider.prefetch_ticker_details(
+        ["AAA", "BBB", "CCC"], max_symbols=2
+    )
+    second = provider.prefetch_ticker_details(
+        ["AAA", "BBB", "CCC"], max_symbols=2
+    )
+
+    assert first["attempted"] == 2
+    assert first["negative_cached"] == 1
+    assert first["cached"] == 2
+    assert first["remaining"] == 1
+    assert second["attempted"] == 1
+    assert second["complete"] is True
+    assert second["available"] == 2
+    assert second["missing"] == 1
+    assert calls == ["AAA", "BBB", "CCC"]
+
+
+def test_massive_prefetch_stops_on_authentication_and_validates_config(
+    tmp_path: Path,
+) -> None:
+    provider = MassiveMarketDataProvider(
+        "secret",
+        transport=lambda *args: (_ for _ in ()).throw(
+            RuntimeError("Massive HTTP 403")
+        ),
+        ticker_details_cache=MassiveTickerDetailsCache(tmp_path / "cache.json"),
+        prefetch_policy=ProviderPolicy(
+            max_retries=0, rate_limit_per_second=100_000
+        ),
+    )
+
+    summary = provider.prefetch_ticker_details(
+        ["AAA", "BBB"], max_symbols=2
+    )
+
+    assert summary["attempted"] == 1
+    assert summary["stopped_reason"] == "authentication"
+    assert summary["remaining"] == 2
+    with pytest.raises(ValueError, match="max_symbols"):
+        provider.prefetch_ticker_details(["AAA"], max_symbols=0)
+    with pytest.raises(ValueError, match="cache_days"):
+        MassiveMarketDataProvider("secret", ticker_details_cache_days=0)
+    with pytest.raises(ValueError, match="request_limit_per_minute"):
+        MassiveMarketDataProvider("secret", request_limit_per_minute=0)
+    with pytest.raises(RuntimeError, match="cache não configurado"):
+        MassiveMarketDataProvider("secret").prefetch_ticker_details(
+            ["AAA"], max_symbols=1
+        )
+
+
+def test_massive_internal_pacing_honors_call_window() -> None:
+    current = [0.0]
+    sleeps = []
+
+    def sleep(delay):
+        sleeps.append(delay)
+        current[0] += delay
+
+    provider = MassiveMarketDataProvider(
+        "secret",
+        transport=lambda *args: {"results": {}},
+        request_limit_per_minute=2,
+        sleeper=sleep,
+        monotonic=lambda: current[0],
+    )
+
+    provider._get("/one")
+    provider._get("/two")
+    provider._get("/three")
+
+    assert sleeps == [60.0]
