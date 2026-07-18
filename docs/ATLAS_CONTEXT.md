@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 948 tests passing / 90.50% production coverage
+**Validation baseline:** 962 tests passing / 90.56% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -73,10 +73,14 @@ report is ignored runtime data. The next work should proceed in this order:
    scan; live-verified against the real eligible universe: one call matched
    2,423/2,429 symbols (99.75%). The cache never expires (a past date's bars
    are immutable) and a prefetch CLI publishes coverage. Composing this price
-   with SEC `shares_outstanding` into a broad `market_cap` snapshot (same
-   45-day alignment discipline as EV/short_float) is the remaining half of
-   the original item and is not done yet; the 6 unmatched symbols are
-   unclassified, not confirmed unavailable.
+   with SEC `shares_outstanding` into a broad `market_cap` snapshot is now
+   implemented (2026-07-18, ADR-031) — `providers/market_cap_composition.py`
+   + `market_cap_composition_prefetch`, with a 100-day alignment window
+   (not 45; share count only moves via deliberate buybacks/issuance and is
+   filed quarterly, unlike debt/cash). Live-verified: 7/8 of a bounded
+   8-symbol check composed, AAPL within ~1% of two independently-composed
+   values (Massive Ticker Details, Finnhub). The full 2,429-symbol broad
+   run has not been executed yet.
 4. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 5. Run broad portfolio validation and publish coverage limitations before any

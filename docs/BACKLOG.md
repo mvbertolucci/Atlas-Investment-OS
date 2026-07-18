@@ -90,11 +90,14 @@
       Basic-plan access, `fetch_grouped_daily`, an immutable per-trade-date
       cache and a prefetch CLI. Live-verified 2026-07-16: one call matched
       2,423/2,429 eligible symbols (99.75%) — see ADR-029
-- [ ] Compose `market_cap = Grouped Daily close × SEC shares_outstanding`
-      (same 45-day alignment discipline as EV/short_float) into a broad,
-      cached market-cap snapshot; classify the 6 unmatched Grouped Daily
-      symbols instead of assuming them unavailable; retain Ticker Details for
-      targeted single-symbol confirmation
+- [x] Compose `market_cap = Grouped Daily close × SEC shares_outstanding`
+      into a broad, cached market-cap snapshot (`providers/
+      market_cap_composition.py` + `market_cap_composition_prefetch` CLI).
+      Uses a 100-day alignment window, not 45 -- share count moves only via
+      deliberate buybacks/issuance and is filed quarterly, unlike debt/cash;
+      see ADR-031. Live-verified: 7/8 symbols composed, AAPL within ~1% of
+      two independently-composed values (Massive Ticker Details, Finnhub).
+      Retains Ticker Details for targeted single-symbol confirmation
 - [x] Add Finnhub as a free `market_cap`/`enterprise_value` secondary source
       (60 calls/minute, no observed daily cap, vendor-computed EV in one
       call, no composition needed) and place it ahead of Massive in the live
@@ -104,6 +107,10 @@
       2,429-symbol eligible universe (`providers.finnhub_prefetch --all`,
       ~45 minutes cold) and publish real broad coverage, mirroring the
       Massive Float/Grouped Daily broad runs already completed
+- [ ] Run `providers.market_cap_composition_prefetch --all` to completion
+      (~20 minutes cold, SEC EDGAR fair-use pacing) and publish real broad
+      composed market-cap coverage; only a bounded 8-symbol check has run
+      so far
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

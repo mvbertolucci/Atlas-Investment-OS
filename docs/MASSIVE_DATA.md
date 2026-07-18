@@ -119,10 +119,11 @@ cache never expires, unlike the Ticker Details or Float caches above, which
 describe current state. Coverage is written to the ignored
 `output/dados/massive_grouped_daily_coverage.json`.
 
-This snapshot supplies only the price leg (`close`). Composing it with SEC
-`shares_outstanding` into `market_cap` at scale — the actual replacement for
-the broad Ticker Details scan — is tracked separately in `docs/BACKLOG.md`;
-see ADR-029.
+This snapshot supplies the price leg (`close`). Composition with SEC
+`shares_outstanding` into `market_cap` at scale is implemented in
+`providers/market_cap_composition.py` + `market_cap_composition_prefetch`
+(CLI) — see ADR-031. A bounded 8-symbol live check composed 7/8; the full
+broad run is tracked in `docs/BACKLOG.md`.
 
 ## Safety and evidence
 
