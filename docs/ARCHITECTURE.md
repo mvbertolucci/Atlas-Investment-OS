@@ -126,9 +126,11 @@ Provider adapter output stays flat for analytical compatibility and carries a
 nested `field_evidence` audit map. Live collection stores the adapter payload
 before enrichment; checkpoints and score history retain its SHA-256. Critical
 fields can be reconciled with a second adapter, with fallback, confirmation and
-conflict represented explicitly. SEC and Massive run through independent
+conflict represented explicitly. SEC, FMP and Massive run through independent
 bounded clients and immutable snapshots; each declares the fields it can
-actually confirm. See ADR-014 and ADR-023.
+actually confirm. Massive Short Interest composes with FMP Float without
+claiming that either source alone supplied `short_float`. See ADR-014, ADR-023
+and ADR-024.
 
 ### Feature and scoring layer
 

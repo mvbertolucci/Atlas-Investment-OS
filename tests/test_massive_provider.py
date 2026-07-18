@@ -159,6 +159,37 @@ def test_massive_keeps_short_float_when_ratios_are_forbidden() -> None:
     )
 
 
+def test_massive_uses_fmp_float_and_skips_paid_ratios() -> None:
+    requested_paths = []
+
+    def transport(path, params, api_key, timeout):
+        requested_paths.append(path)
+        return _transport(path, params, api_key, 7)
+
+    provider = MassiveMarketDataProvider(
+        "secret-key",
+        timeout_seconds=7,
+        transport=transport,
+        float_fetcher=lambda symbol: {
+            "free_float": 14_662_387_495,
+            "observed_at": "2026-07-15 22:36:05",
+            "_raw_fmp_float": [{"symbol": symbol}],
+        },
+        use_ratios=False,
+    )
+
+    record = provider("AAPL")
+
+    assert requested_paths == ["/stocks/v1/short-interest"]
+    assert record["short_float"] == pytest.approx(
+        150_000_000 / 14_662_387_495
+    )
+    assert record["source"] == "Massive + Financial Modeling Prep"
+    assert record["field_evidence"]["short_float"]["source"] == (
+        "Massive + Financial Modeling Prep"
+    )
+
+
 def test_massive_transport_parses_json_and_sanitizes_http_errors(
     monkeypatch,
 ) -> None:

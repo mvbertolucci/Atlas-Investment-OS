@@ -27,6 +27,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-021 | Separate governed ticker analysis from runtime operations | Accepted 2026-07-17 |
 | ADR-022 | Give operational runtime behavior a concrete service | Accepted 2026-07-17 |
 | ADR-023 | Use Massive as the optional market and ownership secondary | Accepted 2026-07-17 |
+| ADR-024 | Compose free FMP and Massive evidence instead of buying ratios | Accepted 2026-07-17 |
 
 ## Recording a new decision
 

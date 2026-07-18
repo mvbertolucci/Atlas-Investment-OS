@@ -48,8 +48,8 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   fallback/confirmation contract
 - SEC Company Facts confirmation/fallback for comparable reported fundamentals
   and annual FCF/EBITDA fallback, with period/definition alignment
-- Optional Massive secondary for market cap, enterprise value and derived
-  short-float confirmation, with isolated credentials and raw snapshots
+- Free FMP secondary for market cap and derived enterprise value, combined
+  with Massive short interest and FMP float for short-float confirmation
 - Typed `PipelineContext` and explicit execution stages with validated input
   and output contracts
 - Narrow typed runtime, ticker, collection, scoring, history, intelligence and

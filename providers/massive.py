@@ -14,6 +14,7 @@ from providers.evidence import DataValueStatus, FieldEvidence
 
 
 JsonTransport = Callable[[str, Mapping[str, str], str, float], Any]
+FloatFetcher = Callable[[str], Mapping[str, Any]]
 MASSIVE_BASE_URL = "https://api.massive.com"
 
 
@@ -89,6 +90,7 @@ def _number(value: Any) -> float | None:
 def _evidence(
     value: float | None,
     *,
+    source: str = "Massive",
     category: str,
     retrieved_at: str,
     observed_at: str | None,
@@ -100,7 +102,7 @@ def _evidence(
             if value is not None
             else DataValueStatus.UNAVAILABLE
         ),
-        source="Massive",
+        source=source,
         category=category,
         retrieved_at=retrieved_at,
         observed_at=observed_at,
@@ -135,6 +137,8 @@ class MassiveMarketDataProvider:
     api_key: str
     timeout_seconds: float = 30.0
     transport: JsonTransport = _request_json
+    float_fetcher: FloatFetcher | None = None
+    use_ratios: bool = True
 
     def __post_init__(self) -> None:
         if not str(self.api_key).strip():
@@ -181,13 +185,17 @@ class MassiveMarketDataProvider:
                 }
                 return {}
 
-        ratios = latest(
-            "ratios",
-            "/stocks/financials/v1/ratios",
-            "date",
-            ticker=normalized,
-            limit="10",
-            sort="date.desc",
+        ratios = (
+            latest(
+                "ratios",
+                "/stocks/financials/v1/ratios",
+                "date",
+                ticker=normalized,
+                limit="10",
+                sort="date.desc",
+            )
+            if self.use_ratios
+            else {}
         )
         short = latest(
             "short_interest",
@@ -197,13 +205,36 @@ class MassiveMarketDataProvider:
             limit="10",
             sort="settlement_date.desc",
         )
-        float_data = latest(
-            "float",
-            "/stocks/vX/float",
-            "effective_date",
-            ticker=normalized,
-            limit="10",
-        )
+        float_source = "Massive"
+        if self.float_fetcher is None:
+            float_data = latest(
+                "float",
+                "/stocks/vX/float",
+                "effective_date",
+                ticker=normalized,
+                limit="10",
+            )
+        else:
+            float_source = "Financial Modeling Prep"
+            try:
+                external_float = self.float_fetcher(normalized)
+                raw_payloads["float"] = external_float.get(
+                    "_raw_fmp_float", external_float
+                )
+                float_data = {
+                    "free_float": external_float.get("free_float"),
+                    "effective_date": external_float.get("observed_at"),
+                }
+            except (RuntimeError, ValueError) as exc:
+                endpoint_errors["float"] = {
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                }
+                raw_payloads["float"] = {
+                    "unavailable": True,
+                    "error_type": type(exc).__name__,
+                }
+                float_data = {}
         market_cap = _number(ratios.get("market_cap"))
         enterprise_value = _number(ratios.get("enterprise_value"))
         short_interest = _number(short.get("short_interest"))
@@ -213,7 +244,9 @@ class MassiveMarketDataProvider:
         float_date = str(float_data.get("effective_date") or "") or None
 
         short_float = None
-        short_detail = "short_interest / free_float"
+        short_detail = (
+            f"Massive short_interest / {float_source} free_float"
+        )
         if (
             short_interest is not None
             and free_float is not None
@@ -227,9 +260,14 @@ class MassiveMarketDataProvider:
             short_detail += "; source period unavailable"
 
         retrieved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        record_source = (
+            "Massive + Financial Modeling Prep"
+            if self.float_fetcher is not None
+            else "Massive"
+        )
         return {
             "symbol": normalized,
-            "source": "Massive",
+            "source": record_source,
             "as_of": retrieved_at,
             "market_cap": market_cap,
             "enterprise_value": enterprise_value,
@@ -263,6 +301,7 @@ class MassiveMarketDataProvider:
                 ),
                 "short_float": _evidence(
                     short_float,
+                    source=record_source,
                     category="ownership",
                     retrieved_at=retrieved_at,
                     observed_at=short_date,
@@ -275,6 +314,8 @@ class MassiveMarketDataProvider:
 def build_massive_secondary_provider(
     root: str | Path,
     settings: Mapping[str, Any],
+    *,
+    float_fetcher: FloatFetcher | None = None,
 ) -> MassiveMarketDataProvider | None:
     api_key = load_massive_api_key(root, settings)
     if not api_key:
@@ -282,4 +323,6 @@ def build_massive_secondary_provider(
     return MassiveMarketDataProvider(
         api_key,
         timeout_seconds=float(settings.get("provider_timeout_seconds", 30)),
+        float_fetcher=float_fetcher,
+        use_ratios=float_fetcher is None,
     )

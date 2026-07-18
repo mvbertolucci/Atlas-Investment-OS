@@ -63,10 +63,12 @@
       more than 45 days apart
 - [x] Configure a protected personal Massive API key and verify bounded live
       AAPL access to Short Interest and Float endpoints
-- [ ] Enable Financial Ratios plan access and repeat AAPL verification for
-      market cap and enterprise value (current response: HTTP 403)
-- [ ] Obtain sufficiently aligned Float evidence before confirming AAPL
-      `short_float` (current observations differ by more than 45 days)
+- [x] Add the free FMP Basic adapter and confirm AAPL market cap and derived
+      enterprise value against Yahoo
+- [x] Combine Massive Short Interest with dated FMP Float and confirm AAPL
+      `short_float` without relaxing the 45-day alignment rule
+- [ ] Add batch/cache orchestration before applying FMP confirmation to a broad
+      universe; the free plan is limited to 250 calls per day
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

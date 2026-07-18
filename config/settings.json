@@ -12,6 +12,7 @@
   "raw_snapshot_path": "data/raw_snapshots",
   "sec_secondary_enabled": true,
   "massive_secondary_enabled": true,
+  "fmp_secondary_enabled": true,
   "provider_secrets_path": "config/provider_secrets.json",
   "portfolio_path": "config/portfolio.csv",
   "portfolio_name": "Atlas Portfolio",
