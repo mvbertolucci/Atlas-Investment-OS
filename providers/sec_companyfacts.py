@@ -4,12 +4,14 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from backtesting.point_in_time import HistoricalObservation
 from backtesting.sec_edgar import (
+    available_at_from_filed,
     extract_observations,
     fetch_company_facts,
     fetch_ticker_cik_map,
@@ -55,6 +57,64 @@ def _latest_by_field(
     return result
 
 
+_PUBLIC_FLOAT_FORMS = frozenset(
+    {"10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A"}
+)
+
+
+def extract_entity_public_float_observation(
+    symbol: str,
+    company_facts: Mapping[str, Any],
+) -> HistoricalObservation | None:
+    concept = (
+        company_facts.get("facts", {})
+        .get("dei", {})
+        .get("EntityPublicFloat", {})
+    )
+    entries = concept.get("units", {}).get("USD", [])
+    candidates: list[HistoricalObservation] = []
+    for entry in entries if isinstance(entries, list) else []:
+        if not isinstance(entry, Mapping):
+            continue
+        required = ("end", "val", "filed", "accn", "form")
+        if any(key not in entry for key in required):
+            continue
+        form = str(entry["form"]).strip().upper()
+        if form not in _PUBLIC_FLOAT_FORMS:
+            continue
+        try:
+            value = float(entry["val"])
+            available_at = available_at_from_filed(str(entry["filed"]))
+            observation = HistoricalObservation(
+                symbol=symbol,
+                field_name="entity_public_float_value",
+                value=value,
+                observed_on=str(entry["end"]),
+                available_at=available_at,
+                source=(
+                    "SEC EDGAR Company Facts "
+                    f"({form}, dei:EntityPublicFloat)"
+                ),
+                revision_id=str(entry["accn"]),
+            )
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value) and value >= 0:
+            candidates.append(observation)
+    return (
+        max(
+            candidates,
+            key=lambda item: (
+                item.observed_on,
+                item.available_at,
+                item.revision_id,
+            ),
+        )
+        if candidates
+        else None
+    )
+
+
 def _common_period(
     indexed: Mapping[str, Mapping[str, HistoricalObservation]],
     fields: Iterable[str],
@@ -83,20 +143,21 @@ def _evidence(
     *,
     status: DataValueStatus = DataValueStatus.PRESENT,
     detail: str | None = None,
+    category: str = "fundamentals",
 ) -> dict[str, Any]:
     items = tuple(observations)
     if not items:
         return FieldEvidence(
             status=DataValueStatus.UNAVAILABLE,
             source="SEC EDGAR Company Facts",
-            category="fundamentals",
+            category=category,
             retrieved_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
             detail=detail,
         ).to_dict()
     return FieldEvidence(
         status=status,
         source=" | ".join(sorted({item.source for item in items})),
-        category="fundamentals",
+        category=category,
         retrieved_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         observed_at=max(item.observed_on for item in items).isoformat(),
         available_at=max(item.available_at for item in items).isoformat(),
@@ -136,6 +197,28 @@ def record_from_company_facts(
     direct("total_cash", "cash_and_equivalents")
     direct("operating_cashflow", "operating_cash_flow")
     direct("shares_outstanding", "shares_outstanding")
+
+    public_float = extract_entity_public_float_observation(symbol, company_facts)
+    if public_float is None:
+        values["entity_public_float_value"] = None
+        evidence["entity_public_float_value"] = _evidence(
+            (),
+            detail=(
+                "dei:EntityPublicFloat unavailable; SEC public float is a "
+                "monetary value, not a share count"
+            ),
+            category="ownership",
+        )
+    else:
+        values["entity_public_float_value"] = float(public_float.value)
+        evidence["entity_public_float_value"] = _evidence(
+            (public_float,),
+            detail=(
+                "USD aggregate market value held by non-affiliates; not a "
+                "free-float share count"
+            ),
+            category="ownership",
+        )
 
     debt_fields = ("long_term_debt", "long_term_debt_current", "short_term_debt")
     debt_periods = sorted(
@@ -231,6 +314,7 @@ class SecCompanyFactsProvider:
             "ebitda",
             "free_cashflow",
             "current_ratio",
+            "entity_public_float_value",
         }
     )
 

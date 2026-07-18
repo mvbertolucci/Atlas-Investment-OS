@@ -150,6 +150,12 @@ complete, a missing ticker is authoritative absence for that snapshot and does
 not trigger an N+1 request. Symbol-class aliases bridge Atlas hyphens and
 Massive dots. FMP remains only a dated fallback (ADR-028).
 
+The residual SEC audit keeps `dei:EntityPublicFloat` as a distinct monetary
+ownership field. It records annual Company Facts in immutable SHA-256
+snapshots, applies the 45-day date gate and classifies structural review
+groups. Because Company Facts does not expose the exact share-price basis, the
+field is never relabeled or divided into `free_float` shares (ADR-029).
+
 ### Feature and scoring layer
 
 - `factors/`

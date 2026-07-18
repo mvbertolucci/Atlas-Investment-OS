@@ -32,6 +32,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-026 | Use Massive Basic market cap and SEC-composed enterprise value | Accepted 2026-07-17 |
 | ADR-027 | Cache and resume Massive broad details within the Basic rate limit | Accepted 2026-07-17 |
 | ADR-028 | Cache the paginated market-wide Massive Float snapshot | Accepted 2026-07-17 |
+| ADR-029 | Keep SEC monetary public float separate from free-float shares | Accepted 2026-07-17 |
 
 ## Recording a new decision
 

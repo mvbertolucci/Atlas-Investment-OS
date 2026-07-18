@@ -8,6 +8,7 @@ import pytest
 from providers.sec_companyfacts import (
     SecCompanyFactsProvider,
     build_sec_secondary_provider,
+    extract_entity_public_float_observation,
     load_sec_user_agent,
     record_from_company_facts,
 )
@@ -45,6 +46,9 @@ def _facts() -> dict:
             "dei": {
                 "EntityCommonStockSharesOutstanding": {
                     "units": {"shares": [_entry(1_000)]}
+                },
+                "EntityPublicFloat": {
+                    "units": {"USD": [_entry(9_000)]}
                 }
             },
         }
@@ -65,9 +69,45 @@ def test_companyfacts_maps_comparable_critical_fields() -> None:
     assert record["free_cashflow"] == 60
     assert record["ebitda"] == 100
     assert record["shares_outstanding"] == 1_000
+    assert record["entity_public_float_value"] == 9_000
+    assert (
+        record["field_evidence"]["entity_public_float_value"]["category"]
+        == "ownership"
+    )
     assert record["market_cap"] is None
     assert record["field_evidence"]["total_debt"]["observed_at"] == "2026-06-30"
     assert record["field_evidence"]["market_cap"]["status"] == "unavailable"
+
+
+def test_public_float_extractor_accepts_annual_forms_and_usd_only() -> None:
+    facts = {
+        "facts": {
+            "dei": {
+                "EntityPublicFloat": {
+                    "units": {
+                        "USD": [
+                            _entry(100, end="2025-06-30"),
+                            {
+                                **_entry(200, end="2026-06-30"),
+                                "form": "20-F",
+                            },
+                            {
+                                **_entry(300, end="2026-07-01"),
+                                "form": "10-Q",
+                            },
+                        ],
+                        "shares": [_entry(999, end="2026-07-02")],
+                    }
+                }
+            }
+        }
+    }
+
+    observation = extract_entity_public_float_observation("AAA", facts)
+
+    assert observation is not None
+    assert observation.value == 200
+    assert observation.observed_on.isoformat() == "2026-06-30"
 
 
 def test_sec_provider_caches_ticker_map() -> None:
@@ -122,8 +162,14 @@ def test_user_agent_is_loaded_only_when_enabled(
         "provider_secrets_path": str(secrets),
     }
 
-    assert load_sec_user_agent(tmp_path, settings) == "Atlas Marcus contact@example.com"
-    assert isinstance(build_sec_secondary_provider(tmp_path, settings), SecCompanyFactsProvider)
+    assert (
+        load_sec_user_agent(tmp_path, settings)
+        == "Atlas Marcus contact@example.com"
+    )
+    assert isinstance(
+        build_sec_secondary_provider(tmp_path, settings),
+        SecCompanyFactsProvider,
+    )
     assert load_sec_user_agent(
         tmp_path,
         {**settings, "sec_secondary_enabled": False},

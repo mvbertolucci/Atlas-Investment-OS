@@ -42,6 +42,34 @@ The 2026-07-17 live collection completed all seven pages without errors:
 - the remaining 64 symbols stay explicitly unavailable; outstanding shares
   are never substituted for free float.
 
+## SEC public-float audit
+
+The residual audit is reproducible with:
+
+```powershell
+.\.venv\Scripts\python.exe -m providers.sec_public_float_audit
+```
+
+SEC `dei:EntityPublicFloat` is an aggregate USD market value held by
+non-affiliates, not a number of shares. Atlas extracts it from annual 10-K,
+20-F and 40-F Company Facts, preserves the raw response as an immutable
+SHA-256 snapshot and evaluates it against the same 45-day alignment window.
+It is never divided by an assumed or current price.
+
+The 2026-07-17 audit of all 64 residual symbols found:
+
+- 28 positive monetary values, all stale; the newest was 290 days old;
+- 30 issuers without the SEC concept in Company Facts;
+- 3 zero public-float values;
+- 3 unavailable provider mappings/responses;
+- 0 observations eligible for conversion into free-float shares.
+
+Structural review groups were 16 partnerships/MLPs, 8 asset managers or funds,
+5 shell companies, 32 operating/recent listings and 3 unresolved issuers.
+These groups are review aids, not legal classifications or automatic
+`not_applicable` decisions. The ignored detailed report is written to
+`output/dados/sec_public_float_audit.json`.
+
 ## Ticker Details cache and resumption
 
 Stocks Basic documents five API calls per minute. Atlas enforces a five-call

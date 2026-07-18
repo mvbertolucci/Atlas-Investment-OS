@@ -100,6 +100,11 @@ def test_provider_operational_policy_is_pinned() -> None:
     ]
     assert settings["raw_snapshot_path"] == "data/raw_snapshots"
     assert settings["sec_secondary_enabled"] is True
+    assert settings["sec_public_float_alignment_days"] == 45
+    assert settings["sec_public_float_rate_limit_per_second"] == 2
+    assert settings["sec_public_float_audit_report_path"].endswith(
+        "sec_public_float_audit.json"
+    )
     assert settings["massive_secondary_enabled"] is True
     assert settings["massive_ticker_details_cache_path"].endswith(
         "massive_ticker_details.json"

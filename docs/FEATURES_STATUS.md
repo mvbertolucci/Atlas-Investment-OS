@@ -2,12 +2,12 @@
 
 **Release:** v1.2.0
 **Baseline:** PR-033 + point-in-time acquisition/derivation (including `timing` and extended `valuation`) + deterministic PR-034 target/execution-evidence/total-return-evidence/execution/validation cores
-**Test baseline:** 920 passing / 90.51% production coverage
+**Test baseline:** 925 passing / 90.39% production coverage
 
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
 | Market/fundamental collection | Yes | Yes | Yes | Yes | Operational |
-| Provider resilience and raw evidence | Yes | Yes | No | No | Massive Basic confirms targeted market cap; market-wide cached Float covers 2,364/2,429 directly and dated FMP fallback raises combined availability to 2,365/2,429; Massive + SEC derives EV |
+| Provider resilience and raw evidence | Yes | Yes | No | No | Massive Basic confirms targeted market cap; market-wide cached Float plus dated FMP covers 2,365/2,429; all 64 residuals have a governed SEC audit, with monetary public float kept separate from shares; Massive + SEC derives EV |
 | Technical enrichment | Yes | Yes | Yes | Yes | Operational; 100% direct coverage |
 | Investment scoring | Yes | Yes | Yes | Yes | Operational |
 | Opportunity and conviction | Yes | Yes | Yes | Yes | Operational |

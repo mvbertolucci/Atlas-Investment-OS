@@ -80,9 +80,12 @@
       covered 2,364/2,429 eligible symbols directly (97.32%) without errors
 - [x] Preserve FMP as dated fallback for one additional symbol (`ET`), taking
       combined free-float availability to 2,365/2,429 (97.37%)
-- [ ] Classify the remaining 64 free-float gaps by applicability and evaluate
-      SEC `EntityPublicFloat` only where its monetary definition and observation
-      date can be reconciled without substituting outstanding shares
+- [x] Classify all 64 residual free-float gaps and audit SEC
+      `EntityPublicFloat`; 28 monetary values were stale, 30 absent, 3 zero and
+      3 unavailable, leaving zero safe share-count conversions
+- [ ] Revisit the 64 residuals only when a source supplies a dated share count
+      under a comparable non-affiliate definition; do not derive it from SEC
+      monetary public float or outstanding shares
 - [ ] Replace the slow per-symbol broad Ticker Details scan with a composed
       market-cap path based on Massive Grouped Daily prices and aligned SEC
       shares; retain Ticker Details for targeted confirmation

@@ -53,6 +53,9 @@ Development baseline: `PR-033` plus point-in-time data acquisition on release
   2,364/2,429 eligible symbols directly (97.32%), with dated FMP fallback
   raising combined availability to 2,365/2,429 (97.37%). Massive Ticker Details
   collection remains atomic, resumable and protected at five calls per minute
+- Governed SEC public-float audit for the 64 residual symbols; monetary
+  `EntityPublicFloat` remains distinct from shares and cannot silently improve
+  short-float coverage
 - Typed `PipelineContext` and explicit execution stages with validated input
   and output contracts
 - Narrow typed runtime, ticker, collection, scoring, history, intelligence and

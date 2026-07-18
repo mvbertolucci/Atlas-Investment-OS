@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 920 tests passing / 90.51% production coverage
+**Validation baseline:** 925 tests passing / 90.39% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -48,16 +48,18 @@ Massive Float now uses a separate atomic, page-resumable market snapshot. The
 covering 2,364/2,429 eligible symbols directly (97.32%). Dotted/hyphenated share
 classes are reconciled; FMP contributes one additional dated fallback (`ET`),
 for 2,365/2,429 combined availability (97.37%). The remaining 64 gaps are
-explicitly unavailable, never replaced by outstanding shares. The next work
-should proceed in this order:
+explicitly unavailable, never replaced by outstanding shares. Their complete
+SEC audit found 28 stale monetary values, 30 absent facts, 3 zeros and 3
+provider/mapping failures. None can safely become a share count: Company Facts
+does not disclose the exact price basis and the newest positive observation was
+290 days old. Raw SEC evidence is content-addressed and the classification
+report is ignored runtime data. The next work should proceed in this order:
 
-1. Classify the 64 residual free-float gaps and evaluate dated SEC
-   `EntityPublicFloat` only where definitions are comparable.
-2. Replace the eight-hour broad Ticker Details path with Massive Grouped Daily
+1. Replace the eight-hour broad Ticker Details path with Massive Grouped Daily
    prices plus aligned SEC shares for market-cap composition.
-3. Run the implemented historical execution and total-return adapters against
+2. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
-4. Run broad portfolio validation and publish coverage limitations before any
+3. Run broad portfolio validation and publish coverage limitations before any
    calibration claim. Do not change governed scoring semantics without
    versioned out-of-sample evidence.
 
