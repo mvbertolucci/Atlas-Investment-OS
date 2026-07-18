@@ -19,7 +19,7 @@ never shown as an ordinary fresh candidate.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 878 tests passing / 90.44% production coverage
+**Validation baseline:** 879 tests passing / 90.45% production coverage
 
 ## Current handoff — application boundaries complete
 
@@ -28,13 +28,16 @@ reporting, ticker-analysis and operational-runtime services. `run_all.py` is
 limited to governed path definitions, dependency construction, compatibility
 wrappers and `main()`; no pipeline stage traverses it as a service locator.
 
-The Massive adapter is implemented but disabled until a personal API key and
-eligible plan are configured. Until live activation, market cap, enterprise
-value and short float continue to report `secondary_unavailable` whenever SEC
-is the only active secondary. The next work should proceed in this order:
+The Massive adapter is active with a protected personal key. A bounded AAPL
+check confirmed live endpoint access to Short Interest and Float; Financial
+Ratios returned HTTP 403 under the current plan. AAPL `short_float` was also
+withheld because the 2026-06-30 short-interest and 2026-03-05 float observations
+exceed the governed 45-day alignment limit. The next work should proceed in
+this order:
 
-1. Configure `massive_api_key` locally, enable `massive_secondary_enabled` and
-   run a bounded AAPL verification; never commit the key or raw response.
+1. Enable Massive Financial Ratios access and obtain sufficiently aligned Float
+   evidence before repeating the bounded AAPL confirmation; never commit the
+   key or raw response.
 2. Run the implemented historical execution and total-return adapters against
    a broad real dataset with explicit delisting evidence.
 3. Run broad portfolio validation and publish coverage limitations before any

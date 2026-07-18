@@ -61,9 +61,12 @@
 - [x] Add a credential-gated Massive adapter for market cap, enterprise value,
       short interest and free float; derive `short_float` only from periods no
       more than 45 days apart
-- [ ] Configure a personal Massive API key/eligible plan and complete a bounded
-      live AAPL verification; until then these fields remain
-      `secondary_unavailable` in real runs
+- [x] Configure a protected personal Massive API key and verify bounded live
+      AAPL access to Short Interest and Float endpoints
+- [ ] Enable Financial Ratios plan access and repeat AAPL verification for
+      market cap and enterprise value (current response: HTTP 403)
+- [ ] Obtain sufficiently aligned Float evidence before confirming AAPL
+      `short_float` (current observations differ by more than 45 days)
 
 ## Completed milestone — v1.1 Integrated Portfolio Intelligence
 

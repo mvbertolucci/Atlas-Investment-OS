@@ -100,7 +100,7 @@ def test_provider_operational_policy_is_pinned() -> None:
     ]
     assert settings["raw_snapshot_path"] == "data/raw_snapshots"
     assert settings["sec_secondary_enabled"] is True
-    assert settings["massive_secondary_enabled"] is False
+    assert settings["massive_secondary_enabled"] is True
     assert settings["provider_secrets_path"] == "config/provider_secrets.json"
 
 

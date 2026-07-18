@@ -18,8 +18,9 @@ publishes dated FINRA short interest, allowing the correct ratio to be derived.
    `enterprise_value` and `short_float`.
 2. Derive `short_float` only as dated `short_interest / free_float`; reject the
    derivation when source periods differ by more than 45 days.
-3. Keep the adapter disabled in committed settings. Load its key only from the
-   `MASSIVE_API_KEY` environment variable or ignored provider-secrets file.
+3. Enable the adapter for this installation after bounded credential
+   verification. Load its key only from the `MASSIVE_API_KEY` environment
+   variable or ignored provider-secrets file; without a key it remains inert.
 4. Generalize Yahoo collection to run multiple independent secondary clients.
    Each provider declares supported fields, has isolated typed failure and an
    immutable raw snapshot, and cannot suppress another provider's result.
@@ -27,6 +28,9 @@ publishes dated FINRA short interest, allowing the correct ratio to be derived.
    provider-keyed maps for complete multiprovider evidence.
 6. Do not mark live integration complete until a user-configured key and plan
    pass a bounded real-symbol verification.
+7. Isolate failures by Massive endpoint. Partial plan access may confirm
+   `short_float` without claiming confirmation for market cap or enterprise
+   value.
 
 ## Consequences
 
@@ -39,6 +43,10 @@ publishes dated FINRA short interest, allowing the correct ratio to be derived.
 - The experimental Massive Float endpoint is an explicit maintenance risk.
 - A broad-universe run may require a paid plan and materially more API calls;
   activation remains a user decision.
+- The 2026-07-17 AAPL verification confirmed Short Interest and Float endpoint
+  access, but did not confirm `short_float`: their 2026-06-30 and 2026-03-05
+  observations exceeded the 45-day alignment rule. Financial Ratios returned
+  HTTP 403 and remains a plan-level gap.
 
 ## Migration and rollback
 

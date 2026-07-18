@@ -119,15 +119,44 @@ def test_massive_environment_key_takes_precedence(
     ) == "environment-key"
 
 
-def test_massive_rejects_empty_key_and_invalid_payload() -> None:
+def test_massive_rejects_empty_key_and_isolates_invalid_payload() -> None:
     with pytest.raises(ValueError, match="api_key"):
         MassiveMarketDataProvider("")
 
     provider = MassiveMarketDataProvider(
         "secret-key", transport=lambda *args: []
     )
-    with pytest.raises(ValueError, match="object"):
-        provider("AAPL")
+    record = provider("AAPL")
+
+    assert record["market_cap"] is None
+    assert record["enterprise_value"] is None
+    assert record["short_float"] is None
+    assert set(record["massive_endpoint_errors"]) == {
+        "ratios",
+        "short_interest",
+        "float",
+    }
+
+
+def test_massive_keeps_short_float_when_ratios_are_forbidden() -> None:
+    def transport(path, params, api_key, timeout):
+        if path.endswith("/ratios"):
+            raise RuntimeError("Massive HTTP 403")
+        return _transport(path, params, api_key, 7)
+
+    record = MassiveMarketDataProvider(
+        "secret-key", timeout_seconds=7, transport=transport
+    )("AAPL")
+
+    assert record["market_cap"] is None
+    assert record["enterprise_value"] is None
+    assert record["short_float"] == pytest.approx(0.01)
+    assert record["massive_endpoint_errors"]["ratios"]["message"] == (
+        "Massive HTTP 403"
+    )
+    assert record["field_evidence"]["market_cap"]["status"] == (
+        "unavailable"
+    )
 
 
 def test_massive_transport_parses_json_and_sanitizes_http_errors(

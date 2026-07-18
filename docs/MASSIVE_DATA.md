@@ -16,13 +16,16 @@ apart; otherwise `short_float` is `unavailable` rather than estimated.
 
 ## Safety and evidence
 
-- Disabled by default with `massive_secondary_enabled: false`.
+- Enabled for this installation with `massive_secondary_enabled: true`; without
+  a local key the provider stays inert and emits a configuration warning.
 - The key is loaded from `MASSIVE_API_KEY` or the ignored
   `config/provider_secrets.json` field `massive_api_key`.
 - The API key is not included in normalized records or immutable snapshots.
 - SEC and Massive use separate bounded clients, typed failures and raw
   snapshots. Failure of either secondary does not discard valid Yahoo data or
-  prevent the other secondary from running.
+  prevent the other secondary from running. Massive also isolates its three
+  endpoints, so a plan-level Ratios denial does not suppress Short Interest and
+  Float evidence.
 - Each secondary declares only the critical fields it can compare. Fields with
   no configured capable source stay explicitly `secondary_unavailable`.
 
@@ -35,9 +38,10 @@ apart; otherwise `short_float` is `unavailable` rather than estimated.
 4. Set `massive_secondary_enabled` to `true` in local settings.
 5. Run a bounded single-symbol check before enabling portfolio/watchlist runs.
 
-The committed default remains disabled because no credential or subscription
-may be inferred. Massive currently documents Short Interest and Float in its
-stocks offering, while Financial Ratios is plan-selective. The Float endpoint
+The protected personal key was validated on 2026-07-17. Short Interest and Float
+returned AAPL data, while Financial Ratios returned HTTP 403 under the current
+plan. `short_float` remained unavailable because the 2026-06-30 Short Interest
+and 2026-03-05 Float dates exceed the 45-day alignment rule. The Float endpoint
 is marked experimental, so response-contract tests must be reviewed if Massive
 changes its versioned path or fields.
 

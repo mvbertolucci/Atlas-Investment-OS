@@ -157,27 +157,53 @@ class MassiveMarketDataProvider:
         **_kwargs: Any,
     ) -> dict[str, Any]:
         normalized = str(symbol).strip().upper()
-        ratios_payload = self._get(
+        endpoint_errors: dict[str, dict[str, str]] = {}
+        raw_payloads: dict[str, Any] = {}
+
+        def latest(
+            label: str,
+            path: str,
+            date_field: str,
+            **params: str,
+        ) -> Mapping[str, Any]:
+            try:
+                payload = self._get(path, **params)
+                raw_payloads[label] = payload
+                return _latest_result(payload, date_field)
+            except (RuntimeError, ValueError) as exc:
+                endpoint_errors[label] = {
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                }
+                raw_payloads[label] = {
+                    "unavailable": True,
+                    "error_type": type(exc).__name__,
+                }
+                return {}
+
+        ratios = latest(
+            "ratios",
             "/stocks/financials/v1/ratios",
+            "date",
             ticker=normalized,
             limit="10",
             sort="date.desc",
         )
-        short_payload = self._get(
+        short = latest(
+            "short_interest",
             "/stocks/v1/short-interest",
+            "settlement_date",
             ticker=normalized,
             limit="10",
             sort="settlement_date.desc",
         )
-        float_payload = self._get(
+        float_data = latest(
+            "float",
             "/stocks/vX/float",
+            "effective_date",
             ticker=normalized,
             limit="10",
         )
-
-        ratios = _latest_result(ratios_payload, "date")
-        short = _latest_result(short_payload, "settlement_date")
-        float_data = _latest_result(float_payload, "effective_date")
         market_cap = _number(ratios.get("market_cap"))
         enterprise_value = _number(ratios.get("enterprise_value"))
         short_interest = _number(short.get("short_interest"))
@@ -210,25 +236,30 @@ class MassiveMarketDataProvider:
             "short_float": short_float,
             "massive_short_interest": short_interest,
             "massive_free_float": free_float,
-            "_raw_massive": {
-                "ratios": ratios_payload,
-                "short_interest": short_payload,
-                "float": float_payload,
-            },
+            "massive_endpoint_errors": endpoint_errors,
+            "_raw_massive": raw_payloads,
             "field_evidence": {
                 "market_cap": _evidence(
                     market_cap,
                     category="fundamentals",
                     retrieved_at=retrieved_at,
                     observed_at=ratio_date,
-                    detail="Massive daily ratios market_cap",
+                    detail=(
+                        "Massive daily ratios market_cap"
+                        if "ratios" not in endpoint_errors
+                        else "Massive ratios endpoint unavailable"
+                    ),
                 ),
                 "enterprise_value": _evidence(
                     enterprise_value,
                     category="fundamentals",
                     retrieved_at=retrieved_at,
                     observed_at=ratio_date,
-                    detail="Massive daily ratios enterprise_value",
+                    detail=(
+                        "Massive daily ratios enterprise_value"
+                        if "ratios" not in endpoint_errors
+                        else "Massive ratios endpoint unavailable"
+                    ),
                 ),
                 "short_float": _evidence(
                     short_float,

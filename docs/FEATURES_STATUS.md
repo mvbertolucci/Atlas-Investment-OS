@@ -7,7 +7,7 @@
 | Capability | Domain | Main pipeline | Excel | Morning Brief | Status |
 |---|---:|---:|---:|---:|---|
 | Market/fundamental collection | Yes | Yes | Yes | Yes | Operational |
-| Provider resilience and raw evidence | Yes | Yes | No | No | SEC confirms comparable reported fundamentals; a credential-gated Massive adapter covers market cap/EV and derives short float from dated short-interest/free-float evidence, but live activation still requires a personal key and eligible plan |
+| Provider resilience and raw evidence | Yes | Yes | No | No | SEC confirms reported fundamentals; Massive endpoint evidence is live, but AAPL market cap/EV lack Financial Ratios access and short float was withheld because source dates exceeded the 45-day alignment rule |
 | Technical enrichment | Yes | Yes | Yes | Yes | Operational; 100% direct coverage |
 | Investment scoring | Yes | Yes | Yes | Yes | Operational |
 | Opportunity and conviction | Yes | Yes | Yes | Yes | Operational |

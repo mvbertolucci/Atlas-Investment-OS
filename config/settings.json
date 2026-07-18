@@ -11,7 +11,7 @@
   "provider_critical_fields": ["market_cap", "enterprise_value", "total_debt", "total_cash", "ebitda", "free_cashflow", "current_ratio", "short_float"],
   "raw_snapshot_path": "data/raw_snapshots",
   "sec_secondary_enabled": true,
-  "massive_secondary_enabled": false,
+  "massive_secondary_enabled": true,
   "provider_secrets_path": "config/provider_secrets.json",
   "portfolio_path": "config/portfolio.csv",
   "portfolio_name": "Atlas Portfolio",
