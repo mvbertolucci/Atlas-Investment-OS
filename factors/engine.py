@@ -70,6 +70,34 @@ def metric_applicable(df: pd.DataFrame, column: str) -> pd.Series:
     )
 
 
+def metric_has_value(df: pd.DataFrame, column: str) -> pd.Series:
+    """Whether a numeric value exists, present or stale.
+
+    Used only for the required-feature confidence gate: a stale value is
+    still a real observation (just older than the freshness window), so it
+    must not be conflated with a genuine absence (missing/unavailable/
+    invalid) when deciding whether Model Confidence gets capped. Data
+    Coverage keeps using `metric_available` unchanged -- staleness still
+    discounts coverage there, this only stops it from also tripping the
+    required-feature cap.
+    """
+    if column not in df.columns:
+        return pd.Series(False, index=df.index)
+
+    numeric = pd.to_numeric(df[column], errors="coerce").notna()
+    if "field_evidence" not in df.columns:
+        return numeric
+    acceptable = {DataValueStatus.PRESENT.value, DataValueStatus.STALE.value}
+    allowed = df["field_evidence"].map(
+        lambda evidence: (
+            not isinstance(evidence, dict)
+            or str((evidence.get(column) or {}).get("status", "present"))
+            in acceptable
+        )
+    )
+    return numeric & allowed
+
+
 def get_factor_features(features: dict[str, Any], factor: str) -> dict[str, Any]:
     factor = factor.lower()
 
@@ -233,7 +261,7 @@ def score_all_factors(
                 continue
             required_count += 1
             column = str(cfg.get("column") or feature_name)
-            available = metric_available(result, column).tolist()
+            available = metric_has_value(result, column).tolist()
             applicable = metric_applicable(result, column).tolist()
             for position, (present, applies) in enumerate(zip(available, applicable)):
                 if applies and not present:

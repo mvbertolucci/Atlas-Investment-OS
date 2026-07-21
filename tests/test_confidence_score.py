@@ -169,3 +169,91 @@ def test_not_applicable_feature_leaves_coverage_denominator_and_required_gate(
     assert scored.loc[0, "Data Coverage"] == 100.0
     assert scored.loc[0, "Required Features Complete"] == True  # noqa: E712
     assert scored.loc[0, "Missing Required Features"] == "Nenhum"
+
+
+def test_stale_required_feature_does_not_cap_confidence(
+    tmp_path: Path,
+) -> None:
+    """
+    Um valor `stale` (mais velho que a janela de frescor) e uma observacao
+    real, so desatualizada -- diferente de `missing`/`unavailable`/`invalid`,
+    que sao ausencia genuina. Antes desta correcao, `metric_available` tratava
+    os dois casos como identicos no gate de required-feature, travando Model
+    Confidence em 59 (abaixo do confidence_gate de 60 em sell_rules.yaml)
+    sempre que um required ficasse so desatualizado -- achado real rodando a
+    carteira em 2026-07-20: ROE/Net Margin do Yahoo (fiscal-year-end, so
+    atualiza a cada trimestre) ficam `stale` na maior parte de cada janela de
+    35 dias, o que travava toda decisao de venda/compra em REVISAR.
+    """
+    features = tmp_path / "features.yaml"
+    features.write_text(
+        "business:\n"
+        "  roe: {weight: 1.0, higher_is_better: true, required: true}\n"
+        "timing:\n"
+        "  momentum_3m: {weight: 1.0, higher_is_better: true, required: true}\n",
+        encoding="utf-8",
+    )
+    model = tmp_path / "model.yaml"
+    model.write_text(
+        "factor_weights: {business: 0.75, timing: 0.25}\n"
+        "confidence: {missing_required_cap: 59}\n",
+        encoding="utf-8",
+    )
+    frame = pd.DataFrame(
+        [
+            {
+                "symbol": "AAA",
+                "roe": 20.0,
+                "momentum_3m": 5.0,
+                "field_evidence": {
+                    "roe": {"status": "stale"},
+                    "momentum_3m": {"status": "present"},
+                },
+            }
+        ]
+    )
+
+    scored = score_all_factors(frame, features, model)
+
+    # Cobertura continua descontando o campo desatualizado (inalterado).
+    assert scored.loc[0, "Data Coverage"] == 25.0
+    # Mas o required-gate nao trata "stale" como "ausente": nao ha cap.
+    assert scored.loc[0, "Missing Required Features"] == "Nenhum"
+    assert scored.loc[0, "Required Features Complete"] == True  # noqa: E712
+    assert scored.loc[0, "Model Confidence"] == 25.0
+    assert scored.loc[0, "Confidence Score"] == 25.0
+
+
+def test_missing_required_feature_still_caps_confidence(
+    tmp_path: Path,
+) -> None:
+    """Regressao: uma feature genuinamente ausente (nunca chegou nenhum
+    valor, sem field_evidence) continua travando Model Confidence em 59,
+    mesmo quando a cobertura sem o cap seria bem maior -- a correcao acima
+    so exclui `stale`, nao `missing`/`unavailable`."""
+    features = tmp_path / "features.yaml"
+    features.write_text(
+        "business:\n"
+        "  roe: {weight: 1.0, higher_is_better: true, required: false}\n"
+        "timing:\n"
+        "  momentum_3m: {weight: 1.0, higher_is_better: true, required: true}\n",
+        encoding="utf-8",
+    )
+    model = tmp_path / "model.yaml"
+    model.write_text(
+        "factor_weights: {business: 0.75, timing: 0.25}\n"
+        "confidence: {missing_required_cap: 59}\n",
+        encoding="utf-8",
+    )
+    frame = pd.DataFrame(
+        [{"symbol": "AAA", "roe": 20.0, "momentum_3m": None}]
+    )
+
+    scored = score_all_factors(frame, features, model)
+
+    # Sem o cap, a cobertura seria 75 (so o business 0.75 disponivel) --
+    # prova que o cap de fato reduz o numero, nao so coincide com ele.
+    assert scored.loc[0, "Data Coverage"] == 75.0
+    assert scored.loc[0, "Missing Required Features"] == "timing:momentum_3m"
+    assert scored.loc[0, "Required Features Complete"] == False  # noqa: E712
+    assert scored.loc[0, "Model Confidence"] == 59.0
