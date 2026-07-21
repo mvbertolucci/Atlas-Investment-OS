@@ -7,6 +7,7 @@ OPTIONAL_COLUMNS = (
     "included_at",
     "note",
     "trigger_condition",
+    "source",
 )
 
 SUPPORTED_COLUMNS = (

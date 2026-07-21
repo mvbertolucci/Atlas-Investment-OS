@@ -166,3 +166,100 @@ def test_requires_non_empty_symbol_and_reason(tmp_path: Path) -> None:
         promote_to_watchlist("", "motivo", watchlist_path=watchlist_path)
     with pytest.raises(ValueError):
         promote_to_watchlist("NEM", "  ", watchlist_path=watchlist_path)
+
+
+def test_source_defaults_to_manual_and_persists(tmp_path: Path) -> None:
+    watchlist_path = _write_watchlist(
+        tmp_path / "watchlist.csv", "symbol,name\nADBE,Adobe\n"
+    )
+
+    result = promote_to_watchlist(
+        "NEM", "motivo", watchlist_path=watchlist_path, today=date(2026, 7, 14)
+    )
+    assert result.source == "manual"
+
+    entries = load_watchlist_csv(watchlist_path)
+    nem = next(entry for entry in entries if entry.symbol == "NEM")
+    assert nem.source == "manual"
+
+
+def test_source_auto_persists_for_auto_curation_flow(tmp_path: Path) -> None:
+    watchlist_path = _write_watchlist(
+        tmp_path / "watchlist.csv", "symbol,name\nADBE,Adobe\n"
+    )
+
+    result = promote_to_watchlist(
+        "NEM",
+        "Auto-inclusão: top 30 por Investment Score",
+        watchlist_path=watchlist_path,
+        source="auto",
+        today=date(2026, 7, 14),
+    )
+    assert result.source == "auto"
+
+    entries = load_watchlist_csv(watchlist_path)
+    nem = next(entry for entry in entries if entry.symbol == "NEM")
+    assert nem.source == "auto"
+
+
+def test_legacy_rows_without_source_column_backfill_to_manual(
+    tmp_path: Path,
+) -> None:
+    """Toda linha pré-existente foi curada à mão, por definição -- o fluxo
+    automático só passou a existir a partir desta mudança. A primeira
+    escrita que toca o arquivo deixa isso explícito no CSV."""
+    watchlist_path = _write_watchlist(
+        tmp_path / "watchlist.csv", "symbol,name\nADBE,Adobe\nMSFT,Microsoft\n"
+    )
+
+    promote_to_watchlist(
+        "NEM", "motivo", watchlist_path=watchlist_path, today=date(2026, 7, 14)
+    )
+
+    entries = load_watchlist_csv(watchlist_path)
+    by_symbol = {entry.symbol: entry for entry in entries}
+    assert by_symbol["ADBE"].source == "manual"
+    assert by_symbol["MSFT"].source == "manual"
+    assert by_symbol["NEM"].source == "manual"
+
+
+def test_invalid_source_is_rejected(tmp_path: Path) -> None:
+    watchlist_path = _write_watchlist(
+        tmp_path / "watchlist.csv", "symbol,name\nADBE,Adobe\n"
+    )
+    with pytest.raises(ValueError):
+        promote_to_watchlist(
+            "NEM", "motivo", watchlist_path=watchlist_path, source="robot"
+        )
+
+
+def test_promote_survives_transient_onedrive_lock(tmp_path: Path) -> None:
+    """Prova que promote_to_watchlist está de fato roteado pelo writer
+    compartilhado (ADR-032's replace_with_retry), não um open("w") cru."""
+    watchlist_path = _write_watchlist(
+        tmp_path / "watchlist.csv", "symbol,name\nADBE,Adobe\n"
+    )
+    original_replace = Path.replace
+    attempts = 0
+
+    def flaky_replace(self: Path, destination: Path):
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError("OneDrive lock")
+        return original_replace(self, destination)
+
+    Path.replace = flaky_replace  # type: ignore[assignment]
+    try:
+        promote_to_watchlist(
+            "NEM",
+            "motivo",
+            watchlist_path=watchlist_path,
+            today=date(2026, 7, 14),
+        )
+    finally:
+        Path.replace = original_replace  # type: ignore[assignment]
+
+    assert attempts == 3
+    entries = load_watchlist_csv(watchlist_path)
+    assert {entry.symbol for entry in entries} == {"ADBE", "NEM"}

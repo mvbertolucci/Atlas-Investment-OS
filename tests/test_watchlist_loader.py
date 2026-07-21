@@ -37,6 +37,38 @@ def test_legacy_csv_with_only_symbol_and_name_loads_with_empty_metadata(
     assert adbe.trigger_condition == ""
 
 
+def test_csv_without_source_column_defaults_every_entry_to_manual(
+    tmp_path: Path,
+) -> None:
+    """As 41 linhas reais de config/watchlist.csv não têm coluna `source`
+    hoje -- todas devem carregar como "manual" sem migração em lote."""
+    path = _write_csv(
+        tmp_path / "watchlist.csv",
+        "symbol,name\nADBE,Adobe\nMSFT,Microsoft\n",
+    )
+    entries = load_watchlist_csv(path)
+
+    assert all(entry.source == "manual" for entry in entries)
+
+
+def test_csv_with_source_column_round_trips(tmp_path: Path) -> None:
+    path = _write_csv(
+        tmp_path / "watchlist.csv",
+        "symbol,name,source\nADBE,Adobe,manual\nNEM,Newmont,auto\n",
+    )
+    entries = load_watchlist_csv(path)
+
+    by_symbol = {entry.symbol: entry for entry in entries}
+    assert by_symbol["ADBE"].source == "manual"
+    assert by_symbol["NEM"].source == "auto"
+
+
+def test_invalid_source_value_raises_row_error() -> None:
+    frame = pd.DataFrame({"symbol": ["AAA"], "source": ["robot"]})
+    with pytest.raises(WatchlistRowError):
+        entries_from_dataframe(frame)
+
+
 def test_full_metadata_round_trips(tmp_path: Path) -> None:
     path = _write_csv(
         tmp_path / "watchlist.csv",

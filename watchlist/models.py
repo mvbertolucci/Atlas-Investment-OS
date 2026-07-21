@@ -14,6 +14,8 @@ TRIGGER_STATUSES = (
     "triggered",
 )
 
+WATCHLIST_ENTRY_SOURCES = ("manual", "auto")
+
 
 @dataclass(frozen=True)
 class WatchlistEntry:
@@ -21,6 +23,13 @@ class WatchlistEntry:
     Uma linha de config/watchlist.csv. `included_at`/`note`/`trigger_condition`
     são metadado escrito pelo usuário -- retrocompatível: um CSV com só
     `symbol,name` carrega normalmente com os três vazios.
+
+    `source` distingue curadoria manual (`"manual"`, o default -- inclui
+    toda linha legada sem essa coluna) de entradas gravadas pelo fluxo de
+    curadoria automática (`"auto"`). É a base da salvaguarda "nunca excluir
+    automaticamente uma entrada manual": só remoção automática consulta este
+    campo, o gate manual (`promote_to_watchlist`/planilha) nunca precisa se
+    importar com ele.
     """
 
     symbol: str
@@ -28,6 +37,7 @@ class WatchlistEntry:
     included_at: date | str | None = None
     note: str = ""
     trigger_condition: str = ""
+    source: str = "manual"
 
     def __post_init__(self) -> None:
         symbol = normalize_symbol(self.symbol)
@@ -41,6 +51,14 @@ class WatchlistEntry:
                 field_name,
                 normalize_text(getattr(self, field_name)),
             )
+
+        source = normalize_text(self.source).lower() or "manual"
+        if source not in WATCHLIST_ENTRY_SOURCES:
+            raise ValueError(
+                f"source de watchlist inválido: {source!r} "
+                f"(esperado um de {WATCHLIST_ENTRY_SOURCES})"
+            )
+        object.__setattr__(self, "source", source)
 
         included_at = self.included_at
         if isinstance(included_at, str):
@@ -66,6 +84,7 @@ class WatchlistEntry:
             ),
             "note": self.note,
             "trigger_condition": self.trigger_condition,
+            "source": self.source,
         }
 
 

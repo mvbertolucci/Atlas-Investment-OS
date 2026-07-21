@@ -79,6 +79,7 @@ def entries_from_dataframe(
                     trigger_condition=_clean_optional_text(
                         row.get("trigger_condition")
                     ),
+                    source=_clean_optional_text(row.get("source")) or "manual",
                 )
             )
         except Exception as exc:

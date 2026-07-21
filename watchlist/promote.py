@@ -8,7 +8,9 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from watchlist.csv_writer import write_watchlist_rows
 from watchlist.exceptions import WatchlistError
+from watchlist.models import WATCHLIST_ENTRY_SOURCES
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE_PATH = ROOT / "output" / "dados" / "ranking_report.json"
@@ -19,6 +21,10 @@ class SymbolAlreadyInWatchlistError(WatchlistError):
     """O símbolo já está na watchlist -- promoção recusada para não duplicar."""
 
 
+class SymbolNotInWatchlistError(WatchlistError):
+    """O símbolo não está na watchlist -- remoção recusada, nada a remover."""
+
+
 @dataclass(frozen=True)
 class PromotionResult:
     symbol: str
@@ -26,6 +32,7 @@ class PromotionResult:
     included_at: str
     note: str
     watchlist_path: Path
+    source: str = "manual"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -33,6 +40,21 @@ class PromotionResult:
             "name": self.name,
             "included_at": self.included_at,
             "note": self.note,
+            "watchlist_path": str(self.watchlist_path),
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True)
+class RemovalResult:
+    symbol: str
+    reason: str
+    watchlist_path: Path
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "symbol": self.symbol,
+            "reason": self.reason,
             "watchlist_path": str(self.watchlist_path),
         }
 
@@ -73,19 +95,27 @@ def promote_to_watchlist(
     today: date | None = None,
     name: str | None = None,
     trigger_condition: str = "",
+    source: str = "manual",
 ) -> PromotionResult:
     """
     Promove um símbolo do output do screener para a watchlist: preenche
     `included_at` (hoje) e `note` (o motivo) automaticamente. Recusa
     duplicata -- nunca promove um símbolo já presente. WL -> carteira fica
     fora deste PR (compra é registrada manualmente em config/portfolio.csv,
-    ver PR-020). Nunca toca config/portfolio.csv.
+    ver PR-020). Nunca toca config/portfolio.csv, e nunca checa holdings --
+    quem chama (CLI manual, planilha, ou o fluxo de curadoria automática) é
+    responsável por filtrar símbolos já detidos antes de chamar isto.
 
     `name`, se informado, sobrescreve o lookup em `source_path` -- usado por
     `watchlist.apply_candidates_workbook`, que já tem o nome resolvido no
     momento da exportação e não deve depender do arquivo de origem ainda
     existir sem mudanças no momento da aplicação. `trigger_condition`
     permanece vazio por padrão (comportamento inalterado do CLI manual).
+
+    `source` marca a origem da linha (`"manual"` por padrão -- CLI/planilha;
+    `"auto"` só quando chamado pelo fluxo de curadoria automática). É a base
+    da salvaguarda "nunca remover automaticamente uma entrada manual" em
+    `select_auto_removal_candidates`.
     """
     symbol = symbol.strip().upper()
     if not symbol:
@@ -94,6 +124,12 @@ def promote_to_watchlist(
     reason = reason.strip()
     if not reason:
         raise ValueError("promote_to_watchlist exige um motivo não vazio.")
+
+    source = source.strip().lower() or "manual"
+    if source not in WATCHLIST_ENTRY_SOURCES:
+        raise ValueError(
+            f"source inválido: {source!r} (esperado um de {WATCHLIST_ENTRY_SOURCES})"
+        )
 
     watchlist_path = Path(watchlist_path)
     if not watchlist_path.exists():
@@ -124,30 +160,86 @@ def promote_to_watchlist(
         "included_at": included_at,
         "note": reason,
         "trigger_condition": trigger_condition.strip(),
+        "source": source,
     }
 
     # União das colunas existentes (preserva o que já está no arquivo) com as
     # novas -- se o CSV ainda era só symbol,name (legado), o header ganha as
-    # 3 colunas de metadado agora; linhas antigas ficam com elas em branco.
+    # colunas de metadado agora; linhas antigas ficam com elas em branco,
+    # exceto `source`, que é backfillada para "manual" explicitamente (toda
+    # linha pré-existente foi curada à mão, por definição -- o fluxo
+    # automático só passou a existir a partir desta mudança).
     fieldnames = list(existing_fieldnames)
     for column in new_row:
         if column not in fieldnames:
             fieldnames.append(column)
 
-    with watchlist_path.open(
-        "w", encoding="utf-8", newline=""
-    ) as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({column: row.get(column, "") for column in fieldnames})
-        writer.writerow({column: new_row.get(column, "") for column in fieldnames})
+    backfilled_rows = [
+        {**row, "source": row.get("source") or "manual"} for row in rows
+    ]
+    write_watchlist_rows(
+        watchlist_path,
+        fieldnames,
+        [*backfilled_rows, new_row],
+    )
 
     return PromotionResult(
         symbol=symbol,
         name=resolved_name,
         included_at=included_at,
         note=reason,
+        watchlist_path=watchlist_path,
+        source=source,
+    )
+
+
+def remove_from_watchlist(
+    symbol: str,
+    reason: str,
+    *,
+    watchlist_path: Path = DEFAULT_WATCHLIST_PATH,
+) -> RemovalResult:
+    """
+    Remove um símbolo de config/watchlist.csv. Função simétrica e "burra"
+    em relação a `promote_to_watchlist`: só remove, não decide elegibilidade
+    -- quem chama (hoje, só `select_auto_removal_candidates`) é responsável
+    por já ter checado as salvaguardas (holding real, `source` manual) antes
+    de chamar isto. Recusa remover um símbolo ausente (nada a remover).
+    Nunca toca config/portfolio.csv.
+    """
+    symbol = symbol.strip().upper()
+    if not symbol:
+        raise ValueError("remove_from_watchlist exige um símbolo válido.")
+
+    reason = reason.strip()
+    if not reason:
+        raise ValueError("remove_from_watchlist exige um motivo não vazio.")
+
+    watchlist_path = Path(watchlist_path)
+    if not watchlist_path.exists():
+        raise WatchlistError(
+            f"Watchlist não encontrada: {watchlist_path}"
+        )
+
+    with watchlist_path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+        fieldnames = list(rows[0].keys()) if rows else ["symbol", "name"]
+
+    remaining = [
+        row
+        for row in rows
+        if str(row.get("symbol", "")).strip().upper() != symbol
+    ]
+    if len(remaining) == len(rows):
+        raise SymbolNotInWatchlistError(
+            f"{symbol} não está na watchlist -- remoção recusada."
+        )
+
+    write_watchlist_rows(watchlist_path, fieldnames, remaining)
+
+    return RemovalResult(
+        symbol=symbol,
+        reason=reason,
         watchlist_path=watchlist_path,
     )
 

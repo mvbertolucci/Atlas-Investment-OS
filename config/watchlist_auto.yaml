@@ -1,0 +1,40 @@
+# Governa o fluxo de curadoria automática da watchlist (adicional ao gate
+# manual -- promote_to_watchlist/planilha continuam existindo sem mudança).
+# `enabled: false` é um circuit breaker: com ele, run_auto_curation() não
+# toca config/watchlist.csv de jeito nenhum, mesmo chamado.
+#
+# Decisão registrada em docs/adr/ADR-036-watchlist-auto-curation.md.
+
+enabled: false
+
+selection:
+  # Quantos candidatos entram por run, no máximo.
+  top_n: 30
+  # Decision (decision/policy.py::evaluate_decision) que qualifica um
+  # candidato do screener amplo para entrada automática. STRONG_BUY/BUY/
+  # ACCUMULATE -- alinhado ao corte que watchlist/screening.py já usa para
+  # a zona "Acumular" (Investment Score >= 70). HOLD/WATCH/AVOID nunca
+  # qualificam -- são explicitamente "não é sinal de compra" no resto do
+  # sistema (decision/engine.py).
+  qualifying_decisions: ["STRONG_BUY", "BUY", "ACCUMULATE"]
+  # Salvaguarda: a Decision de um candidato do mercado amplo é uma
+  # ESTIMATIVA (risk_penalty=0.0 -- o risco real só existe para nomes já
+  # coletados/pontuados na carteira/watchlist, não para o universo amplo
+  # ainda não coletado neste run). Um confidence_score mínimo reduz o risco
+  # de um nome de baixa qualidade de dado entrar só por causa dessa
+  # aproximação otimista.
+  min_confidence_score: 60.0
+
+exit:
+  # Entrada com source=auto e Investment Score atual abaixo disto é
+  # candidata a remoção automática.
+  investment_score_threshold: 40.0
+
+safeguards:
+  # Nunca remove um símbolo que também é holding real (origin=="portfolio"
+  # em historical.frame). Sempre true na prática -- mantido como config
+  # explícito, não hardcoded, para não silenciar a intenção.
+  protect_portfolio_holdings: true
+  # Nunca remove uma entrada com source=="manual" -- só remove o que o
+  # próprio fluxo automático incluiu.
+  protect_manual_entries: true
