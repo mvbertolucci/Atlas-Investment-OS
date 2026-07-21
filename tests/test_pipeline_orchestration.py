@@ -332,6 +332,9 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
         def generate_portfolio_intelligence(self, *args, **kwargs):
             return None
 
+        def run_watchlist_auto_curation(self, *args, **kwargs):
+            return None
+
         def generate_watchlist_report(self, *args, **kwargs):
             return None
 
@@ -420,6 +423,7 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
             paths=paths,
             _read_status_md=fake.read_status_md,
             _generate_portfolio_intelligence=fake.generate_portfolio_intelligence,
+            _run_watchlist_auto_curation=fake.run_watchlist_auto_curation,
             _generate_watchlist_report=fake.generate_watchlist_report,
             _build_report_context=fake.build_report_context,
             _render_and_write_report=fake.render_and_write_report,
@@ -447,3 +451,202 @@ def test_portfolio_pipeline_connects_all_stages_offline(tmp_path: Path) -> None:
         "history",
     ]
     assert calls[-3:] == ["metrics_saved", "metrics_printed", "log_info"]
+
+
+def _minimal_intelligence_stage_context(
+    tmp_path: Path,
+    *,
+    run_watchlist_auto_curation: Any,
+) -> PipelineContext:
+    """Publica só o que IntelligenceStage.requires exige, com valores
+    mínimos viáveis -- suficiente para rodar o estágio isolado, sem montar
+    o pipeline inteiro."""
+    from datetime import datetime
+
+    from orchestration.pipeline import (
+        BootstrapOutput,
+        CollectionOutput,
+        HistoricalContextOutput,
+        PersistenceOutput,
+        ScoringOutput,
+    )
+    from portfolio.sell_rules import SellRulesPolicy
+
+    frame = pd.DataFrame([{"symbol": "MSFT", "price": 100.0, "origin": "watchlist"}])
+    paths = PipelinePaths(
+        root=tmp_path,
+        config=tmp_path,
+        logs=tmp_path,
+        output_data=tmp_path,
+        output_reports=tmp_path,
+        history_database=tmp_path / "history.db",
+        execution_metrics_file=tmp_path / "metrics.json",
+        outcome_report_file=tmp_path / "outcomes.json",
+        universe_report_file=tmp_path / "universe.json",
+        ranking_report_file=tmp_path / "ranking.json",
+    )
+    intelligence_services = IntelligenceServices(
+        paths=paths,
+        _read_status_md=lambda: "",
+        _generate_portfolio_intelligence=lambda *a, **k: None,
+        _run_watchlist_auto_curation=run_watchlist_auto_curation,
+        _generate_watchlist_report=lambda *a, **k: None,
+        _build_report_context=lambda **k: object(),
+        _render_and_write_report=lambda ctx, date: (
+            tmp_path / "dated.html",
+            tmp_path / "latest.html",
+        ),
+    )
+    services = SimpleNamespace(intelligence=intelligence_services)
+    context = PipelineContext(
+        request=PipelineRequest("full"),
+        services=cast(Any, services),
+    )
+    context.publish(
+        BootstrapOutput(
+            settings={},
+            scoring_reference=None,
+            watchlist_path=tmp_path / "watchlist.csv",
+            watchlist=frame.copy(),
+            analysis_universe=frame.copy(),
+        )
+    )
+    context.publish(CollectionOutput(frame=frame.copy(), fetch_failures=()))
+    context.publish(
+        ScoringOutput(
+            frame=frame.copy(),
+            feature_coverage_summary={"phantom_investment_share": 0.0},
+            universe_report=None,
+            ranking_report=None,
+            broad_market_report_path=None,
+            adr_report_path=None,
+            research_ranking_report_path=None,
+        )
+    )
+    context.publish(
+        HistoricalContextOutput(
+            frame=frame.copy(),
+            run_at=datetime.now(),
+            snapshot_date="2026-07-21T00:00:00",
+            model_version="test",
+            score_history=pd.DataFrame(),
+            previous_by_symbol={},
+            baseline_status="first_run",
+            previous_run_at=None,
+            sell_rules_policy=cast(SellRulesPolicy, object()),
+        )
+    )
+    context.publish(PersistenceOutput(None, None, None))
+    return context
+
+
+def test_intelligence_stage_threads_watchlist_auto_curation_through(
+    tmp_path: Path,
+) -> None:
+    from orchestration.pipeline import IntelligenceOutput, IntelligenceStage
+    from watchlist.auto_curation import AutoCurationResult
+    from watchlist.promote import PromotionResult
+
+    expected = AutoCurationResult(
+        included=(
+            PromotionResult(
+                symbol="NEM",
+                name="Newmont",
+                included_at="2026-07-21",
+                note="Auto-inclusão",
+                watchlist_path=tmp_path / "watchlist.csv",
+                source="auto",
+            ),
+        ),
+        excluded=(),
+        included_failures=(),
+        excluded_failures=(),
+        enabled=True,
+    )
+    context = _minimal_intelligence_stage_context(
+        tmp_path, run_watchlist_auto_curation=lambda *a, **k: expected
+    )
+
+    output = IntelligenceStage().run(context)
+
+    assert isinstance(output, IntelligenceOutput)
+    assert output.watchlist_auto_curation is expected
+
+
+def test_completion_stage_prints_watchlist_auto_curation_summary(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from orchestration.pipeline import (
+        CompletionStage,
+        IntelligenceOutput,
+        PersistenceOutput,
+        ReportsOutput,
+        ScoringOutput,
+    )
+    from watchlist.auto_curation import AutoCurationResult
+    from watchlist.promote import PromotionResult, RemovalResult
+
+    context = _minimal_intelligence_stage_context(
+        tmp_path, run_watchlist_auto_curation=lambda *a, **k: None
+    )
+    # CompletionStage também exige ReportsOutput -- publica um mínimo.
+    context.publish(
+        ReportsOutput(
+            history_file=tmp_path / "history.xlsx",
+            latest_file=None,
+            brief_file=tmp_path / "brief.md",
+            brief_text="",
+            priority_file=None,
+            priority_report=None,
+            performance_validation_file=None,
+            dashboard_file=None,
+        )
+    )
+    context.services.runtime = SimpleNamespace(
+        paths=context.services.intelligence.paths,
+        print_console_table=lambda frame: None,
+        safe_console_text=lambda value, encoding=None: str(value),
+        save_execution_metrics=lambda metrics: None,
+        print_execution_metrics=lambda metrics: None,
+        logger=SimpleNamespace(info=lambda *a, **k: None),
+    )
+    context.publish(
+        IntelligenceOutput(
+            portfolio_result=None,
+            portfolio_report=None,
+            watchlist_result=None,
+            watchlist_report=None,
+            report_context=object(),
+            atlas_report_dated=tmp_path / "dated.html",
+            atlas_report_latest=tmp_path / "latest.html",
+            watchlist_auto_curation=AutoCurationResult(
+                included=(
+                    PromotionResult(
+                        symbol="NEM",
+                        name="Newmont",
+                        included_at="2026-07-21",
+                        note="Auto-inclusão: top 30",
+                        watchlist_path=tmp_path / "watchlist.csv",
+                        source="auto",
+                    ),
+                ),
+                excluded=(
+                    RemovalResult(
+                        symbol="STALE",
+                        reason="Investment Score 12.0 < 40.0",
+                        watchlist_path=tmp_path / "watchlist.csv",
+                    ),
+                ),
+                included_failures=(),
+                excluded_failures=(),
+                enabled=True,
+            ),
+        )
+    )
+
+    CompletionStage().run(context)
+
+    printed = capsys.readouterr().out
+    assert "Watchlist Auto  : +1 incluído(s), -1 removido(s)" in printed
+    assert "[AUTO-IN]  NEM -- Auto-inclusão: top 30" in printed
+    assert "[AUTO-OUT] STALE -- Investment Score 12.0 < 40.0" in printed

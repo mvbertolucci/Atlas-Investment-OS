@@ -3,13 +3,22 @@
 ## Purpose
 
 `watchlist/promote.py`'s CLI (`python -m watchlist.promote SYMBOL "reason"`)
-is the only way to write into `config/watchlist.csv`, by design: nothing in
-the pipeline writes to it automatically (see `docs/BACKLOG.md`'s PR-021
-"propose-only" decision -- inclusion always requires a conscious choice).
-Typing exact CLI syntax per symbol is friction for a workflow the user does
-repeatedly. This workbook is a friendlier front end for the same gate, not a
-new decision path: nothing is promoted until the user explicitly marks a row
-and runs the apply step.
+is the manual way to write into `config/watchlist.csv` (see `docs/BACKLOG.md`'s
+PR-021 "propose-only" decision -- inclusion always requires a conscious
+choice). Typing exact CLI syntax per symbol is friction for a workflow the
+user does repeatedly. This workbook is a friendlier front end for the same
+gate, not a new decision path: nothing is promoted until the user explicitly
+marks a row and runs the apply step.
+
+**Since 2026-07-21 (ADR-036)** there is also a separate, additional
+**automatic** flow (`watchlist/auto_curation.py`, governed by
+`config/watchlist_auto.yaml`) that runs inside every `--full`/`--portfolio`
+pipeline execution, without any manual step. The two coexist and do not
+replace each other: rows this workbook applies are tagged `source=manual`
+(never touched by automatic removal); rows the automatic flow adds are
+tagged `source=auto`. See `STATUS.md` section 6 and
+`docs/adr/ADR-036-watchlist-auto-curation.md` for the automatic flow's
+selection/removal rules and safeguards.
 
 ## Workflow
 

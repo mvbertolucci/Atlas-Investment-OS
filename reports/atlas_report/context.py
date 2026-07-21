@@ -127,6 +127,7 @@ class ReportContext:
     ticker_details: tuple[TickerDetail, ...] = ()
     broad_screeners: tuple[BroadScreenerSummary, ...] = ()
     watchlist_proposals: tuple[WatchlistProposal, ...] = ()
+    watchlist_auto_curation: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.mode not in MODES:
@@ -508,4 +509,7 @@ def build_report_context(
         ticker_details=tuple(ticker_details),
         broad_screeners=tuple(broad_screeners),
         watchlist_proposals=watchlist_proposals,
+        watchlist_auto_curation=(
+            watchlist_report.auto_curation if watchlist_report is not None else None
+        ),
     )

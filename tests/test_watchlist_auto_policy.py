@@ -12,10 +12,11 @@ def policy() -> WatchlistAutoPolicy:
     return load_watchlist_auto_policy(Path("config/watchlist_auto.yaml"))
 
 
-def test_shipped_config_is_disabled_by_default(policy: WatchlistAutoPolicy) -> None:
-    """Circuit breaker: PR1 introduz o arquivo, mas o fluxo automático só
-    liga quando o wiring do pipeline (PR3) estiver pronto e testado."""
-    assert policy.enabled is False
+def test_shipped_config_is_enabled(policy: WatchlistAutoPolicy) -> None:
+    """PR1 introduziu o arquivo com enabled: false (circuit breaker
+    enquanto o wiring do pipeline não existia). PR3 liga o fluxo depois de
+    testar o wiring de ponta a ponta -- ver ADR-036."""
+    assert policy.enabled is True
 
 
 def test_shipped_config_values_are_pinned(policy: WatchlistAutoPolicy) -> None:

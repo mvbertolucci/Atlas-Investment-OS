@@ -18,6 +18,7 @@ from ranking import RankingReport
 from reports.atlas_report.context import ReportContext
 from scoring.reference import ScoringReference
 from universe import UniverseReport
+from watchlist.auto_curation import AutoCurationResult
 from watchlist.models import WatchlistReport
 
 
@@ -247,6 +248,7 @@ class IntelligenceServices:
     paths: PipelinePaths
     _read_status_md: Callable[[], str]
     _generate_portfolio_intelligence: Callable[..., tuple[Path, PortfolioReport] | None]
+    _run_watchlist_auto_curation: Callable[..., AutoCurationResult]
     _generate_watchlist_report: Callable[..., tuple[Path, WatchlistReport] | None]
     _build_report_context: Callable[..., ReportContext]
     _render_and_write_report: Callable[
@@ -277,6 +279,21 @@ class IntelligenceServices:
             current_run_at=current_run_at,
         )
 
+    def run_watchlist_auto_curation(
+        self,
+        frame: pd.DataFrame,
+        settings: Settings,
+        *,
+        sp500_report_path: Path | None,
+        broad_market_report_path: Path | None,
+    ) -> AutoCurationResult:
+        return self._run_watchlist_auto_curation(
+            frame,
+            settings,
+            sp500_report_path=sp500_report_path,
+            broad_market_report_path=broad_market_report_path,
+        )
+
     def generate_watchlist_report(
         self,
         frame: pd.DataFrame,
@@ -286,6 +303,7 @@ class IntelligenceServices:
         baseline_status: str,
         previous_run_at: pd.Timestamp | None,
         current_run_at: str,
+        auto_curation: AutoCurationResult | None = None,
     ) -> tuple[Path, WatchlistReport] | None:
         return self._generate_watchlist_report(
             frame,
@@ -294,6 +312,7 @@ class IntelligenceServices:
             baseline_status=baseline_status,
             previous_run_at=previous_run_at,
             current_run_at=current_run_at,
+            auto_curation=auto_curation,
         )
 
     def build_report_context(self, **kwargs: Any) -> ReportContext:

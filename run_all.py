@@ -525,6 +525,9 @@ def build_pipeline_services() -> PipelineServices:
             _generate_portfolio_intelligence=(
                 intelligence_application.generate_portfolio_intelligence
             ),
+            _run_watchlist_auto_curation=(
+                intelligence_application.run_watchlist_auto_curation
+            ),
             _generate_watchlist_report=(
                 intelligence_application.generate_watchlist_report
             ),

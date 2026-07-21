@@ -19,6 +19,7 @@ from ranking import RankingReport
 from reports.atlas_report.context import ReportContext
 from scoring.reference import ScoringReference
 from universe import UniverseReport
+from watchlist.auto_curation import AutoCurationResult
 from watchlist.models import WatchlistReport
 
 from orchestration.services import PipelineServices
@@ -89,6 +90,7 @@ class ScoringOutput:
     ranking_report: RankingReport | None
     broad_market_report_path: Path | None
     adr_report_path: Path | None
+    research_ranking_report_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -120,6 +122,7 @@ class IntelligenceOutput:
     report_context: ReportContext
     atlas_report_dated: Path
     atlas_report_latest: Path
+    watchlist_auto_curation: AutoCurationResult | None = None
 
 
 @dataclass(frozen=True)
@@ -262,9 +265,13 @@ class ScoringStage:
                 services.scoring.paths.output_data
                 / "research_ranking_report_adr.json"
             )
+            sp500_path = (
+                services.scoring.paths.output_data
+                / "research_ranking_report.json"
+            )
         else:
             universe_report = ranking_report = None
-            broad_path = adr_path = None
+            broad_path = adr_path = sp500_path = None
         return ScoringOutput(
             frame=frame,
             feature_coverage_summary=coverage,
@@ -272,6 +279,7 @@ class ScoringStage:
             ranking_report=ranking_report,
             broad_market_report_path=broad_path,
             adr_report_path=adr_path,
+            research_ranking_report_path=sp500_path,
         )
 
 
@@ -412,6 +420,14 @@ class IntelligenceStage:
             current_run_at=historical.snapshot_date,
         )
         portfolio_report = portfolio_result[1] if portfolio_result else None
+        watchlist_auto_curation = (
+            intelligence_services.run_watchlist_auto_curation(
+                historical.frame,
+                bootstrap.settings,
+                sp500_report_path=scoring.research_ranking_report_path,
+                broad_market_report_path=scoring.broad_market_report_path,
+            )
+        )
         watchlist_result = intelligence_services.generate_watchlist_report(
             historical.frame,
             bootstrap.settings,
@@ -419,6 +435,7 @@ class IntelligenceStage:
             baseline_status=historical.baseline_status,
             previous_run_at=historical.previous_run_at,
             current_run_at=historical.snapshot_date,
+            auto_curation=watchlist_auto_curation,
         )
         watchlist_report = watchlist_result[1] if watchlist_result else None
         report_context = intelligence_services.build_report_context(
@@ -459,6 +476,7 @@ class IntelligenceStage:
             report_context=report_context,
             atlas_report_dated=dated,
             atlas_report_latest=latest,
+            watchlist_auto_curation=watchlist_auto_curation,
         )
 
 
@@ -650,6 +668,16 @@ class CompletionStage:
                     f"  [LIMPEZA?] {candidate.symbol} -- {candidate.age_days} "
                     "dias sem trigger"
                 )
+        auto_curation = intelligence.watchlist_auto_curation
+        if auto_curation is not None and auto_curation.enabled:
+            print(
+                f"Watchlist Auto  : +{len(auto_curation.included)} "
+                f"incluído(s), -{len(auto_curation.excluded)} removido(s)"
+            )
+            for item in auto_curation.included:
+                print(f"  [AUTO-IN]  {item.symbol} -- {item.note}")
+            for item in auto_curation.excluded:
+                print(f"  [AUTO-OUT] {item.symbol} -- {item.reason}")
         print(f"Atlas Report    : {intelligence.atlas_report_dated}")
         print(f"Atlas Latest    : {intelligence.atlas_report_latest}")
         print("=" * 70)

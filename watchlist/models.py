@@ -126,8 +126,17 @@ class WatchlistTriggerResult:
 
 @dataclass(frozen=True)
 class WatchlistReport:
+    """
+    `auto_curation`, se presente, é o `AutoCurationResult.to_dict()` do
+    fluxo de curadoria automática deste mesmo run -- guardado como dict já
+    serializado (não o tipo `AutoCurationResult` em si) para não criar um
+    import circular (`watchlist.auto_curation` já importa `WatchlistEntry`
+    deste módulo).
+    """
+
     results: tuple[WatchlistTriggerResult, ...] = field(default_factory=tuple)
     generated_at: datetime = field(default_factory=datetime.now)
+    auto_curation: dict[str, Any] | None = None
 
     @property
     def triggered(self) -> tuple[WatchlistTriggerResult, ...]:
@@ -143,4 +152,5 @@ class WatchlistReport:
             "triggered_count": len(self.triggered),
             "cleanup_candidate_count": len(self.cleanup_candidates),
             "results": [item.to_dict() for item in self.results],
+            "auto_curation": self.auto_curation,
         }

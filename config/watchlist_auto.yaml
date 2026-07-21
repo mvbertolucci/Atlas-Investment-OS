@@ -5,7 +5,7 @@
 #
 # Decisão registrada em docs/adr/ADR-036-watchlist-auto-curation.md.
 
-enabled: false
+enabled: true
 
 selection:
   # Quantos candidatos entram por run, no máximo.

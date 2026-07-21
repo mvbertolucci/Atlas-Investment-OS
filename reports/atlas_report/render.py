@@ -273,6 +273,90 @@ e defina a condição sugerida.</p>
 """
 
 
+def render_watchlist_auto_curation(context: ReportContext) -> str:
+    data = context.watchlist_auto_curation
+    if data is None:
+        return "<h2>Curadoria Automática da Watchlist</h2>" + _not_included(
+            "Curadoria Automática da Watchlist"
+        )
+    if not data.get("enabled"):
+        return (
+            "<h2>Curadoria Automática da Watchlist</h2>"
+            '<p class="section-empty">Desabilitada neste run '
+            "(<code>config/watchlist_auto.yaml::enabled: false</code>).</p>"
+        )
+
+    included = data.get("included") or []
+    excluded = data.get("excluded") or []
+    if not included and not excluded:
+        return (
+            "<h2>Curadoria Automática da Watchlist</h2>"
+            '<p class="section-empty">Nenhuma inclusão ou exclusão '
+            "automática neste run.</p>"
+        )
+
+    if included:
+        included_rows = "\n".join(
+            "<tr>"
+            f"<td>{_e(item.get('symbol'))}</td>"
+            f"<td>{_e(item.get('name'))}</td>"
+            f"<td>{_e(item.get('note'))}</td>"
+            "</tr>"
+            for item in included
+        )
+        included_block = f"""
+<h3>Incluídos ({len(included)})</h3>
+<div class="table-scroll">
+<table>
+<thead><tr><th>Símbolo</th><th>Nome</th><th>Motivo</th></tr></thead>
+<tbody>{included_rows}</tbody>
+</table>
+</div>
+"""
+    else:
+        included_block = (
+            "<h3>Incluídos (0)</h3>"
+            '<p class="section-empty">Nenhum candidato qualificou neste '
+            "run.</p>"
+        )
+
+    if excluded:
+        excluded_rows = "\n".join(
+            "<tr>"
+            f"<td>{_e(item.get('symbol'))}</td>"
+            f"<td>{_e(item.get('reason'))}</td>"
+            "</tr>"
+            for item in excluded
+        )
+        excluded_block = f"""
+<h3>Removidos ({len(excluded)})</h3>
+<div class="table-scroll">
+<table>
+<thead><tr><th>Símbolo</th><th>Motivo</th></tr></thead>
+<tbody>{excluded_rows}</tbody>
+</table>
+</div>
+"""
+    else:
+        excluded_block = (
+            "<h3>Removidos (0)</h3>"
+            '<p class="section-empty">Nenhuma entrada elegível para '
+            "remoção neste run.</p>"
+        )
+
+    return f"""
+<h2>Curadoria Automática da Watchlist</h2>
+<p class="meta">Fluxo adicional ao gate manual (planilha/CLI) -- inclui
+candidatos com decisão estimada positiva
+(<code>config/watchlist_auto.yaml::selection.qualifying_decisions</code>) e
+remove entradas que o próprio fluxo automático incluiu (<code>source=auto</code>)
+cujo Investment Score caiu abaixo do patamar configurado. Nunca remove
+holdings reais nem entradas curadas à mão.</p>
+{included_block}
+{excluded_block}
+"""
+
+
 def render_earnings(context: ReportContext) -> str:
     if not context.earnings_rows:
         return "<h2>Earnings</h2>" + (
@@ -582,6 +666,7 @@ def render_report(context: ReportContext) -> str:
             render_portfolio(context),
             render_watchlist(context),
             render_watchlist_proposals(context),
+            render_watchlist_auto_curation(context),
             render_earnings(context),
             render_screener(context),
             render_broad_screeners(context),

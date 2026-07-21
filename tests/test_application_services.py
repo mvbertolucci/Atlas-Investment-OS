@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,6 +22,7 @@ from application import (
     TickerAnalysisApplicationService,
 )
 from storage.history_db import HistoryDatabase
+from watchlist.loader import load_watchlist_csv
 from watchlist.models import WatchlistEntry, WatchlistTriggerResult
 
 
@@ -678,3 +680,105 @@ def test_intelligence_service_persists_watchlist_trigger(
     with HistoryDatabase(tmp_path / "history.db") as database:
         history = database.load_watchlist_triggers()
     assert history["MSFT"]["last_triggered_at"] == "2026-07-17T10:00:00"
+
+
+def test_intelligence_service_runs_watchlist_auto_curation_end_to_end(
+    tmp_path: Path,
+) -> None:
+    """
+    Exercita o caminho real (sem mock) de
+    IntelligenceApplicationService.run_watchlist_auto_curation até o disco:
+    policy carregada de um watchlist_auto.yaml real, promote_to_watchlist/
+    remove_from_watchlist reais gravando um config/watchlist.csv real --
+    prova que o wiring de ponta a ponta (não só as peças isoladas já
+    testadas em test_watchlist_auto_curation.py) funciona.
+    """
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "watchlist_auto.yaml").write_text(
+        "enabled: true\n"
+        "selection: {top_n: 30, "
+        "qualifying_decisions: [STRONG_BUY, BUY, ACCUMULATE], "
+        "min_confidence_score: 60.0}\n"
+        "exit: {investment_score_threshold: 40.0}\n"
+        "safeguards: {protect_portfolio_holdings: true, "
+        "protect_manual_entries: true}\n",
+        encoding="utf-8",
+    )
+    watchlist_path = config_dir / "watchlist.csv"
+    watchlist_path.write_text(
+        "symbol,name,source\nSTALE,Stale Co,auto\nKEPT,Kept Co,manual\n",
+        encoding="utf-8",
+    )
+    sp500_path = tmp_path / "research_ranking_report.json"
+    sp500_path.write_text(
+        json.dumps(
+            {
+                "companies": [
+                    {
+                        "symbol": "FRESH",
+                        "name": "Fresh Co",
+                        "sector": "Technology",
+                        "safeguard_passed": True,
+                        "candidate_rank": 1,
+                        "investment_score": 88.0,
+                        "opportunity_score": 90.0,
+                        "conviction_score": 90.0,
+                        "confidence_score": 75.0,
+                        "deal_breakers": [],
+                        "already_held": False,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    frame = pd.DataFrame(
+        [
+            {"symbol": "STALE", "origin": "watchlist", "Investment Score": 12.0},
+            {"symbol": "KEPT", "origin": "watchlist", "Investment Score": 12.0},
+        ]
+    )
+    service = _intelligence_service(tmp_path)
+
+    result = service.run_watchlist_auto_curation(
+        frame,
+        {},
+        sp500_report_path=sp500_path,
+        broad_market_report_path=None,
+    )
+
+    assert [c.symbol for c in result.included] == ["FRESH"]
+    assert [c.symbol for c in result.excluded] == ["STALE"]
+
+    entries = load_watchlist_csv(watchlist_path)
+    by_symbol = {entry.symbol: entry for entry in entries}
+    assert set(by_symbol) == {"KEPT", "FRESH"}
+    assert by_symbol["FRESH"].source == "auto"
+    assert by_symbol["KEPT"].source == "manual"
+
+
+def test_intelligence_service_watchlist_auto_curation_respects_disabled_flag(
+    tmp_path: Path,
+) -> None:
+    """O arquivo real ship com enabled: false -- o método precisa honrar
+    isso sem tocar o CSV, mesmo quando chamado."""
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "watchlist_auto.yaml").write_text(
+        "enabled: false\n", encoding="utf-8"
+    )
+    watchlist_path = config_dir / "watchlist.csv"
+    original = "symbol,name,source\nSTALE,Stale Co,auto\n"
+    watchlist_path.write_text(original, encoding="utf-8")
+    frame = pd.DataFrame(
+        [{"symbol": "STALE", "origin": "watchlist", "Investment Score": 1.0}]
+    )
+    service = _intelligence_service(tmp_path)
+
+    result = service.run_watchlist_auto_curation(
+        frame, {}, sp500_report_path=None, broad_market_report_path=None
+    )
+
+    assert result.enabled is False
+    assert watchlist_path.read_text(encoding="utf-8") == original

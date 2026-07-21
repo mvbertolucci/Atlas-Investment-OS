@@ -27,6 +27,8 @@ from watchlist import (
     normalize_current_row,
     write_watchlist_report,
 )
+from watchlist.auto_curation import AutoCurationResult, run_auto_curation
+from watchlist.auto_policy import load_watchlist_auto_policy
 
 
 Settings = dict[str, Any]
@@ -97,6 +99,44 @@ class IntelligenceApplicationService:
         )
         return report_path, report
 
+    def run_watchlist_auto_curation(
+        self,
+        frame: pd.DataFrame,
+        settings: Settings,
+        *,
+        sp500_report_path: Path | None,
+        broad_market_report_path: Path | None,
+    ) -> AutoCurationResult:
+        """
+        Fluxo automático de inclusão/exclusão na watchlist -- adicional ao
+        gate manual (promote_to_watchlist/planilha, inalterado). Roda antes
+        de `generate_watchlist_report` no mesmo estágio: como esse método
+        relê `config/watchlist.csv` do disco (não usa o DataFrame em
+        memória do bootstrap), o resultado desta curadoria já aparece no
+        mesmo relatório, sem plumbing extra.
+
+        `config/watchlist_auto.yaml::enabled` é o circuit breaker -- com
+        `False` (o padrão), `run_auto_curation` nem toca o CSV.
+        """
+        watchlist_path = self.root / settings.get(
+            "watchlist_path", "config/watchlist.csv"
+        )
+        policy = load_watchlist_auto_policy(self.config / "watchlist_auto.yaml")
+        result = run_auto_curation(
+            watchlist_path=watchlist_path,
+            sp500_report_path=sp500_report_path,
+            broad_market_report_path=broad_market_report_path,
+            scored_frame=frame,
+            policy=policy,
+        )
+        if result.enabled and (result.included or result.excluded):
+            self.logger.info(
+                "Watchlist Auto Curation: %s incluído(s), %s removido(s).",
+                len(result.included),
+                len(result.excluded),
+            )
+        return result
+
     def generate_watchlist_report(
         self,
         frame: pd.DataFrame,
@@ -106,6 +146,7 @@ class IntelligenceApplicationService:
         baseline_status: str = "first_run",
         previous_run_at: pd.Timestamp | None = None,
         current_run_at: str | None = None,
+        auto_curation: AutoCurationResult | None = None,
     ) -> tuple[Path, WatchlistReport] | None:
         watchlist_path = self.root / settings.get(
             "watchlist_path", "config/watchlist.csv"
@@ -163,7 +204,10 @@ class IntelligenceApplicationService:
                         last_triggered_value,
                     )
 
-        report = WatchlistReport(results=results)
+        report = WatchlistReport(
+            results=results,
+            auto_curation=auto_curation.to_dict() if auto_curation else None,
+        )
         report_path = write_watchlist_report(
             report, self.watchlist_report_file
         )
