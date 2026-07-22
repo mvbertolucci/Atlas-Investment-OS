@@ -4,6 +4,9 @@
 fills from the Execution Ledger with two explicit, complete portfolio
 snapshots. It is diagnostic and never changes holdings or ledger events.
 
+In the normal pipeline, [Custody History](CUSTODY_HISTORY.md) captures each
+portfolio run and automatically reconciles the latest consecutive pair.
+
 ```powershell
 python -m decision.reconciliation before.json after.json `
   --baseline-at 2026-07-22T09:00:00 `
@@ -13,7 +16,7 @@ python -m decision.reconciliation before.json after.json `
 Both JSON inputs must contain a `holdings` list with `symbol` and `quantity`.
 The baseline must represent custody before the executions and the current
 snapshot must represent custody after them. Execution timestamps use ISO 8601;
-fills later than `--current-at` are excluded.
+fills at or before the baseline, or later than `--current-at`, are excluded.
 
 Statuses:
 

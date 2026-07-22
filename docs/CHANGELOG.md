@@ -1,5 +1,16 @@
 # Changelog
 
+## Automate custody baselines and reconciliation windows
+
+### Added
+
+- Append-only, idempotent quantity snapshots captured from each generated
+  portfolio report.
+- Automatic reconciliation of the latest two consecutive snapshots, limited
+  to fills strictly after the baseline and no later than the current snapshot.
+- Custody readiness summary in Dashboard Contract 1.7; no portfolio mutation
+  or brokerage inference.
+
 ## Reconcile execution evidence against custody snapshots
 
 ### Added

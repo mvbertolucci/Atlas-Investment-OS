@@ -31,6 +31,7 @@
 | Human decision journal | Yes | Yes | N/A | N/A | Append-only explicit review evidence; no trade execution |
 | Execution ledger | Yes | Yes | N/A | N/A | Append-only actual SELL/TRIM fills linked to latest ACCEPTED decision; no orders or portfolio mutation |
 | Execution reconciliation | Yes | Yes | N/A | N/A | Diagnostic comparison of ledger fills against explicit baseline/current custody snapshots |
+| Custody snapshot history | Yes | Yes | N/A | N/A | Automatic append-only quantity snapshots; latest consecutive pair feeds reconciliation |
 
 ## Conditional outputs
 

@@ -44,6 +44,7 @@ def build_dashboard_view(
     decision_journal: Any = None,
     execution_ledger: Any = None,
     execution_reconciliation: Any = None,
+    custody_history: Any = None,
 ) -> DashboardView:
     """
     Monta o `DashboardView` agregando os outputs existentes do Atlas.
@@ -72,6 +73,7 @@ def build_dashboard_view(
         decision_journal=_as_dict(decision_journal),
         execution_ledger=_as_dict(execution_ledger),
         execution_reconciliation=_as_dict(execution_reconciliation),
+        custody_history=_as_dict(custody_history),
     )
 
 

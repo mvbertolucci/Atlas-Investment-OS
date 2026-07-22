@@ -21,7 +21,7 @@ decisions. Every value is a passthrough of an existing domain object's
 
 ```json
 {
-  "contract_version": "1.6",
+  "contract_version": "1.7",
   "generated_at": "2026-07-13T00:00:00",
   "market": { ... } | null,
   "companies": [ { CompanyReport.to_dict() }, ... ],
@@ -31,7 +31,8 @@ decisions. Every value is a passthrough of an existing domain object's
   "portfolio_scenario": { ... } | null,
   "decision_journal": { ... } | null,
   "execution_ledger": { ... } | null,
-  "execution_reconciliation": { ... } | null
+  "execution_reconciliation": { ... } | null,
+  "custody_history": { ... } | null
 }
 ```
 
@@ -53,6 +54,8 @@ decisions. Every value is a passthrough of an existing domain object's
   `SELL`/`TRIM` fills; individual fills remain in the append-only ledger.
 - `execution_reconciliation` — aggregate custody reconciliation statuses from
   explicit baseline/current snapshots; symbol-level evidence remains separate.
+- `custody_history` — snapshot count, latest timestamp and whether two
+  consecutive snapshots are available for automatic reconciliation.
 
 `build_dashboard_view` accepts domain objects (anything with `to_dict()`) or
 already-serialized dicts, so it stays decoupled from the concrete producer
@@ -60,7 +63,7 @@ types.
 
 ## Versioning
 
-`contract_version` is `1.6`. Bump it **only** on a deliberate change to
+`contract_version` is `1.7`. Bump it **only** on a deliberate change to
 the serialized shape, so consumers can reconcile. A contract change is an
 explicit decision, never incidental — same governance discipline as scoring
 configuration.

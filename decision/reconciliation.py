@@ -76,6 +76,8 @@ def reconcile_executions(
         if str(event.get("action", "")).upper() not in {"SELL", "TRIM"}:
             continue
         executed_at = str(event.get("executed_at", ""))
+        if baseline_snapshot_at and executed_at and executed_at <= baseline_snapshot_at:
+            continue
         if current_snapshot_at and executed_at and executed_at > current_snapshot_at:
             continue
         grouped.setdefault(str(event.get("symbol", "")).upper(), []).append(event)

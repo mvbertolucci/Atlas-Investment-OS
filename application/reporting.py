@@ -17,7 +17,16 @@ from decision.queue import build_decision_queue, write_decision_queue
 from decision.cockpit import write_decision_cockpit
 from decision.journal import journal_summary, load_journal
 from decision.execution import execution_summary, load_execution_ledger
-from decision.reconciliation import load_reconciliation_summary
+from decision.reconciliation import (
+    load_reconciliation_summary,
+    reconcile_executions,
+    write_execution_reconciliation,
+)
+from portfolio.custody_history import (
+    capture_custody_snapshot,
+    custody_history_summary,
+    load_custody_history,
+)
 from portfolio.scenario import build_sell_scenario, write_portfolio_scenario
 from outcomes.analytics import OutcomeAnalyticsReport
 from portfolio.report import PortfolioReport
@@ -140,9 +149,34 @@ class ReportingApplicationService:
         journal_path = self.dashboard_report_file.parent / "decision_journal.json"
         decision_journal = journal_summary(load_journal(journal_path))
         ledger_path = self.dashboard_report_file.parent / "execution_ledger.json"
-        execution_ledger = execution_summary(load_execution_ledger(ledger_path))
+        ledger_payload = load_execution_ledger(ledger_path)
+        execution_ledger = execution_summary(ledger_payload)
         reconciliation_path = self.dashboard_report_file.parent / "execution_reconciliation.json"
-        execution_reconciliation = load_reconciliation_summary(reconciliation_path)
+        execution_reconciliation = None
+        custody_history = None
+        if portfolio_report is not None:
+            custody_payload = portfolio_report.to_dict()
+            if custody_payload.get("generated_at") and isinstance(
+                custody_payload.get("holdings"), (list, tuple)
+            ):
+                history_path = self.dashboard_report_file.parent / "portfolio_custody_history.json"
+                capture_custody_snapshot(custody_payload, history_path=history_path)
+                history_payload = load_custody_history(history_path)
+                custody_history = custody_history_summary(history_payload)
+                snapshots = history_payload["snapshots"]
+                if len(snapshots) >= 2:
+                    baseline, current = snapshots[-2:]
+                    reconciliation = reconcile_executions(
+                        ledger_payload,
+                        baseline_portfolio=baseline,
+                        current_portfolio=current,
+                        baseline_snapshot_at=str(baseline["snapshot_at"]),
+                        current_snapshot_at=str(current["snapshot_at"]),
+                    )
+                    write_execution_reconciliation(reconciliation, reconciliation_path)
+                    execution_reconciliation = reconciliation.to_dict()["summary"]
+        elif reconciliation_path.exists():
+            execution_reconciliation = load_reconciliation_summary(reconciliation_path)
         cockpit_path = self.output_reports / "decision_cockpit.html"
         write_decision_cockpit(
             decision_queue,
@@ -163,6 +197,7 @@ class ReportingApplicationService:
             decision_journal=decision_journal,
             execution_ledger=execution_ledger,
             execution_reconciliation=execution_reconciliation,
+            custody_history=custody_history,
         )
         write_dashboard_view(view, self.dashboard_report_file)
         self.logger.info(
