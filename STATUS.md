@@ -171,9 +171,9 @@ silenciosamente ao mover o Excel para `output/relatorios/`. Agora recebe
 ---
 
 ## Última atualização
-- **Data**: 2026-07-21
-- **Commit**: `feat(backtesting): finish PR-034 readiness/total-return-batch WIP, fix OneDrive-lock gap`
-- **Baseline de validação**: 1070 testes verdes
+- **Data**: 2026-07-22
+- **Commit**: `feat(providers): generalize the FX/vendor-reconciliation protocol for ADRs (ADR-038)`
+- **Baseline de validação**: 1080 testes verdes
 
 ### Integração de validação histórica (sessão atual)
 
