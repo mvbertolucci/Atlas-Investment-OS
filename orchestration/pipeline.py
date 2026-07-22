@@ -426,6 +426,7 @@ class IntelligenceStage:
                 bootstrap.settings,
                 sp500_report_path=scoring.research_ranking_report_path,
                 broad_market_report_path=scoring.broad_market_report_path,
+                adr_report_path=scoring.adr_report_path,
             )
         )
         watchlist_result = intelligence_services.generate_watchlist_report(

@@ -250,6 +250,7 @@ def run_auto_curation(
     watchlist_path: Path,
     sp500_report_path: Path | None,
     broad_market_report_path: Path | None,
+    adr_report_path: Path | None,
     scored_frame: pd.DataFrame,
     policy: WatchlistAutoPolicy,
     today: date | None = None,
@@ -283,7 +284,11 @@ def run_auto_curation(
         ]
 
     inclusion_candidates = select_auto_inclusion_candidates(
-        [("sp500", sp500_report_path), ("broad_market", broad_market_report_path)],
+        [
+            ("sp500", sp500_report_path),
+            ("broad_market", broad_market_report_path),
+            ("adr", adr_report_path),
+        ],
         watchlist_symbols=watchlist_symbols,
         held_symbols=held_symbols,
         policy=policy,

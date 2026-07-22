@@ -44,9 +44,11 @@ ability to curate by hand.
 3. **`watchlist/auto_curation.py`** — the selection logic, config-driven via
    `config/watchlist_auto.yaml` / `watchlist/auto_policy.py::WatchlistAutoPolicy`
    (same governed-config pattern as `portfolio/sell_rules.py`):
-   - **Inclusion**: combines the S&P500 (`research_ranking_report.json`)
-     and broad market (`research_ranking_report_market.json`) screener
-     snapshots, deduplicated (S&P500 wins ties). A candidate qualifies only
+   - **Inclusion**: combines the S&P500 (`research_ranking_report.json`),
+     broad market (`research_ranking_report_market.json`) and ADR
+     (`research_ranking_report_adr.json`) screener snapshots. Deduplication is
+     deterministic in that order: S&P500 wins over broad market, and broad
+     market wins over ADR. A candidate qualifies only
      if its **estimated** Decision (`decision/policy.py::evaluate_decision`,
      called with `risk_penalty=0.0` — the real risk penalty only exists for
      names already collected/scored in the reduced watchlist+portfolio
@@ -115,6 +117,10 @@ ability to curate by hand.
   below the exit threshold, is never auto-removed.
 - No governed scoring value, weight, or threshold changes — this only adds
   new, separately-governed config (`config/watchlist_auto.yaml`).
+- Since 2026-07-22, ADR candidates use the same automatic inclusion policy as
+  the other broad screeners. Their provenance remains explicit in the
+  candidate note (`Auto-inclusão (adr)`) and ADR-only names can enter without
+  changing the qualifying decisions or confidence threshold.
 
 ## Rollback
 

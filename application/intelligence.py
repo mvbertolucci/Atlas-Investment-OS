@@ -106,6 +106,7 @@ class IntelligenceApplicationService:
         *,
         sp500_report_path: Path | None,
         broad_market_report_path: Path | None,
+        adr_report_path: Path | None,
     ) -> AutoCurationResult:
         """
         Fluxo automático de inclusão/exclusão na watchlist -- adicional ao
@@ -126,6 +127,7 @@ class IntelligenceApplicationService:
             watchlist_path=watchlist_path,
             sp500_report_path=sp500_report_path,
             broad_market_report_path=broad_market_report_path,
+            adr_report_path=adr_report_path,
             scored_frame=frame,
             policy=policy,
         )

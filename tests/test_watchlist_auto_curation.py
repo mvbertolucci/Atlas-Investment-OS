@@ -229,6 +229,39 @@ def test_dedup_across_sources_first_source_wins(tmp_path: Path) -> None:
     assert candidates[0].investment_score == 99.0
 
 
+def test_includes_adr_candidates_and_preserves_source(tmp_path: Path) -> None:
+    adr = _write_report(
+        tmp_path / "adr.json", [_company("KGC", investment_score=88.0)]
+    )
+    candidates = select_auto_inclusion_candidates(
+        [("sp500", None), ("broad_market", None), ("adr", adr)],
+        watchlist_symbols=[],
+        held_symbols=[],
+        policy=_policy(),
+    )
+    assert [candidate.symbol for candidate in candidates] == ["KGC"]
+    assert candidates[0].source_report == "adr"
+    assert "Auto-inclusão (adr)" in candidates[0].note
+
+
+def test_broad_market_wins_duplicate_over_adr(tmp_path: Path) -> None:
+    broad = _write_report(
+        tmp_path / "broad.json", [_company("DUPE", investment_score=90.0)]
+    )
+    adr = _write_report(
+        tmp_path / "adr.json", [_company("DUPE", investment_score=99.0)]
+    )
+    candidates = select_auto_inclusion_candidates(
+        [("sp500", None), ("broad_market", broad), ("adr", adr)],
+        watchlist_symbols=[],
+        held_symbols=[],
+        policy=_policy(),
+    )
+    assert len(candidates) == 1
+    assert candidates[0].source_report == "broad_market"
+    assert candidates[0].investment_score == 90.0
+
+
 def test_missing_report_file_is_skipped_not_error(tmp_path: Path) -> None:
     candidates = select_auto_inclusion_candidates(
         [("sp500", tmp_path / "does_not_exist.json"), ("broad_market", None)],
@@ -358,6 +391,7 @@ def test_disabled_policy_does_not_touch_csv(tmp_path: Path) -> None:
         watchlist_path=watchlist_path,
         sp500_report_path=None,
         broad_market_report_path=None,
+        adr_report_path=None,
         scored_frame=pd.DataFrame(),
         policy=disabled,
     )
@@ -390,6 +424,7 @@ def test_run_auto_curation_includes_and_excludes_end_to_end(
         watchlist_path=watchlist_path,
         sp500_report_path=sp500_path,
         broad_market_report_path=None,
+        adr_report_path=None,
         scored_frame=frame,
         policy=_policy(),
         today=date(2026, 7, 21),
@@ -426,6 +461,7 @@ def test_symbol_included_this_run_is_never_also_removed(tmp_path: Path) -> None:
         watchlist_path=watchlist_path,
         sp500_report_path=sp500_path,
         broad_market_report_path=None,
+        adr_report_path=None,
         scored_frame=frame,
         policy=_policy(),
     )

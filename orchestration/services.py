@@ -286,12 +286,14 @@ class IntelligenceServices:
         *,
         sp500_report_path: Path | None,
         broad_market_report_path: Path | None,
+        adr_report_path: Path | None,
     ) -> AutoCurationResult:
         return self._run_watchlist_auto_curation(
             frame,
             settings,
             sp500_report_path=sp500_report_path,
             broad_market_report_path=broad_market_report_path,
+            adr_report_path=adr_report_path,
         )
 
     def generate_watchlist_report(

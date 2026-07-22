@@ -777,6 +777,7 @@ def test_intelligence_service_runs_watchlist_auto_curation_end_to_end(
         {},
         sp500_report_path=sp500_path,
         broad_market_report_path=None,
+        adr_report_path=None,
     )
 
     assert [c.symbol for c in result.included] == ["FRESH"]
@@ -787,6 +788,63 @@ def test_intelligence_service_runs_watchlist_auto_curation_end_to_end(
     assert set(by_symbol) == {"KEPT", "FRESH"}
     assert by_symbol["FRESH"].source == "auto"
     assert by_symbol["KEPT"].source == "manual"
+
+
+def test_intelligence_service_auto_curates_adr_candidate_end_to_end(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "watchlist_auto.yaml").write_text(
+        "enabled: true\n"
+        "selection: {top_n: 30, "
+        "qualifying_decisions: [STRONG_BUY, BUY, ACCUMULATE], "
+        "min_confidence_score: 60.0}\n"
+        "exit: {investment_score_threshold: 40.0}\n"
+        "safeguards: {protect_portfolio_holdings: true, "
+        "protect_manual_entries: true}\n",
+        encoding="utf-8",
+    )
+    watchlist_path = config_dir / "watchlist.csv"
+    watchlist_path.write_text(
+        "symbol,name,source\nADBE,Adobe,manual\n", encoding="utf-8"
+    )
+    adr_path = tmp_path / "research_ranking_report_adr.json"
+    adr_path.write_text(
+        json.dumps(
+            {
+                "companies": [
+                    {
+                        "symbol": "KGC",
+                        "name": "Kinross Gold",
+                        "sector": "Basic Materials",
+                        "safeguard_passed": True,
+                        "investment_score": 88.0,
+                        "opportunity_score": 90.0,
+                        "conviction_score": 90.0,
+                        "confidence_score": 100.0,
+                        "deal_breakers": [],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _intelligence_service(tmp_path).run_watchlist_auto_curation(
+        pd.DataFrame(columns=["symbol", "origin"]),
+        {},
+        sp500_report_path=None,
+        broad_market_report_path=None,
+        adr_report_path=adr_path,
+    )
+
+    assert [item.symbol for item in result.included] == ["KGC"]
+    entries = load_watchlist_csv(watchlist_path)
+    by_symbol = {entry.symbol: entry for entry in entries}
+    assert set(by_symbol) == {"ADBE", "KGC"}
+    assert by_symbol["KGC"].source == "auto"
+    assert "Auto-inclusão (adr)" in by_symbol["KGC"].note
 
 
 def test_intelligence_service_watchlist_auto_curation_respects_disabled_flag(
@@ -808,7 +866,11 @@ def test_intelligence_service_watchlist_auto_curation_respects_disabled_flag(
     service = _intelligence_service(tmp_path)
 
     result = service.run_watchlist_auto_curation(
-        frame, {}, sp500_report_path=None, broad_market_report_path=None
+        frame,
+        {},
+        sp500_report_path=None,
+        broad_market_report_path=None,
+        adr_report_path=None,
     )
 
     assert result.enabled is False

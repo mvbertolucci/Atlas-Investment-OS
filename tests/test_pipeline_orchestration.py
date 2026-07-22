@@ -457,6 +457,7 @@ def _minimal_intelligence_stage_context(
     tmp_path: Path,
     *,
     run_watchlist_auto_curation: Any,
+    adr_report_path: Path | None = None,
 ) -> PipelineContext:
     """Publica só o que IntelligenceStage.requires exige, com valores
     mínimos viáveis -- suficiente para rodar o estágio isolado, sem montar
@@ -519,7 +520,7 @@ def _minimal_intelligence_stage_context(
             universe_report=None,
             ranking_report=None,
             broad_market_report_path=None,
-            adr_report_path=None,
+            adr_report_path=adr_report_path,
             research_ranking_report_path=None,
         )
     )
@@ -563,14 +564,24 @@ def test_intelligence_stage_threads_watchlist_auto_curation_through(
         excluded_failures=(),
         enabled=True,
     )
+    adr_report_path = tmp_path / "research_ranking_report_adr.json"
+    received: dict[str, Any] = {}
+
+    def run_auto_curation(*args: Any, **kwargs: Any) -> AutoCurationResult:
+        received.update(kwargs)
+        return expected
+
     context = _minimal_intelligence_stage_context(
-        tmp_path, run_watchlist_auto_curation=lambda *a, **k: expected
+        tmp_path,
+        run_watchlist_auto_curation=run_auto_curation,
+        adr_report_path=adr_report_path,
     )
 
     output = IntelligenceStage().run(context)
 
     assert isinstance(output, IntelligenceOutput)
     assert output.watchlist_auto_curation is expected
+    assert received["adr_report_path"] == adr_report_path
 
 
 def test_completion_stage_prints_watchlist_auto_curation_summary(
