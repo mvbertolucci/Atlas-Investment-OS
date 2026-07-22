@@ -254,6 +254,7 @@ class IntelligenceServices:
     _render_and_write_report: Callable[
         [ReportContext, str], tuple[Path, Path]
     ]
+    _generate_opportunity_funnel: Callable[..., Path] | None = None
 
     def read_status_md(self) -> str:
         return self._read_status_md()
@@ -295,6 +296,11 @@ class IntelligenceServices:
             broad_market_report_path=broad_market_report_path,
             adr_report_path=adr_report_path,
         )
+
+    def generate_opportunity_funnel(self, *args: Any, **kwargs: Any) -> Path | None:
+        if self._generate_opportunity_funnel is None:
+            return None
+        return self._generate_opportunity_funnel(*args, **kwargs)
 
     def generate_watchlist_report(
         self,

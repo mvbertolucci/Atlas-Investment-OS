@@ -537,6 +537,9 @@ def build_pipeline_services() -> PipelineServices:
             _render_and_write_report=(
                 intelligence_application.render_and_write_report
             ),
+            _generate_opportunity_funnel=(
+                intelligence_application.generate_opportunity_funnel
+            ),
         ),
         reporting=ReportingServices(
             _generate_excel_reports=(

@@ -29,6 +29,10 @@ from watchlist import (
 )
 from watchlist.auto_curation import AutoCurationResult, run_auto_curation
 from watchlist.auto_policy import load_watchlist_auto_policy
+from watchlist.opportunity_funnel import (
+    build_opportunity_funnel,
+    write_opportunity_funnel,
+)
 
 
 Settings = dict[str, Any]
@@ -138,6 +142,40 @@ class IntelligenceApplicationService:
                 len(result.excluded),
             )
         return result
+
+    def generate_opportunity_funnel(
+        self,
+        frame: pd.DataFrame,
+        settings: Settings,
+        *,
+        sp500_report_path: Path | None,
+        broad_market_report_path: Path | None,
+        adr_report_path: Path | None,
+    ) -> Path:
+        watchlist_path = self.root / settings.get(
+            "watchlist_path", "config/watchlist.csv"
+        )
+        entries = load_watchlist_csv(watchlist_path) if watchlist_path.exists() else ()
+        held_symbols = (
+            frame.loc[frame["origin"] == "portfolio", "symbol"].tolist()
+            if {"origin", "symbol"}.issubset(frame.columns)
+            else []
+        )
+        funnel = build_opportunity_funnel(
+            [
+                ("sp500", sp500_report_path),
+                ("broad_market", broad_market_report_path),
+                ("adr", adr_report_path),
+            ],
+            watchlist_symbols=[entry.symbol for entry in entries],
+            held_symbols=held_symbols,
+            policy=load_watchlist_auto_policy(self.config / "watchlist_auto.yaml"),
+        )
+        output_path = self.root / settings.get(
+            "opportunity_funnel_path",
+            "output/dados/market_opportunity_funnel.json",
+        )
+        return write_opportunity_funnel(funnel, output_path)
 
     def generate_watchlist_report(
         self,

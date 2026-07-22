@@ -123,6 +123,7 @@ class IntelligenceOutput:
     atlas_report_dated: Path
     atlas_report_latest: Path
     watchlist_auto_curation: AutoCurationResult | None = None
+    opportunity_funnel_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -420,6 +421,13 @@ class IntelligenceStage:
             current_run_at=historical.snapshot_date,
         )
         portfolio_report = portfolio_result[1] if portfolio_result else None
+        opportunity_funnel_path = intelligence_services.generate_opportunity_funnel(
+            historical.frame,
+            bootstrap.settings,
+            sp500_report_path=scoring.research_ranking_report_path,
+            broad_market_report_path=scoring.broad_market_report_path,
+            adr_report_path=scoring.adr_report_path,
+        )
         watchlist_auto_curation = (
             intelligence_services.run_watchlist_auto_curation(
                 historical.frame,
@@ -478,6 +486,7 @@ class IntelligenceStage:
             atlas_report_dated=dated,
             atlas_report_latest=latest,
             watchlist_auto_curation=watchlist_auto_curation,
+            opportunity_funnel_path=opportunity_funnel_path,
         )
 
 
