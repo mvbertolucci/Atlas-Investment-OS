@@ -249,14 +249,14 @@ class CollectionApplicationService:
                 settings.get(
                     "provider_critical_fields",
                     (
-                        "market_cap",
-                        "enterprise_value",
+                        # market_cap/enterprise_value/short_float are
+                        # deliberately absent (ADR-038) -- see
+                        # providers/yahoo.py::DEFAULT_CRITICAL_FIELDS
                         "total_debt",
                         "total_cash",
                         "ebitda",
                         "free_cashflow",
                         "current_ratio",
-                        "short_float",
                         "roe",
                     ),
                 )

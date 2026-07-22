@@ -89,14 +89,11 @@ def test_provider_operational_policy_is_pinned() -> None:
     assert settings["provider_backoff_seconds"] == pytest.approx(0.5)
     assert settings["provider_rate_limit_per_second"] == pytest.approx(2)
     assert settings["provider_critical_fields"] == [
-        "market_cap",
-        "enterprise_value",
         "total_debt",
         "total_cash",
         "ebitda",
         "free_cashflow",
         "current_ratio",
-        "short_float",
         "roe",
     ]
     assert settings["raw_snapshot_path"] == "data/raw_snapshots"

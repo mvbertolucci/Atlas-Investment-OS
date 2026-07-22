@@ -249,3 +249,165 @@ def test_enterprise_value_rejection_nulls_yahoo_own_derived_multiples() -> None:
     for field in ("enterprise_value", "ev_to_ebitda", "ev_to_revenue"):
         assert annotated["field_evidence"][field]["status"] == "invalid"
     assert annotated["enterprise_value"] is None
+
+
+def test_compute_market_cap_multiplies_price_by_shares() -> None:
+    """Live-measured (ADR-038): price x shares matches the vendor's own
+    marketCap almost exactly for real ADR holdings, without any FX -- BNTX's
+    real 92.33 price x 252,884,261 shares reproduces Yahoo's own $23.35B."""
+    assert yahoo._compute_market_cap(92.33, 252_884_261) == pytest.approx(
+        23_348_803_818, rel=1e-6
+    )
+    assert yahoo._compute_market_cap(None, 252_884_261) is None
+    assert yahoo._compute_market_cap(92.33, None) is None
+    assert yahoo._compute_market_cap(92.33, 0) is None
+    assert yahoo._compute_market_cap(-1, 100) is None
+
+
+def test_resolve_enterprise_value_direct_vendor_when_plausible() -> None:
+    """BTI's own reported EV (5.27x market cap, a real leveraged-conglomerate
+    multiple) is already plausible -- used unchanged, no reconstruction."""
+    value, provenance = yahoo._resolve_enterprise_value(
+        market_cap=132_517_445_632,
+        enterprise_value_reported=698_876_887_040,
+        total_debt=35_070_001_152,
+        total_cash=3_843_000_064,
+        financial_currency="GBP",
+        quote_currency="USD",
+        fx_rate_fetcher=lambda _currency: None,
+    )
+    assert value == 698_876_887_040
+    assert provenance == "direct_vendor"
+
+
+def test_resolve_enterprise_value_reconstructs_when_vendor_implausible_but_currency_matches() -> None:
+    """Vendor EV implausible, financialCurrency == quote currency (no FX
+    possible) -- but the naive market_cap+debt-cash reconstruction is itself
+    plausible, so it is used instead of giving up."""
+    value, provenance = yahoo._resolve_enterprise_value(
+        market_cap=1_000_000_000,
+        enterprise_value_reported=50_000_000_000,  # 50x, implausible
+        total_debt=200_000_000,
+        total_cash=50_000_000,
+        financial_currency="USD",
+        quote_currency="USD",
+        fx_rate_fetcher=lambda _currency: None,
+    )
+    assert value == pytest.approx(1_150_000_000)
+    assert provenance == "reconstructed"
+
+
+def test_resolve_enterprise_value_fx_corrects_currency_unit_bug() -> None:
+    """Live-measured on YPF (ADR-038): raw totalDebt/totalCash are labeled
+    USD but are actually ARS (14.8T/2.3T), giving EV/MarketCap=639x either
+    way (vendor or naive reconstruction). Converting at the real ARS->USD
+    spot rate resolves it to a plausible ~1.4x."""
+    value, provenance = yahoo._resolve_enterprise_value(
+        market_cap=20_127_873_024,
+        enterprise_value_reported=12_877_943_537_664,
+        total_debt=14_817_286_946_816,
+        total_cash=2_330_515_996_672,
+        financial_currency="ARS",
+        quote_currency="USD",
+        fx_rate_fetcher=lambda currency: 0.00067681895 if currency == "ARS" else None,
+    )
+    assert value == pytest.approx(28_579_156_227, rel=1e-3)
+    assert value / 20_127_873_024 < 2.0
+    assert provenance == "fx_corrected:ARS->USD@0.000676819"
+
+
+def test_resolve_enterprise_value_implausible_same_currency_gives_up() -> None:
+    value, provenance = yahoo._resolve_enterprise_value(
+        market_cap=1_000_000_000,
+        enterprise_value_reported=50_000_000_000,
+        total_debt=40_000_000_000,  # still implausible even reconstructed
+        total_cash=0,
+        financial_currency="USD",
+        quote_currency="USD",
+        fx_rate_fetcher=lambda _currency: None,
+    )
+    assert value is None
+    assert provenance == "implausible_same_currency"
+
+
+def test_resolve_enterprise_value_fx_rate_unavailable() -> None:
+    value, provenance = yahoo._resolve_enterprise_value(
+        market_cap=1_000_000_000,
+        enterprise_value_reported=50_000_000_000,
+        total_debt=40_000_000_000,
+        total_cash=0,
+        financial_currency="EUR",
+        quote_currency="USD",
+        fx_rate_fetcher=lambda _currency: None,
+    )
+    assert value is None
+    assert provenance == "fx_rate_unavailable"
+
+
+def test_resolve_enterprise_value_implausible_after_fx_correction() -> None:
+    """FX correction applied, but the result is still implausible -- not a
+    pure currency-unit bug, stays rejected rather than accepting a bad
+    number just because a conversion was attempted."""
+    value, provenance = yahoo._resolve_enterprise_value(
+        market_cap=1_000_000_000,
+        enterprise_value_reported=90_000_000_000,
+        total_debt=200_000_000_000,
+        total_cash=0,
+        financial_currency="EUR",
+        quote_currency="USD",
+        fx_rate_fetcher=lambda _currency: 1.08,
+    )
+    assert value is None
+    assert provenance == "implausible_after_fx_correction"
+
+
+def test_derive_ev_ebitda_mirrors_ev_ebit_pattern() -> None:
+    """Live-measured on YPF (ADR-038): resolved EV $28.58B / real ebitda
+    gives the ratio Yahoo's own (rejected) enterpriseToEbitda cannot."""
+    assert yahoo._derive_ev_ebitda(28_579_156_227, 5_000_000_000) == pytest.approx(
+        5.7158312454
+    )
+    assert yahoo._derive_ev_ebitda(None, 5_000_000_000) is None
+    assert yahoo._derive_ev_ebitda(28_579_156_227, None) is None
+    assert yahoo._derive_ev_ebitda(28_579_156_227, 0) is None
+
+
+def test_cash_and_equivalents_uses_strict_balance_sheet_row_not_broad_total() -> None:
+    """Live-measured on BRK-B (ADR-038 adendo): info.get("totalCash") folds
+    short-term investments into "cash" ($397.4B); the balance sheet's own
+    strict "Cash And Cash Equivalents" row ($58.1B, Q1 2026) is the real
+    figure, close to SEC EDGAR's independently reported $58.8B."""
+    quarterly = pd.DataFrame(
+        {
+            "2026-03-31": [
+                58_122_000_000.0,
+                400_000_000_000.0,
+            ]
+        },
+        index=["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"],
+    )
+    assert yahoo._cash_and_equivalents(quarterly) == pytest.approx(58_122_000_000.0)
+    assert yahoo._cash_and_equivalents(None) is None
+    assert yahoo._cash_and_equivalents(pd.DataFrame()) is None
+
+
+def test_cash_and_equivalents_prefers_quarterly_over_stale_annual() -> None:
+    """Live-measured (ADR-038 adendo): the annual statement's most recent
+    column can lag a full quarter behind `mostRecentQuarter`, which is the
+    date Atlas stamps on this field regardless of which statement supplied
+    the value -- reading the annual one silently mislabels a quarter-old
+    figure as current. BRK-B: annual FY2025 shows $51.9B, quarterly Q1 2026
+    shows $58.1B (matching SEC EDGAR); the quarterly value must win."""
+    annual = pd.DataFrame(
+        {"2025-12-31": [51_877_000_000.0]}, index=["Cash And Cash Equivalents"]
+    )
+    quarterly = pd.DataFrame(
+        {"2026-03-31": [58_122_000_000.0]}, index=["Cash And Cash Equivalents"]
+    )
+    assert yahoo._cash_and_equivalents(quarterly, annual) == pytest.approx(
+        58_122_000_000.0
+    )
+    # Falls back to annual only when no quarterly statement is available.
+    assert yahoo._cash_and_equivalents(None, annual) == pytest.approx(
+        51_877_000_000.0
+    )

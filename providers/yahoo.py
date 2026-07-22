@@ -13,14 +13,31 @@ from storage.raw_snapshots import store_raw_snapshot
 
 
 DEFAULT_CRITICAL_FIELDS = (
-    "market_cap",
-    "enterprise_value",
+    # market_cap, enterprise_value and short_float are deliberately absent
+    # (ADR-038): each has a native, self-consistent Yahoo value (same
+    # source, same settlement date) that cross-vendor reconciliation was
+    # measured to corrupt rather than confirm. market_cap/enterprise_value
+    # get their own absolute plausibility/FX-correction resolution
+    # (`_resolve_enterprise_value`) instead of requiring 5% agreement with a
+    # thinly-covered secondary vendor (BNTX, BTI were both rejected despite
+    # being correct). short_float: live-measured on JBS, Massive's own
+    # short_interest matches Yahoo's exactly (33,642,565 -- both FINRA-
+    # sourced, same settlement date), but Massive's free_float (527M, 67.9%
+    # of shares) disagrees sharply with Yahoo's (327.6M, 42.2%) -- Massive's
+    # free-float methodology overcounts closely-held shares for a company
+    # with a complex dual-listing/holding structure (JBS N.V.'s Dutch
+    # reorganization obscures the controlling family stake from a US-market
+    # float estimate), understating short_float. Yahoo's own
+    # shortPercentOfFloat is already US-market-native and internally
+    # consistent by construction; a foreign issuer's listing structure
+    # should not be able to corrupt a US-market short-interest reading via a
+    # secondary vendor's differently-scoped float estimate. Other critical
+    # fields are unaffected.
     "total_debt",
     "total_cash",
     "ebitda",
     "free_cashflow",
     "current_ratio",
-    "short_float",
 )
 
 
@@ -31,6 +48,140 @@ def _safe_float(value: Any):
         return float(value)
     except Exception:
         return None
+
+
+def _compute_market_cap(price: Any, shares_outstanding: Any) -> float | None:
+    """``price x shares_outstanding`` -- currency-neutral by construction.
+
+    An ADR's quote price is always denominated in the exchange's currency
+    (USD here), and share count is a pure number, so this never needs FX
+    conversion regardless of what currency the issuer reports financials in.
+    Live-measured (ADR-038) to match Yahoo's own vendor ``marketCap`` almost
+    exactly for every real holding checked (BNTX/BTI/PAM/SGML/YPF within
+    rounding); this becomes the primary source of truth instead of a value
+    that still depends on a vendor's own (sometimes buggy) computation.
+    """
+    try:
+        p = float(price)
+        s = float(shares_outstanding)
+    except (TypeError, ValueError):
+        return None
+    if p <= 0 or s <= 0:
+        return None
+    return p * s
+
+
+def _default_fx_rate_to_usd(currency: str) -> float | None:
+    """Live spot rate for 1 unit of ``currency`` in USD, via Yahoo's own FX
+    quote (``{CUR}USD=X``) -- no new vendor, same client already in use.
+    """
+    code = str(currency or "").strip().upper()
+    if not code or code == "USD":
+        return 1.0
+    try:
+        ticker = yf.Ticker(f"{code}USD=X")
+        rate = _safe_float((ticker.info or {}).get("regularMarketPrice"))
+        if rate is None:
+            history = ticker.history(period="5d")
+            if history is not None and not history.empty:
+                rate = _safe_float(history["Close"].iloc[-1])
+        return rate if rate and rate > 0 else None
+    except Exception:
+        return None
+
+
+def _resolve_enterprise_value(
+    *,
+    market_cap: Any,
+    enterprise_value_reported: Any,
+    total_debt: Any,
+    total_cash: Any,
+    financial_currency: Any,
+    quote_currency: Any,
+    fx_rate_fetcher: Callable[[str], float | None],
+) -> tuple[float | None, str]:
+    """Resolve EV, correcting a currency-unit bug instead of just rejecting it.
+
+    General ADR/foreign-issuer protocol (ADR-038), not a per-symbol patch:
+    1. If Yahoo's own reported ``enterpriseValue`` is already plausible
+       (within the ADR-037 EV/MarketCap bound), use it unchanged -- this
+       keeps it consistent with Yahoo's own ``ev_to_ebitda``/``ev_to_revenue``
+       ratios, which are computed from the same number and are not
+       independently re-derivable here. Live-measured: BNTX (0.43x) and BTI
+       (5.27x, a real leveraged-conglomerate multiple) both already pass and
+       are left untouched.
+    2. Only when Yahoo's own value is implausible, reconstruct
+       ``market_cap + total_debt - total_cash`` as reported (no FX) and
+       retest -- this is Yahoo's own definition, just recomputed from raw
+       inputs instead of trusting a possibly-stale precomputed field.
+    3. If that reconstruction is still implausible AND the issuer's
+       ``financialCurrency`` differs from the quote currency, convert
+       debt/cash at the live spot rate and retest. Live-measured on YPF: raw
+       ARS-labeled-as-USD debt gives EV/MarketCap=639x either way; converted
+       at the real ARS->USD rate it becomes 1.42x (plausible) -- confirms a
+       genuine currency-unit bug, not merely a large company.
+    4. If still implausible after FX correction, there is no unit bug to fix
+       -- something else is wrong, so it stays unresolved and the caller
+       nulls it out (along with ev_to_ebitda/ev_to_revenue, which were
+       always computed against the rejected number in every branch except
+       the first).
+    """
+    try:
+        cap = float(market_cap)
+    except (TypeError, ValueError):
+        return None, "missing_market_cap"
+
+    if not _enterprise_value_implausible(cap, enterprise_value_reported):
+        try:
+            return float(enterprise_value_reported), "direct_vendor"
+        except (TypeError, ValueError):
+            return None, "missing_inputs"
+
+    try:
+        debt = float(total_debt)
+        cash = float(total_cash)
+    except (TypeError, ValueError):
+        return None, "missing_inputs"
+
+    naive_ev = cap + debt - cash
+    if not _enterprise_value_implausible(cap, naive_ev):
+        return naive_ev, "reconstructed"
+
+    fin_currency = str(financial_currency or "").strip().upper()
+    quote = str(quote_currency or "").strip().upper()
+    if not fin_currency or fin_currency == quote:
+        return None, "implausible_same_currency"
+
+    rate = fx_rate_fetcher(fin_currency)
+    if rate is None:
+        return None, "fx_rate_unavailable"
+
+    converted_ev = cap + (debt * rate) - (cash * rate)
+    if _enterprise_value_implausible(cap, converted_ev):
+        return None, "implausible_after_fx_correction"
+    return converted_ev, f"fx_corrected:{fin_currency}->{quote}@{rate:.6g}"
+
+
+def _derive_ev_ebitda(enterprise_value: Any, ebitda: Any) -> float | None:
+    """``enterprise_value / ebitda`` -- mirrors how ``analytics/mapper.py``
+    already derives ``ev_ebit`` from ``enterprise_value``/``ebit`` (ADR-038).
+
+    Used only when Yahoo's own ``enterpriseToEbitda`` ratio was nulled
+    because ``enterprise_value`` needed reconstruction/FX-correction (the
+    vendor ratio would otherwise disagree with the resolved EV). Must be
+    derived at this layer, not downstream in the mapper, because the
+    required-feature confidence gate reads ``field_evidence`` status, not
+    the raw numeric column -- a value filled in later without updating
+    evidence here would be silently ignored by the gate.
+    """
+    try:
+        ev_value = float(enterprise_value)
+        ebitda_value = float(ebitda)
+    except (TypeError, ValueError):
+        return None
+    if ebitda_value == 0:
+        return None
+    return ev_value / ebitda_value
 
 
 def _enterprise_value_implausible(market_cap: Any, enterprise_value: Any) -> bool:
@@ -82,6 +233,51 @@ def _trailing_pe_structurally_absent(pe_value: Any, info: dict[str, Any]) -> boo
         if signal is not None and signal <= 0:
             return True
     return False
+
+
+def _cash_and_equivalents(
+    quarterly_balance_sheet: "pd.DataFrame | None",
+    balance_sheet: "pd.DataFrame | None" = None,
+) -> float | None:
+    """Strict GAAP cash and cash equivalents from the balance sheet.
+
+    ``info.get("totalCash")`` is NOT this concept -- live-measured on BRK-B
+    (ADR-038 adendo): Yahoo's own balance sheet has two distinct rows, "Cash
+    And Cash Equivalents" and the broader "Cash Cash Equivalents And Short
+    Term Investments" (close to `info.totalCash`, since it folds in
+    short-term investments -- T-bills, for an insurer like Berkshire). This
+    caused a real, general modeling bug, not a BRK-B quirk: it inflated
+    `total_cash` for any company holding a large liquidity buffer, which
+    understates `net_debt`/`net_debt_ebitda` and overstates `enterprise_value`
+    corrections. The "Cash And Cash Equivalents" label is present for every
+    real holding checked (MSFT, JNJ, LMT, ASML, JBS, PAM, BRK-B).
+
+    Reads the quarterly statement first, not the annual one: live-measured
+    on the same BRK-B fix, the annual balance sheet's most recent column
+    (FY2025) was a full quarter stale against `info["mostRecentQuarter"]`
+    (Q1 2026) -- $51.9B (FY2025) vs $58.1B (Q1 2026, matching SEC EDGAR's
+    own $58.8B to within 1.2%). Atlas stamps this field's evidence with
+    `mostRecentQuarter` regardless of which statement actually supplied the
+    value, so reading the annual statement was quietly mislabeling a
+    quarter-old number as current -- a second, real Berkshire cash position
+    change (not a vendor error) got misclassified as "critical sources
+    disagree" purely from that timestamp mismatch. Falls back to the annual
+    statement only when no quarterly one is available.
+    """
+    for statement in (quarterly_balance_sheet, balance_sheet):
+        if statement is None:
+            continue
+        for label in (
+            "Cash And Cash Equivalents",
+            "Cash Equivalents",
+            "Cash Financial",
+        ):
+            try:
+                if label in statement.index:
+                    return _safe_float(statement.loc[label].iloc[0])
+            except Exception:
+                continue
+    return None
 
 
 def _stockholders_equity(balance_sheet: "pd.DataFrame | None") -> float | None:
@@ -151,7 +347,14 @@ def _unix_date(value: Any) -> str | None:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).date().isoformat()
 
 
-def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval: str = "1d") -> dict:
+def fetch_symbol(
+    symbol: str,
+    name_hint: str = "",
+    period: str = "2y",
+    interval: str = "1d",
+    *,
+    fx_rate_fetcher: Callable[[str], float | None] = _default_fx_rate_to_usd,
+) -> dict:
     """Fetch one ticker from Yahoo Finance and return raw data for Atlas.
 
     This provider is intentionally limited to broadly available fields. More
@@ -175,6 +378,7 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
     previous_close = _safe_float(prev.get("Close"))
     change_pct = (price / previous_close - 1) * 100 if price and previous_close else None
     balance_sheet = _safe_statement(t, "balance_sheet")
+    quarterly_balance_sheet = _safe_statement(t, "quarterly_balance_sheet")
     income_statement = _safe_statement(t, "financials")
     cashflow = _safe_statement(t, "cashflow")
 
@@ -194,6 +398,8 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
         "change_pct": change_pct,
         "volume": _safe_float(last.get("Volume")),
         "average_volume": _safe_float(info.get("averageVolume")),
+        "shares_outstanding": _safe_float(info.get("sharesOutstanding")),
+        "financial_currency": info.get("financialCurrency"),
         "market_cap": _safe_float(info.get("marketCap")),
         "enterprise_value": _safe_float(info.get("enterpriseValue")),
         "year_high": _safe_float(info.get("fiftyTwoWeekHigh")),
@@ -246,6 +452,8 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
         "sector": ("sector",),
         "industry": ("industry",),
         "average_volume": ("averageVolume",),
+        "shares_outstanding": ("sharesOutstanding",),
+        "financial_currency": ("financialCurrency",),
         "market_cap": ("marketCap",),
         "enterprise_value": ("enterpriseValue",),
         "year_high": ("fiftyTwoWeekHigh",),
@@ -345,6 +553,14 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
     short_interest_date = _unix_date(info.get("dateShortInterest"))
     if short_interest_date:
         observed_at_by_field["short_float"] = short_interest_date
+    strict_cash = _cash_and_equivalents(quarterly_balance_sheet, balance_sheet)
+    if strict_cash is not None:
+        # info.get("totalCash") is not "cash" -- it silently folds in
+        # short-term investments for companies with a large liquidity
+        # buffer (ADR-038 adendo, live-measured on BRK-B). The strict
+        # balance-sheet row is the canonical definition for every symbol,
+        # not just the one that first exposed the bug.
+        record["total_cash"] = strict_cash
     not_applicable_fields: set[str] = set()
     if _trailing_pe_structurally_absent(record.get("pe"), info):
         not_applicable_fields.add("pe")
@@ -357,20 +573,43 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
             # equity > 0 the field stays `missing`, letting the Finnhub roeTTM
             # reconciliation fill a genuine value (ADR-037).
             not_applicable_fields.add("roe")
-    if _enterprise_value_implausible(
-        record.get("market_cap"), record.get("enterprise_value")
-    ):
-        # Yahoo's own EV (and the multiples it derives internally --
-        # enterpriseToEbitda/enterpriseToRevenue) is an order-of-magnitude
-        # vendor error here, not a real valuation (ADR-037 adendo). Null the
-        # values so evidence classifies them `invalid` (raw_values keeps the
-        # rejected number for audit) instead of silently scoring on a
-        # nonsensical multiple. ev_ebit is derived downstream by
-        # analytics/mapper.py from enterprise_value and inherits the fix
-        # automatically -- no separate handling needed.
-        record["enterprise_value"] = None
-        record["ev_to_ebitda"] = None
+    # market_cap: currency-neutral by construction (ADR-038), replaces
+    # trusting a vendor's own computation whenever price+shares are both
+    # available. Falls back to Yahoo's own marketCap only when shares are
+    # missing (rare for an actively quoted symbol).
+    computed_market_cap = _compute_market_cap(
+        record.get("price"), record.get("shares_outstanding")
+    )
+    if computed_market_cap is not None:
+        record["market_cap"] = computed_market_cap
+    resolved_ev, ev_provenance = _resolve_enterprise_value(
+        market_cap=record.get("market_cap"),
+        enterprise_value_reported=record.get("enterprise_value"),
+        total_debt=record.get("total_debt"),
+        total_cash=record.get("total_cash"),
+        financial_currency=record.get("financial_currency"),
+        quote_currency=record.get("currency"),
+        fx_rate_fetcher=fx_rate_fetcher,
+    )
+    record["enterprise_value"] = resolved_ev
+    if ev_provenance != "direct_vendor":
+        # ev_to_ebitda/ev_to_revenue are Yahoo's own precomputed ratios,
+        # built from its own (rejected or corrected) enterpriseValue -- they
+        # would now disagree with the resolved `enterprise_value`, so they
+        # cannot be trusted as-is. ev_ebit is unaffected: it is derived
+        # downstream by analytics/mapper.py directly from
+        # `enterprise_value` and inherits whichever resolution happened
+        # here automatically. ev_to_ebitda gets the same treatment here
+        # (not in mapper.py, so the re-derived value and its field_evidence
+        # status stay consistent -- the confidence gate reads evidence
+        # status, not the raw column, so deriving the number downstream
+        # without updating evidence here would silently be ignored) because
+        # it is a heavily weighted valuation feature (config/features.yaml,
+        # weight 0.30 since ADR-037) and a real ebitda value is often
+        # already available; ev_to_revenue has no scored feature depending
+        # on it, so it is left null rather than adding an unused derivation.
         record["ev_to_revenue"] = None
+        record["ev_to_ebitda"] = _derive_ev_ebitda(resolved_ev, record.get("ebitda"))
     annotated = ensure_field_evidence(
         record,
         source="Yahoo Finance",
@@ -388,16 +627,56 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
                 "Yahoo provider TTM value; not directly comparable to one "
                 "annual SEC filing"
             )
-    if _enterprise_value_implausible(
-        record.get("market_cap"), raw_values.get("enterprise_value")
-    ):
-        for field_name in ("enterprise_value", "ev_to_ebitda", "ev_to_revenue"):
+    market_cap_evidence = annotated["field_evidence"].get("market_cap")
+    if computed_market_cap is not None and isinstance(market_cap_evidence, dict):
+        market_cap_evidence["detail"] = (
+            "Computed as price x shares_outstanding, currency-neutral by "
+            "construction (ADR-038); vendor marketCap kept only in raw evidence"
+        )
+    ev_details = {
+        "direct_vendor": None,
+        "reconstructed": (
+            "EV reconstructed as market_cap+total_debt-total_cash: Yahoo's "
+            "own reported enterpriseValue was implausible (ADR-038)"
+        ),
+        "implausible_same_currency": (
+            "Rejected: EV/MarketCap ratio implausible and financialCurrency "
+            "matches quote currency, so no FX correction applies (ADR-038)"
+        ),
+        "fx_rate_unavailable": (
+            "Rejected: EV/MarketCap ratio implausible and the live FX rate "
+            "needed to correct it could not be fetched (ADR-038)"
+        ),
+        "implausible_after_fx_correction": (
+            "Rejected: EV/MarketCap ratio stayed implausible even after "
+            "FX-correcting debt/cash -- not a currency-unit bug (ADR-038)"
+        ),
+        "missing_inputs": "Rejected: total_debt/total_cash unavailable to resolve EV",
+        "missing_market_cap": "Rejected: market_cap unavailable to resolve EV",
+    }
+    if ev_provenance.startswith("fx_corrected:"):
+        detail = (
+            f"EV FX-corrected ({ev_provenance.split(':', 1)[1]}): Yahoo's "
+            "raw debt/cash were in the issuer's reporting currency, not the "
+            "quote currency (ADR-038)"
+        )
+    else:
+        detail = ev_details.get(ev_provenance)
+    if detail:
+        for field_name in ("enterprise_value", "ev_to_revenue"):
             evidence = annotated["field_evidence"].get(field_name)
             if isinstance(evidence, dict):
-                evidence["detail"] = (
-                    "Rejected: EV/MarketCap ratio implausible "
-                    "(likely FX-conversion error in Yahoo's feed, ADR-037)"
+                evidence["detail"] = detail
+        ev_ebitda_evidence = annotated["field_evidence"].get("ev_to_ebitda")
+        if isinstance(ev_ebitda_evidence, dict):
+            if record.get("ev_to_ebitda") is not None:
+                ev_ebitda_evidence["detail"] = (
+                    "Re-derived as resolved enterprise_value/ebitda instead "
+                    "of using Yahoo's own ratio, which was computed against "
+                    "the rejected enterpriseValue (ADR-038)"
                 )
+            else:
+                ev_ebitda_evidence["detail"] = detail
     return annotated
 
 
