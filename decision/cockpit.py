@@ -4,6 +4,7 @@ from html import escape
 from pathlib import Path
 
 from decision.queue import DecisionQueue
+from portfolio.scenario import PortfolioScenario
 from storage.atomic_write import replace_with_retry
 
 
@@ -43,7 +44,9 @@ def _item_card(item: dict[str, object]) -> str:
     )
 
 
-def render_decision_cockpit(queue: DecisionQueue) -> str:
+def render_decision_cockpit(
+    queue: DecisionQueue, *, scenario: PortfolioScenario | None = None
+) -> str:
     if not isinstance(queue, DecisionQueue):
         raise TypeError("queue deve ser DecisionQueue.")
     payload = queue.to_dict()
@@ -58,6 +61,18 @@ def render_decision_cockpit(queue: DecisionQueue) -> str:
             ("MONITOR", summary["monitor"]),
         )
     )
+    scenario_html = ""
+    if scenario is not None:
+        scenario_summary = scenario.to_dict()["summary"]
+        scenario_html = (
+            '<section class="scenario"><h2>Impacto se executar SELL/TRIM</h2>'
+            '<div class="metadata">'
+            f'<span><b>Caixa liberado:</b> {scenario.currency} {_e(scenario_summary["released_cash"])}</span>'
+            f'<span><b>Caixa pós:</b> {scenario.currency} {_e(scenario_summary["cash_after"])}</span>'
+            f'<span><b>Caixa %:</b> {_e(round(scenario_summary["cash_weight_after"] * 100, 1))}%</span>'
+            f'<span><b>Turnover:</b> {_e(round(scenario_summary["turnover"] * 100, 1))}%</span>'
+            '</div><p class="meta">Sem compras substitutas; custos conforme cenário.</p></section>'
+        )
     sections = []
     for name in ("EXECUTE", "INVESTIGATE", "WAIT", "MONITOR"):
         items = groups[name]
@@ -99,14 +114,21 @@ font-size:13px;margin-bottom:8px}}small,.empty{{color:var(--muted)}}
 </style></head><body><main><header><div><h1>Atlas Decision Cockpit</h1>
 <p class="meta">Fila decisória consolidada · somente consultiva</p></div>
 <p class="meta">Gerado em {_e(payload["generated_at"])}</p></header>
-<div class="summary-grid">{summary_cards}</div>{''.join(sections)}
+<div class="summary-grid">{summary_cards}</div>{scenario_html}{''.join(sections)}
 </main></body></html>"""
 
 
-def write_decision_cockpit(queue: DecisionQueue, path: str | Path) -> Path:
+def write_decision_cockpit(
+    queue: DecisionQueue,
+    path: str | Path,
+    *,
+    scenario: PortfolioScenario | None = None,
+) -> Path:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
-    temporary.write_text(render_decision_cockpit(queue), encoding="utf-8")
+    temporary.write_text(
+        render_decision_cockpit(queue, scenario=scenario), encoding="utf-8"
+    )
     replace_with_retry(temporary, output)
     return output

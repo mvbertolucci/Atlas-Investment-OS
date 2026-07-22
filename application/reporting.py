@@ -15,6 +15,7 @@ from analytics.performance_validation import (
 from dashboard import build_dashboard_view, write_dashboard_view
 from decision.queue import build_decision_queue, write_decision_queue
 from decision.cockpit import write_decision_cockpit
+from portfolio.scenario import build_sell_scenario, write_portfolio_scenario
 from outcomes.analytics import OutcomeAnalyticsReport
 from portfolio.report import PortfolioReport
 from priority import (
@@ -124,8 +125,17 @@ class ReportingApplicationService:
         write_decision_queue(
             decision_queue, self.dashboard_report_file.parent / "decision_queue.json"
         )
+        portfolio_scenario = None
+        if portfolio_report is not None:
+            portfolio_payload = portfolio_report.to_dict()
+            if (portfolio_payload.get("summary") or {}).get("total_value"):
+                portfolio_scenario = build_sell_scenario(portfolio_payload)
+                write_portfolio_scenario(
+                    portfolio_scenario,
+                    self.dashboard_report_file.parent / "portfolio_scenario.json",
+                )
         cockpit_path = self.output_reports / "decision_cockpit.html"
-        write_decision_cockpit(decision_queue, cockpit_path)
+        write_decision_cockpit(decision_queue, cockpit_path, scenario=portfolio_scenario)
         view = build_dashboard_view(
             build_company_reports(frame),
             market=universe_report,
@@ -133,6 +143,7 @@ class ReportingApplicationService:
             outcomes=outcome_report,
             priority=priority_report,
             decision_queue=decision_queue,
+            portfolio_scenario=portfolio_scenario,
         )
         write_dashboard_view(view, self.dashboard_report_file)
         self.logger.info(

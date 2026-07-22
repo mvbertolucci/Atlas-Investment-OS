@@ -26,3 +26,6 @@ The same queue is rendered without recomputation to
 shows queue totals and one card per decision, with reason, engine and available
 portfolio/Watchlist metadata. It contains no forms or mutation controls; its
 purpose is immediate visual triage over the versioned read-only contract.
+
+When a portfolio scenario is available, the cockpit also summarizes released
+cash, post-trade cash weight and turnover. It does not add replacement buys.

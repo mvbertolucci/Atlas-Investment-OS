@@ -6,6 +6,7 @@ import pytest
 
 from decision.cockpit import render_decision_cockpit, write_decision_cockpit
 from decision.queue import build_decision_queue
+from portfolio.scenario import build_sell_scenario
 
 
 def _queue():
@@ -51,3 +52,19 @@ def test_write_is_atomic_and_validates_type(tmp_path: Path) -> None:
     assert not output.with_suffix(".html.tmp").exists()
     with pytest.raises(TypeError):
         render_decision_cockpit(object())
+
+
+def test_renders_sell_scenario_summary() -> None:
+    scenario = build_sell_scenario(
+        {
+            "summary": {"total_value": 1000, "cash": 0, "currency": "USD"},
+            "holdings": [{"symbol": "AAA", "market_value": 200, "sector": "Tech"}],
+            "rebalance": {
+                "actions": [{"symbol": "AAA", "action": "SELL", "trade_value": -200}]
+            },
+        }
+    )
+    html = render_decision_cockpit(_queue(), scenario=scenario)
+    assert "Impacto se executar SELL/TRIM" in html
+    assert "Caixa liberado" in html
+    assert "20.0%" in html

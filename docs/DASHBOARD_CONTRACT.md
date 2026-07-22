@@ -27,7 +27,8 @@ decisions. Every value is a passthrough of an existing domain object's
   "companies": [ { CompanyReport.to_dict() }, ... ],
   "portfolio": { ... } | null,
   "outcomes": { ... } | null,
-  "decision_queue": { ... } | null
+  "decision_queue": { ... } | null,
+  "portfolio_scenario": { ... } | null
 }
 ```
 
@@ -41,6 +42,8 @@ decisions. Every value is a passthrough of an existing domain object's
 - `decision_queue` — advisory groups `EXECUTE`, `INVESTIGATE`, `WAIT` and
   `MONITOR`, assembled from official portfolio actions and Active Watchlist
   states without recomputing decisions.
+- `portfolio_scenario` — advisory simulation of executing only official
+  `SELL`/`TRIM` values, with post-trade cash, turnover and weights.
 
 `build_dashboard_view` accepts domain objects (anything with `to_dict()`) or
 already-serialized dicts, so it stays decoupled from the concrete producer
