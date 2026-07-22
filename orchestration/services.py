@@ -405,6 +405,7 @@ class ReportingServices:
         outcome_report: OutcomeAnalyticsReport | None,
         universe_report: UniverseReport | None,
         priority_report: PriorityReport | None,
+        watchlist_report: WatchlistReport | None,
     ) -> Path | None:
         return self._generate_dashboard(
             frame,
@@ -413,6 +414,7 @@ class ReportingServices:
             outcome_report=outcome_report,
             universe_report=universe_report,
             priority_report=priority_report,
+            watchlist_report=watchlist_report,
         )
 
 

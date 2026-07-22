@@ -543,6 +543,7 @@ class ReportsStage:
             outcome_report=persistence.outcome_analytics,
             universe_report=scoring.universe_report,
             priority_report=priority_report,
+            watchlist_report=intelligence.watchlist_report,
         )
         return ReportsOutput(
             history_file=history_file,

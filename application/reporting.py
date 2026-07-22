@@ -13,6 +13,7 @@ from analytics.performance_validation import (
     write_performance_validation_report,
 )
 from dashboard import build_dashboard_view, write_dashboard_view
+from decision.queue import build_decision_queue, write_decision_queue
 from outcomes.analytics import OutcomeAnalyticsReport
 from portfolio.report import PortfolioReport
 from priority import (
@@ -26,6 +27,7 @@ from reports.excel import write_latest_and_history
 from reports.morning_brief import render_morning_brief, write_morning_brief
 from reports.report_engine import build_company_reports
 from universe import UniverseReport
+from watchlist.models import WatchlistReport
 
 
 Settings = dict[str, Any]
@@ -100,16 +102,34 @@ class ReportingApplicationService:
         outcome_report: OutcomeAnalyticsReport | None = None,
         universe_report: UniverseReport | None = None,
         priority_report: PriorityReport | None = None,
+        watchlist_report: WatchlistReport | None = None,
     ) -> Path | None:
         if not settings.get("dashboard_enabled", True):
             return None
 
+        portfolio_rebalance = getattr(portfolio_report, "rebalance", None)
+        if portfolio_rebalance is None and portfolio_report is not None:
+            serialized_portfolio = portfolio_report.to_dict()
+            portfolio_rebalance = serialized_portfolio.get("rebalance", {})
+        decision_queue = build_decision_queue(
+            priority=(priority_report.to_dict() if priority_report else None),
+            active_watchlist=(watchlist_report.active_queue if watchlist_report else ()),
+            portfolio_actions=(
+                tuple((portfolio_rebalance or {}).get("actions", ()))
+                if portfolio_rebalance is not None
+                else ()
+            ),
+        )
+        write_decision_queue(
+            decision_queue, self.dashboard_report_file.parent / "decision_queue.json"
+        )
         view = build_dashboard_view(
             build_company_reports(frame),
             market=universe_report,
             portfolio=portfolio_report,
             outcomes=outcome_report,
             priority=priority_report,
+            decision_queue=decision_queue,
         )
         write_dashboard_view(view, self.dashboard_report_file)
         self.logger.info(

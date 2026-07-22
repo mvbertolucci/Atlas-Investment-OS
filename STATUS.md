@@ -56,6 +56,16 @@ legadas carregam com defaults conservadores. `watchlist_report.json` publica
 Esses estados organizam decisão humana; não executam compra nem transformam
 aging em rejeição automática. Ver `docs/ACTIVE_WATCHLIST.md`.
 
+### Decision Queue / base do cockpit (2026-07-22)
+
+`decision/queue.py` consolida, sem recalcular, as ações oficiais do motor de
+venda e os estados da Watchlist ativa em `EXECUTE`, `INVESTIGATE`, `WAIT` e
+`MONITOR`. O contrato é escrito atomicamente em
+`output/dados/decision_queue.json`, incorporado ao Dashboard v1.2 e exposto em
+`GET /decision-queue`. Candidato com gatilho disparado recebe
+`REVIEW_FOR_PURCHASE`, nunca uma compra automática. Ver
+`docs/DECISION_QUEUE.md`.
+
 ### ⚠️ Conflitos sinalizados
 1. ~~**`Decision` vs `Recommendation`**~~ **RESOLVIDO (2026-07-14):** eram dois classificadores de compra em paralelo que discordavam em ~8,9% dos nomes analisados (medido em 503 empresas do S&P500: 45 casos, 100% `Decision=Comprar/Acumular` vs `Recommendation=Manter`, sempre nas top candidatas do screener — INTU/ADBE/TROW/NVDA/QCOM etc — porque tinham Investment Score 65–70 mas Opportunity/Conviction altos). Reconciliado tornando **`Decision` a voz única de compra** e rebaixando `Recommendation` → `Score Band` (faixa descritiva, sem estrela/verbo). Motivo raiz: `Recommendation` olhava só o Investment Score final; `Decision` pondera Opportunity+Conviction+risco+deal breakers.
 2. ~~**`priority.build_sell_priority` vs `portfolio.sell_rules.evaluate_sell_rules`**~~ **RESOLVIDO:** priority computava sua própria decisão binária SELL/HOLD a partir da presença de Deal Breakers, distinta das 4 regras de `sell_rules.py` — podiam divergir na mesma holding no mesmo run. Reconciliado (ADR-011, `docs/adr/ADR-011-single-sell-voice.md`): priority agora copia `action`/`reason`/`triggered_rules`/`priority` verbatim de `PortfolioReport.rebalance.actions`, nunca deriva uma segunda decisão; `deal_breakers` vira só contexto explicativo. `docs/PRIORITY_REPORT.md` atualizado para refletir o comportamento atual.

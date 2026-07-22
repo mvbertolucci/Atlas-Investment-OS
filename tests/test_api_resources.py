@@ -30,6 +30,7 @@ def _contract() -> dict:
             "sell": {"items": [{"symbol": "BBB", "action": "SELL"}]},
             "buy": {"items": [{"symbol": "CCC", "candidate_rank": 1}]},
         },
+        "decision_queue": {"summary": {"execute": 1}},
     }
 
 
@@ -101,6 +102,12 @@ def test_priority_sub_resources_when_priority_absent() -> None:
     status, payload = route("/priority/sell", data)
     assert status == 200
     assert payload["sell"] is None
+
+
+def test_decision_queue_resource() -> None:
+    status, payload = route("/decision-queue", _contract())
+    assert status == 200
+    assert payload["decision_queue"]["summary"]["execute"] == 1
 
 
 def test_trailing_slash_and_query_are_normalized() -> None:

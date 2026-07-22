@@ -42,6 +42,7 @@ def test_empty_build_is_valid_and_versioned() -> None:
     assert data["market"] is None
     assert data["portfolio"] is None
     assert data["outcomes"] is None
+    assert data["decision_queue"] is None
     assert "generated_at" in data
 
 
@@ -66,6 +67,7 @@ def test_all_views_assembled_from_domain_objects() -> None:
         market=market,
         portfolio=portfolio,
         outcomes=outcomes,
+        decision_queue={"groups": {"EXECUTE": []}},
     )
     data = view.to_dict()
 
@@ -73,6 +75,7 @@ def test_all_views_assembled_from_domain_objects() -> None:
     assert data["portfolio"]["portfolio_name"] == "Main"
     assert data["outcomes"]["hit_rate"]["hit_rate"] == 100.0
     assert len(data["companies"]) == 1
+    assert data["decision_queue"]["groups"]["EXECUTE"] == []
 
 
 def test_build_is_read_only_passthrough() -> None:

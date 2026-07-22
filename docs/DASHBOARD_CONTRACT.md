@@ -26,7 +26,8 @@ decisions. Every value is a passthrough of an existing domain object's
   "market": { ... } | null,
   "companies": [ { CompanyReport.to_dict() }, ... ],
   "portfolio": { ... } | null,
-  "outcomes": { ... } | null
+  "outcomes": { ... } | null,
+  "decision_queue": { ... } | null
 }
 ```
 
@@ -37,6 +38,9 @@ decisions. Every value is a passthrough of an existing domain object's
   input is present.
 - `outcomes` — the Outcome Analytics report `to_dict()` or `null` when no
   outcomes have matured.
+- `decision_queue` — advisory groups `EXECUTE`, `INVESTIGATE`, `WAIT` and
+  `MONITOR`, assembled from official portfolio actions and Active Watchlist
+  states without recomputing decisions.
 
 `build_dashboard_view` accepts domain objects (anything with `to_dict()`) or
 already-serialized dicts, so it stays decoupled from the concrete producer

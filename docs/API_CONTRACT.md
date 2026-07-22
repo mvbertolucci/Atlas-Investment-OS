@@ -4,6 +4,10 @@ A read-only HTTP layer over the dashboard contract (`docs/DASHBOARD_CONTRACT.md`
 It serves the already-produced `output/dados/dashboard.json` and its sub-resources; it
 never triggers a run, changes a decision or writes anything.
 
+`GET /decision-queue` returns the consolidated advisory queue embedded in the
+dashboard contract. It never triggers a pipeline run or a portfolio/watchlist
+mutation.
+
 ## Design
 
 - `api/resources.py` — framework-agnostic, pure routing:
