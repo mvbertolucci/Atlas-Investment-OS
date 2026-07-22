@@ -28,6 +28,8 @@
 | Walk-forward replay | Yes | No | No | No | Ratios, two-year F-Score and partial valuation; coverage incomplete |
 | Portfolio return/risk validation | Partial | No | No | No | Targets, execution evidence/next-open and metrics ready; broad real data still open |
 | Dashboard/API/SDK | Yes | Yes | N/A | N/A | Read-only platform contracts operational |
+| Human decision journal | Yes | Yes | N/A | N/A | Append-only explicit review evidence; no trade execution |
+| Execution ledger | Yes | Yes | N/A | N/A | Append-only actual SELL/TRIM fills linked to latest ACCEPTED decision; no orders or portfolio mutation |
 
 ## Conditional outputs
 

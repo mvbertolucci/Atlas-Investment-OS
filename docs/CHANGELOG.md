@@ -1,5 +1,16 @@
 # Changelog
 
+## Add an auditable, human-informed execution ledger
+
+### Added
+
+- Append-only `execution_ledger.json` for actual `SELL`/`TRIM` fills linked to
+  Decision Queue items whose latest human journal status is `ACCEPTED`.
+- Explicit CLI capture of quantity, price, fees, currency and execution time;
+  exact duplicates are rejected and partial fills remain separate events.
+- Read-only ledger aggregates in Dashboard Contract 1.5 and Decision Cockpit.
+  Atlas still sends no order and does not mutate portfolio holdings.
+
 ## Stop a malformed SEC XBRL entry from aborting a company's whole extraction
 
 ### Fixed

@@ -16,6 +16,7 @@ from dashboard import build_dashboard_view, write_dashboard_view
 from decision.queue import build_decision_queue, write_decision_queue
 from decision.cockpit import write_decision_cockpit
 from decision.journal import journal_summary, load_journal
+from decision.execution import execution_summary, load_execution_ledger
 from portfolio.scenario import build_sell_scenario, write_portfolio_scenario
 from outcomes.analytics import OutcomeAnalyticsReport
 from portfolio.report import PortfolioReport
@@ -137,12 +138,15 @@ class ReportingApplicationService:
                 )
         journal_path = self.dashboard_report_file.parent / "decision_journal.json"
         decision_journal = journal_summary(load_journal(journal_path))
+        ledger_path = self.dashboard_report_file.parent / "execution_ledger.json"
+        execution_ledger = execution_summary(load_execution_ledger(ledger_path))
         cockpit_path = self.output_reports / "decision_cockpit.html"
         write_decision_cockpit(
             decision_queue,
             cockpit_path,
             scenario=portfolio_scenario,
             journal_summary=decision_journal,
+            execution_summary=execution_ledger,
         )
         view = build_dashboard_view(
             build_company_reports(frame),
@@ -153,6 +157,7 @@ class ReportingApplicationService:
             decision_queue=decision_queue,
             portfolio_scenario=portfolio_scenario,
             decision_journal=decision_journal,
+            execution_ledger=execution_ledger,
         )
         write_dashboard_view(view, self.dashboard_report_file)
         self.logger.info(

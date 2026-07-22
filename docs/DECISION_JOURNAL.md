@@ -19,3 +19,7 @@ python -m decision.journal DECISION_ID ACCEPTED "Evidência confirmada"
 Optional `--queue` and `--journal` paths support testing or isolated workflows.
 The dashboard and cockpit expose only aggregate read-only counts. There is no
 web mutation endpoint and the journal never executes a trade.
+
+An `ACCEPTED` status is the prerequisite for manually recording a real
+`SELL`/`TRIM` fill in the separate [Execution Ledger](EXECUTION_LEDGER.md).
+Acceptance itself is not execution and sends no order.

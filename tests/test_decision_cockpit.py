@@ -78,3 +78,19 @@ def test_renders_human_review_summary() -> None:
     assert "Revisões humanas registradas" in html
     assert "Aceitas:</b> 2" in html
     assert "Eventos:</b> 7" in html
+
+
+def test_renders_execution_ledger_summary() -> None:
+    html = render_decision_cockpit(
+        _queue(),
+        execution_summary={
+            "fills": 2,
+            "decisions_executed": 1,
+            "gross_sell_value": 500.0,
+            "fees": 2.5,
+            "net_cash_delta": 497.5,
+        },
+    )
+    assert "Execuções reais informadas" in html
+    assert "Preenchimentos:</b> 2" in html
+    assert "Caixa líquido:</b> 497.5" in html

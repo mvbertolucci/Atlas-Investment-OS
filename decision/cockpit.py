@@ -49,6 +49,7 @@ def render_decision_cockpit(
     *,
     scenario: PortfolioScenario | None = None,
     journal_summary: dict[str, object] | None = None,
+    execution_summary: dict[str, object] | None = None,
 ) -> str:
     if not isinstance(queue, DecisionQueue):
         raise TypeError("queue deve ser DecisionQueue.")
@@ -86,6 +87,18 @@ def render_decision_cockpit(
             f'<span><b>Adiadas:</b> {_e(journal_summary.get("deferred", 0))}</span>'
             f'<span><b>Eventos:</b> {_e(journal_summary.get("total_events", 0))}</span>'
             '</div></section>'
+        )
+    execution_html = ""
+    if execution_summary is not None:
+        execution_html = (
+            '<section class="scenario"><h2>Execuções reais informadas</h2>'
+            '<div class="metadata">'
+            f'<span><b>Preenchimentos:</b> {_e(execution_summary.get("fills", 0))}</span>'
+            f'<span><b>Decisões:</b> {_e(execution_summary.get("decisions_executed", 0))}</span>'
+            f'<span><b>Valor bruto:</b> {_e(execution_summary.get("gross_sell_value", 0))}</span>'
+            f'<span><b>Taxas:</b> {_e(execution_summary.get("fees", 0))}</span>'
+            f'<span><b>Caixa líquido:</b> {_e(execution_summary.get("net_cash_delta", 0))}</span>'
+            '</div><p class="meta">Registro auditável; não altera carteira nem envia ordens.</p></section>'
         )
     sections = []
     for name in ("EXECUTE", "INVESTIGATE", "WAIT", "MONITOR"):
@@ -128,7 +141,7 @@ font-size:13px;margin-bottom:8px}}small,.empty{{color:var(--muted)}}
 </style></head><body><main><header><div><h1>Atlas Decision Cockpit</h1>
 <p class="meta">Fila decisória consolidada · somente consultiva</p></div>
 <p class="meta">Gerado em {_e(payload["generated_at"])}</p></header>
-<div class="summary-grid">{summary_cards}</div>{scenario_html}{journal_html}{''.join(sections)}
+<div class="summary-grid">{summary_cards}</div>{scenario_html}{journal_html}{execution_html}{''.join(sections)}
 </main></body></html>"""
 
 
@@ -138,13 +151,15 @@ def write_decision_cockpit(
     *,
     scenario: PortfolioScenario | None = None,
     journal_summary: dict[str, object] | None = None,
+    execution_summary: dict[str, object] | None = None,
 ) -> Path:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     temporary.write_text(
         render_decision_cockpit(
-            queue, scenario=scenario, journal_summary=journal_summary
+            queue, scenario=scenario, journal_summary=journal_summary,
+            execution_summary=execution_summary,
         ),
         encoding="utf-8",
     )
