@@ -14,6 +14,7 @@ from analytics.performance_validation import (
 )
 from dashboard import build_dashboard_view, write_dashboard_view
 from decision.queue import build_decision_queue, write_decision_queue
+from decision.cockpit import write_decision_cockpit
 from outcomes.analytics import OutcomeAnalyticsReport
 from portfolio.report import PortfolioReport
 from priority import (
@@ -123,6 +124,8 @@ class ReportingApplicationService:
         write_decision_queue(
             decision_queue, self.dashboard_report_file.parent / "decision_queue.json"
         )
+        cockpit_path = self.output_reports / "decision_cockpit.html"
+        write_decision_cockpit(decision_queue, cockpit_path)
         view = build_dashboard_view(
             build_company_reports(frame),
             market=universe_report,
@@ -133,9 +136,10 @@ class ReportingApplicationService:
         )
         write_dashboard_view(view, self.dashboard_report_file)
         self.logger.info(
-            "Dashboard contract gerado em %s (%s empresas).",
+            "Dashboard contract gerado em %s (%s empresas); cockpit em %s.",
             self.dashboard_report_file,
             len(view.companies),
+            cockpit_path,
         )
         return self.dashboard_report_file
 

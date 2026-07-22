@@ -18,3 +18,11 @@ Groups:
 Every item preserves its engine, reason, priority and source metadata and
 carries `advisory_only: true`. The contract is embedded in `dashboard.json`
 (v1.2) and served by the read-only API at `GET /decision-queue`.
+
+## Decision Cockpit
+
+The same queue is rendered without recomputation to
+`output/relatorios/decision_cockpit.html`. The standalone responsive page
+shows queue totals and one card per decision, with reason, engine and available
+portfolio/Watchlist metadata. It contains no forms or mutation controls; its
+purpose is immediate visual triage over the versioned read-only contract.
