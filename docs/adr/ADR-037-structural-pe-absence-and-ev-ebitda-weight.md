@@ -1,4 +1,4 @@
-# ADR-037 — PE ausente por prejuízo é estrutural (não-aplicável), EV/EBITDA ganha peso, e ROE ausente reconcilia via Finnhub (ou fica não-aplicável em patrimônio negativo)
+# ADR-037 — PE ausente por prejuízo é estrutural (não-aplicável), EV/EBITDA ganha peso, ROE ausente reconcilia via Finnhub (ou fica não-aplicável em patrimônio negativo), e enterprise_value ganha guarda de plausibilidade
 
 - **Status**: Accepted
 - **Data**: 2026-07-21
@@ -118,3 +118,79 @@ Testes: `tests/test_finnhub_provider.py` (ROE convertido corretamente,
 quando `equity>0`; reconciliação **nunca** sobrescreve `not_applicable` mesmo
 com secundária presente), `tests/test_governed_config.py` (novo campo pinado
 em `provider_critical_fields`). 1.068 testes verdes.
+
+## Adendo 2 (mesma sessão) — guarda de plausibilidade para `enterprise_value` (protocolo de câmbio, pedido explícito do usuário)
+
+Investigando por que 7 holdings reais seguiam em `REVISAR` mesmo após os dois
+adendos acima (com `missing_required_features=Nenhum` em todas), medi que a
+causa dominante era `market_cap`/`enterprise_value` corretamente marcados
+`invalid` (`reconcile_critical_fields`, `"critical sources disagree"`) — Yahoo
+e Finnhub discordam violentamente em nomes que reportam em moeda estrangeira
+(BTI/GBP, PAM/YPF em ARS, JBS operando em BRL apesar de domicílio holandês).
+Medido ao vivo: EV da YPF no Yahoo = **US$12,87 trilhões** contra um market
+cap de US$20bi (639×); EV da PAM no Finnhub = **US$7 trilhões** contra
+US$4,7bi no Yahoo (o vendor quebrado varia por nome). Concluí que isso **não
+era bug a corrigir** — é o mecanismo de reconciliação já existente protegendo
+corretamente contra dado falso quando as duas fontes discordam.
+
+O usuário pediu explicitamente um **protocolo para ADRs que reportam em
+moeda diferente do dólar**. Medi primeiro se `info.get("financialCurrency")`
+do Yahoo seria um identificador confiável do risco — **não é**: só 3/18
+holdings declaram moeda≠USD (BNTX/EUR, YPF/ARS, BTI/GBP), mas PAM/JBS/SGML
+(que também travavam) aparecem como `financialCurrency=USD` apesar de operar
+em pesos argentinos/reais — o próprio metadado do Yahoo é incompleto para
+esse fim. E ASML é EUR e não travava, então moeda≠USD sozinha não prediz o
+problema.
+
+O sinal que de fato importa é o próprio `enterprise_value`, e ele pode vir
+quebrado de **uma única fonte** sem que haja uma segunda para contradizê-lo —
+achado real ao calibrar o limite: **ASML não estava em REVISAR e mesmo assim
+tinha `enterpriseToEbitda=2750,75×`** (EV do Yahoo de US$37,1 **trilhões**
+contra EBITDA real de US$13,5bi e market cap real de US$692bi) — um erro de
+ordem de grandeza silenciosamente alimentando o fator de valuation (peso
+0,30 desde o Adendo 1), sem qualquer proteção porque só existia uma fonte
+para esse campo checar a outra.
+
+**Decisão (das 4 opções apresentadas ao usuário, escolhida explicitamente):
+guarda de plausibilidade absoluta**, independente de haver segunda fonte.
+`providers/yahoo.py::_enterprise_value_implausible` rejeita
+`enterprise_value` (e os múltiplos que o próprio Yahoo deriva internamente
+dele — `ev_to_ebitda`/`ev_to_revenue`, campos brutos independentes, não
+calculados pelo Atlas) quando `EV/MarketCap` foge de `[-5×, 20×]`. O limite
+foi calibrado contra os valores **reais** dos 18 holdings (medidos ao vivo,
+não estimados): a alavancagem mais pesada observada foi BTI 5,36× e FMC
+4,0×, o caixa líquido mais extremo foi BRK-B −0,25× — todos preservados; só
+ASML (53,6×) e YPF (639,8×) são rejeitados, ambos erros de ordem de
+grandeza inequívocos. `ev_ebit` é derivado pelo próprio Atlas
+(`analytics/mapper.py`, `enterprise_value / ebit`) e herda a correção
+automaticamente, sem código adicional.
+
+Rejeição usa o mecanismo de evidência já existente: `record["enterprise_value"]`
+(e os dois múltiplos) são nulificados **antes** de `ensure_field_evidence`,
+enquanto `raw_values`/`raw_presence` (capturados do payload bruto do Yahoo,
+antes da nulificação) preservam o número rejeitado para auditoria — o campo
+sai como `invalid` (não `missing`), com `detail` explicando a rejeição.
+
+**Protocolo formal para holdings com moeda de reporte diferente do dólar**:
+não existe hoje um identificador confiável na fonte (`financialCurrency` do
+Yahoo é incompleto) — a defesa é a guarda de plausibilidade em `enterprise_value`
+(este adendo) somada à reconciliação cross-source já existente
+(`reconcile_critical_fields`) quando duas fontes estão disponíveis. Nenhuma
+tentativa de conversão cambial explícita foi construída — descartada por ora
+(opção 3 das alternativas apresentadas: terceira fonte como árbitro,
+rejeitada por cobertura SEC XBRL fraca para emissores estrangeiros, já
+documentada na seção 6 do STATUS.md).
+
+Testes: `tests/test_yahoo_provider_contract.py::
+test_enterprise_value_implausible_rejects_only_order_of_magnitude_errors`
+(calibração contra os 4 casos legítimos + 2 rejeitados, medidos ao vivo),
+`test_enterprise_value_rejection_nulls_yahoo_own_derived_multiples`
+(nulificação + auditoria preservada + status `invalid`). 1.070 testes verdes.
+Rodada `--portfolio` ao vivo confirmou: `enterprise_value`/`ev_to_ebitda`/
+`ev_to_revenue` da ASML saem como `invalid` (não mais silenciosamente
+`present`); `valuation_score` da ASML foi recomputado sem o múltiplo
+corrompido; ações do rebalance (SELL=3/HOLD=3/REVISAR=12) permaneceram
+idênticas ao run anterior — esperado, pois os 7 nomes em REVISAR já tinham
+`enterprise_value` invalidado via reconciliação cross-source antes desta
+guarda; o efeito real foi corrigir o ASML, que passava despercebido por não
+estar em REVISAR.

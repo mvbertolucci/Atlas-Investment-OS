@@ -33,6 +33,34 @@ def _safe_float(value: Any):
         return None
 
 
+def _enterprise_value_implausible(market_cap: Any, enterprise_value: Any) -> bool:
+    """Whether Yahoo's own ``enterpriseValue`` is an order-of-magnitude data
+    error rather than a genuine (if extreme) valuation.
+
+    Measured live across this portfolio's real holdings: Yahoo's EV for a
+    healthy company stays within a modest multiple of market cap even under
+    heavy leverage (BTI 5.4x, FMC 4.0x) or a large net-cash position (BRK-B
+    -0.25x) -- but two names came back wildly outside any plausible range:
+    ASML showed `enterpriseToEbitda=2750x` (real EBITDA $13.5B against a
+    reported EV of $37.1 trillion vs. an actual market cap of $692B) and YPF
+    showed EV of $12.87 trillion against a $20B market cap (639x) --
+    consistent with an FX-conversion bug in Yahoo's feed for names with a
+    foreign reporting/functional currency, not a real valuation. The bound
+    below is set far outside the portfolio's own observed legitimate range so
+    it only rejects orders-of-magnitude vendor errors, never a real distressed
+    or cash-rich company.
+    """
+    try:
+        cap = float(market_cap)
+        value = float(enterprise_value)
+    except (TypeError, ValueError):
+        return False
+    if cap <= 0:
+        return False
+    ratio = value / cap
+    return ratio > 20.0 or ratio < -5.0
+
+
 def _trailing_pe_structurally_absent(pe_value: Any, info: dict[str, Any]) -> bool:
     """Whether a missing trailing PE reflects non-positive trailing earnings
     (a structural absence) rather than a fetch failure.
@@ -329,6 +357,20 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
             # equity > 0 the field stays `missing`, letting the Finnhub roeTTM
             # reconciliation fill a genuine value (ADR-037).
             not_applicable_fields.add("roe")
+    if _enterprise_value_implausible(
+        record.get("market_cap"), record.get("enterprise_value")
+    ):
+        # Yahoo's own EV (and the multiples it derives internally --
+        # enterpriseToEbitda/enterpriseToRevenue) is an order-of-magnitude
+        # vendor error here, not a real valuation (ADR-037 adendo). Null the
+        # values so evidence classifies them `invalid` (raw_values keeps the
+        # rejected number for audit) instead of silently scoring on a
+        # nonsensical multiple. ev_ebit is derived downstream by
+        # analytics/mapper.py from enterprise_value and inherits the fix
+        # automatically -- no separate handling needed.
+        record["enterprise_value"] = None
+        record["ev_to_ebitda"] = None
+        record["ev_to_revenue"] = None
     annotated = ensure_field_evidence(
         record,
         source="Yahoo Finance",
@@ -346,6 +388,16 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
                 "Yahoo provider TTM value; not directly comparable to one "
                 "annual SEC filing"
             )
+    if _enterprise_value_implausible(
+        record.get("market_cap"), raw_values.get("enterprise_value")
+    ):
+        for field_name in ("enterprise_value", "ev_to_ebitda", "ev_to_revenue"):
+            evidence = annotated["field_evidence"].get(field_name)
+            if isinstance(evidence, dict):
+                evidence["detail"] = (
+                    "Rejected: EV/MarketCap ratio implausible "
+                    "(likely FX-conversion error in Yahoo's feed, ADR-037)"
+                )
     return annotated
 
 

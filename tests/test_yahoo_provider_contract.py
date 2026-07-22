@@ -198,3 +198,54 @@ def test_not_applicable_roe_is_never_overwritten_by_secondary() -> None:
     # valor e status estruturais preservados -- nunca troca por -193%
     assert reconciled.get("roe") is None
     assert reconciled["field_evidence"]["roe"]["status"] == "not_applicable"
+
+
+def test_enterprise_value_implausible_rejects_only_order_of_magnitude_errors() -> None:
+    """Calibrado contra valores reais medidos ao vivo na carteira (2026-07-21):
+    alavancagem pesada (BTI 5.4x, FMC 4.0x) e caixa liquido grande (BRK-B
+    -0.25x) sao legitimos e devem passar; ASML (2750x via enterpriseToEbitda,
+    EV=$37,1tri vs market cap $692bi) e YPF (EV=$12,87tri vs $20bi, 639x) sao
+    erro de ordem de grandeza no proprio feed do Yahoo e devem ser rejeitados."""
+    # legitimos -- nunca rejeitar
+    assert not yahoo._enterprise_value_implausible(132_588_109_824, 710_504_218_624)  # BTI 5.36x
+    assert not yahoo._enterprise_value_implausible(1_423_827_200, 5_692_756_992)  # FMC 4.0x
+    assert not yahoo._enterprise_value_implausible(1_056_103_399_424, -265_521_627_136)  # BRK-B -0.25x
+    assert not yahoo._enterprise_value_implausible(99_445_293_056, 105_473_630_208)  # GD 1.06x
+    # erro de ordem de grandeza -- sempre rejeitar
+    assert yahoo._enterprise_value_implausible(691_960_020_992, 37_103_157_116_928)  # ASML 53.6x
+    assert yahoo._enterprise_value_implausible(20_127_873_024, 12_877_943_537_664)  # YPF 639.8x
+    # sem market_cap valido -- nunca afirma implausibilidade (conservador)
+    assert not yahoo._enterprise_value_implausible(None, 1_000_000)
+    assert not yahoo._enterprise_value_implausible(0, 1_000_000)
+
+
+def test_enterprise_value_rejection_nulls_yahoo_own_derived_multiples() -> None:
+    """A rejeicao invalida enterprise_value E os multiplos que o Yahoo deriva
+    internamente dele (ev_to_ebitda/ev_to_revenue) sem apagar o valor bruto do
+    audit trail -- raw_values preserva o numero rejeitado, o motor ve `invalid`,
+    nao `missing`."""
+    from providers.evidence import ensure_field_evidence
+
+    record = {
+        "symbol": "ASML",
+        "source": "Yahoo Finance",
+        "as_of": "2026-07-21",
+        "market_cap": 691_960_020_992,
+        "enterprise_value": None,  # ja nulificado pela guarda de plausibilidade
+        "ev_to_ebitda": None,
+        "ev_to_revenue": None,
+    }
+    annotated = ensure_field_evidence(
+        record,
+        raw_presence={
+            "enterprise_value": True, "ev_to_ebitda": True, "ev_to_revenue": True,
+        },
+        raw_values={
+            "enterprise_value": 37_103_157_116_928,
+            "ev_to_ebitda": 2750.75,
+            "ev_to_revenue": 100.0,
+        },
+    )
+    for field in ("enterprise_value", "ev_to_ebitda", "ev_to_revenue"):
+        assert annotated["field_evidence"][field]["status"] == "invalid"
+    assert annotated["enterprise_value"] is None
