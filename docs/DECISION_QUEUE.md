@@ -29,3 +29,7 @@ purpose is immediate visual triage over the versioned read-only contract.
 
 When a portfolio scenario is available, the cockpit also summarizes released
 cash, post-trade cash weight and turnover. It does not add replacement buys.
+
+Queue items carry a deterministic `decision_id` used by the append-only
+Decision Journal. The cockpit shows only aggregate accepted/rejected/deferred
+counts and remains read-only.

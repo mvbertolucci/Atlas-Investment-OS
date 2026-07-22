@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -109,9 +110,20 @@ def build_decision_queue(
             }
         )
     items.sort(key=lambda item: (int(item["priority"]), str(item["symbol"])))
+    queue_generated_at = generated_at or datetime.now().isoformat(timespec="seconds")
+    for item in items:
+        identity = "|".join(
+            (
+                queue_generated_at,
+                str(item["symbol"]),
+                str(item["action"]),
+                str(item["engine"]),
+            )
+        )
+        item["decision_id"] = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
     return DecisionQueue(
         items=tuple(items),
-        generated_at=generated_at or datetime.now().isoformat(timespec="seconds"),
+        generated_at=queue_generated_at,
     )
 
 

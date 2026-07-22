@@ -41,6 +41,7 @@ def build_dashboard_view(
     priority: Any = None,
     decision_queue: Any = None,
     portfolio_scenario: Any = None,
+    decision_journal: Any = None,
 ) -> DashboardView:
     """
     Monta o `DashboardView` agregando os outputs existentes do Atlas.
@@ -66,6 +67,7 @@ def build_dashboard_view(
         priority=_as_dict(priority),
         decision_queue=_as_dict(decision_queue),
         portfolio_scenario=_as_dict(portfolio_scenario),
+        decision_journal=_as_dict(decision_journal),
     )
 
 

@@ -45,7 +45,10 @@ def _item_card(item: dict[str, object]) -> str:
 
 
 def render_decision_cockpit(
-    queue: DecisionQueue, *, scenario: PortfolioScenario | None = None
+    queue: DecisionQueue,
+    *,
+    scenario: PortfolioScenario | None = None,
+    journal_summary: dict[str, object] | None = None,
 ) -> str:
     if not isinstance(queue, DecisionQueue):
         raise TypeError("queue deve ser DecisionQueue.")
@@ -72,6 +75,17 @@ def render_decision_cockpit(
             f'<span><b>Caixa %:</b> {_e(round(scenario_summary["cash_weight_after"] * 100, 1))}%</span>'
             f'<span><b>Turnover:</b> {_e(round(scenario_summary["turnover"] * 100, 1))}%</span>'
             '</div><p class="meta">Sem compras substitutas; custos conforme cenário.</p></section>'
+        )
+    journal_html = ""
+    if journal_summary is not None:
+        journal_html = (
+            '<section class="scenario"><h2>Revisões humanas registradas</h2>'
+            '<div class="metadata">'
+            f'<span><b>Aceitas:</b> {_e(journal_summary.get("accepted", 0))}</span>'
+            f'<span><b>Rejeitadas:</b> {_e(journal_summary.get("rejected", 0))}</span>'
+            f'<span><b>Adiadas:</b> {_e(journal_summary.get("deferred", 0))}</span>'
+            f'<span><b>Eventos:</b> {_e(journal_summary.get("total_events", 0))}</span>'
+            '</div></section>'
         )
     sections = []
     for name in ("EXECUTE", "INVESTIGATE", "WAIT", "MONITOR"):
@@ -114,7 +128,7 @@ font-size:13px;margin-bottom:8px}}small,.empty{{color:var(--muted)}}
 </style></head><body><main><header><div><h1>Atlas Decision Cockpit</h1>
 <p class="meta">Fila decisória consolidada · somente consultiva</p></div>
 <p class="meta">Gerado em {_e(payload["generated_at"])}</p></header>
-<div class="summary-grid">{summary_cards}</div>{scenario_html}{''.join(sections)}
+<div class="summary-grid">{summary_cards}</div>{scenario_html}{journal_html}{''.join(sections)}
 </main></body></html>"""
 
 
@@ -123,12 +137,16 @@ def write_decision_cockpit(
     path: str | Path,
     *,
     scenario: PortfolioScenario | None = None,
+    journal_summary: dict[str, object] | None = None,
 ) -> Path:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     temporary.write_text(
-        render_decision_cockpit(queue, scenario=scenario), encoding="utf-8"
+        render_decision_cockpit(
+            queue, scenario=scenario, journal_summary=journal_summary
+        ),
+        encoding="utf-8",
     )
     replace_with_retry(temporary, output)
     return output

@@ -68,3 +68,13 @@ def test_renders_sell_scenario_summary() -> None:
     assert "Impacto se executar SELL/TRIM" in html
     assert "Caixa liberado" in html
     assert "20.0%" in html
+
+
+def test_renders_human_review_summary() -> None:
+    html = render_decision_cockpit(
+        _queue(),
+        journal_summary={"accepted": 2, "rejected": 1, "deferred": 3, "total_events": 7},
+    )
+    assert "Revisões humanas registradas" in html
+    assert "Aceitas:</b> 2" in html
+    assert "Eventos:</b> 7" in html

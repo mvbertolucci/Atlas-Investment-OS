@@ -28,7 +28,8 @@ decisions. Every value is a passthrough of an existing domain object's
   "portfolio": { ... } | null,
   "outcomes": { ... } | null,
   "decision_queue": { ... } | null,
-  "portfolio_scenario": { ... } | null
+  "portfolio_scenario": { ... } | null,
+  "decision_journal": { ... } | null
 }
 ```
 
@@ -44,6 +45,8 @@ decisions. Every value is a passthrough of an existing domain object's
   states without recomputing decisions.
 - `portfolio_scenario` — advisory simulation of executing only official
   `SELL`/`TRIM` values, with post-trade cash, turnover and weights.
+- `decision_journal` — aggregate counts of explicit human reviews; individual
+  reasons remain in the separate append-only journal artifact.
 
 `build_dashboard_view` accepts domain objects (anything with `to_dict()`) or
 already-serialized dicts, so it stays decoupled from the concrete producer
