@@ -82,6 +82,19 @@ histórico. Não existe endpoint web de escrita nem execução de trade. O cockp
 mostra apenas contagens agregadas. Dashboard atualizado deliberadamente para
 contrato v1.4. Ver `docs/DECISION_JOURNAL.md`.
 
+`decision/execution.py` registra fills reais informados explicitamente, somente
+para `SELL`/`TRIM` cujo último estado humano seja `ACCEPTED`. Quantidade, preço,
+taxas, moeda e timestamps ficam no ledger append-only; não há envio de ordem ou
+mutação da carteira. Dashboard v1.5. Ver `docs/EXECUTION_LEDGER.md`.
+
+`decision/reconciliation.py` compara fills agregados por símbolo com snapshots
+completos anterior/atual e classifica `CONFIRMED`, `PARTIAL`, `NOT_REFLECTED`,
+`VARIANCE` ou `UNVERIFIABLE`. `portfolio/custody_history.py` captura snapshots
+de quantidade idempotentes em cada relatório completo e reconcilia
+automaticamente o último par consecutivo, considerando apenas fills dentro da
+janela. Dashboard v1.7. Não corrige custódia nem ledger. Ver
+`docs/EXECUTION_RECONCILIATION.md` e `docs/CUSTODY_HISTORY.md`.
+
 ### ⚠️ Conflitos sinalizados
 1. ~~**`Decision` vs `Recommendation`**~~ **RESOLVIDO (2026-07-14):** eram dois classificadores de compra em paralelo que discordavam em ~8,9% dos nomes analisados (medido em 503 empresas do S&P500: 45 casos, 100% `Decision=Comprar/Acumular` vs `Recommendation=Manter`, sempre nas top candidatas do screener — INTU/ADBE/TROW/NVDA/QCOM etc — porque tinham Investment Score 65–70 mas Opportunity/Conviction altos). Reconciliado tornando **`Decision` a voz única de compra** e rebaixando `Recommendation` → `Score Band` (faixa descritiva, sem estrela/verbo). Motivo raiz: `Recommendation` olhava só o Investment Score final; `Decision` pondera Opportunity+Conviction+risco+deal breakers.
 2. ~~**`priority.build_sell_priority` vs `portfolio.sell_rules.evaluate_sell_rules`**~~ **RESOLVIDO:** priority computava sua própria decisão binária SELL/HOLD a partir da presença de Deal Breakers, distinta das 4 regras de `sell_rules.py` — podiam divergir na mesma holding no mesmo run. Reconciliado (ADR-011, `docs/adr/ADR-011-single-sell-voice.md`): priority agora copia `action`/`reason`/`triggered_rules`/`priority` verbatim de `PortfolioReport.rebalance.actions`, nunca deriva uma segunda decisão; `deal_breakers` vira só contexto explicativo. `docs/PRIORITY_REPORT.md` atualizado para refletir o comportamento atual.

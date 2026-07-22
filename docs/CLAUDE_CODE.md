@@ -1,5 +1,9 @@
 # Working with Atlas in Claude Code
 
+> **Current handoff:** read `docs/CLAUDE_HANDOFF.md`. The long historical
+> validation narrative below is retained for provenance and is not the current
+> test/commit baseline.
+
 ## What is already prepared
 
 Claude Code automatically loads the root `CLAUDE.md`. That file imports the
@@ -43,10 +47,9 @@ Code to confirm the project memory files that were loaded.
 ## Safe first prompt
 
 ```text
-Read CLAUDE.md and its imported project documents. Do not change files yet.
-Verify git status, the v1.2.0 baseline and the full test gate. Then summarize
-the architecture, current capabilities, governed financial configuration and
-the next bounded backlog task.
+Read CLAUDE.md and docs/CLAUDE_HANDOFF.md. Do not change files yet. Verify git
+status, the last 10 commits, the documented remote divergence and the full test
+gate. Report any mismatch before editing.
 ```
 
 ## Current historical-validation handoff

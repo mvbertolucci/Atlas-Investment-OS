@@ -25,7 +25,7 @@ scoring, provider evidence, or `portfolio/sell_rules.py`.
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 1085 tests passing (2026-07-22; STATUS.md is the
+**Validation baseline:** 1125 tests passing (2026-07-22; STATUS.md is the
 authoritative, continuously-synced count — trust it over this number if they
 ever disagree)
 

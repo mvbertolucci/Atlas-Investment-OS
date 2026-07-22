@@ -2,6 +2,7 @@
 
 @AGENTS.md
 @docs/ATLAS_CONTEXT.md
+@docs/CLAUDE_HANDOFF.md
 @docs/PROJECT_CONSTITUTION.md
 
 ## Session startup
@@ -37,7 +38,11 @@ For the full regression gate:
   financial effect and adding focused regression tests.
 - Keep one primary objective per commit and leave the working tree clean.
 
-## Current handoff
+## Historical handoff
+
+The block below is retained as historical context. The authoritative current
+session baseline is `docs/CLAUDE_HANDOFF.md` (1,125 tests; latest commit
+`7af6cb0`; Dashboard Contract 1.7).
 
 - Released version: `v1.2.0`; development baseline: `PR-033` + real SEC
   EDGAR data acquisition + paired historical price series, now end to end
