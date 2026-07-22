@@ -39,6 +39,10 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-033 | Massive Grouped Daily as the broad market-cap price source | Accepted 2026-07-18 |
 | ADR-034 | A malformed SEC XBRL entry no longer aborts a company's whole extraction | Accepted 2026-07-18 |
 | ADR-035 | Wikipedia "Selected changes" table as a real source for historical S&P 500 membership (proof of concept) | Proposed 2026-07-18 |
+| ADR-036 | Watchlist auto-curation: run_all.py also writes config/watchlist.csv, additive to the existing manual gate | Accepted 2026-07-21 |
+| ADR-037 | PE/ROE absence from a loss-making or negative-equity company is structural (not_applicable), not a fetch gap; EV/EBITDA weight raised as the natural substitute | Accepted 2026-07-21 |
+| ADR-038 | General FX/vendor-reconciliation protocol for market_cap/enterprise_value/short_float/total_cash on ADRs and foreign issuers | Accepted 2026-07-22 |
+| ADR-039 | ACOMPANHAR status separates a relative_decay-only signal from an actionable REVISAR | Accepted 2026-07-22 |
 
 ## Recording a new decision
 

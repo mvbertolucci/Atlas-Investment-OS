@@ -1,6 +1,8 @@
 # Atlas Investment OS — Project Context and Handoff
 
-**Purpose:** canonical entry point for a new developer or coding agent.  
+**Purpose:** canonical entry point for a new developer or coding agent
+(Claude or Codex — this repo is co-worked; see AGENTS.md's multi-agent
+protocol before touching anything).
 **Last synchronized baseline:** `PR-033` + real SEC EDGAR data acquisition + paired
 historical price series + point-in-time `timing` factor derivation + extended
 point-in-time valuation coverage (`ev_ebit`, `fcf_yield`, `shareholder_yield`)
@@ -14,12 +16,71 @@ merges the two in memory only, per run, and tags every row with an `origin`
 recomputing provenance -- `portfolio.rebalance.build_sell_only_plan` refuses
 to act on a holding whose verified origin is not `portfolio`, and
 `ranking.RankedCompany.already_held` flags a portfolio-origin row so it is
-never shown as an ordinary fresh candidate.
+never shown as an ordinary fresh candidate. **Since 2026-07-22, also**: the
+real 18-position portfolio's sell engine is live end to end (theses filled,
+see "Real portfolio decision quality" below) -- this is the single most
+important thing for a new session to read first if the task touches
+scoring, provider evidence, or `portfolio/sell_rules.py`.
 
 **Declared release:** `1.2.0` (v2.0 Platform work is merged to `master`; no version
 bump has been cut yet — that is a deliberate release decision, not implied by
 this document)
-**Validation baseline:** 992 tests passing / 90.64% production coverage
+**Validation baseline:** 1085 tests passing (2026-07-22; STATUS.md is the
+authoritative, continuously-synced count — trust it over this number if they
+ever disagree)
+
+## Real portfolio decision quality (2026-07-21/22)
+
+The real 18-position portfolio (`config/portfolio.csv`, gitignored) had its
+theses filled by the user, unblocking `portfolio/sell_rules.py` for the
+first time — this immediately surfaced three real, previously-invisible
+problems, all measured live against the real holdings (not synthetic
+fixtures) and fixed in three sequential ADRs:
+
+- **ADR-037**: PE/ROE missing for a genuinely loss-making or negative-equity
+  company (e.g. a biotech in accumulated deficit) is structural, not a fetch
+  failure — was wrongly capping `Model Confidence` for those holdings.
+  Classified as `not_applicable` instead of `missing` when a real earnings/
+  equity signal confirms the cause; `EV/EBITDA` weight raised (0.20→0.30) as
+  the natural substitute when PE is undefined.
+- **ADR-038**: general FX/vendor-reconciliation protocol for
+  `market_cap`/`enterprise_value`/`short_float`/`total_cash` — a foreign
+  issuer's reporting currency, dual-listing structure or a thinly-covered
+  secondary vendor (Finnhub, Massive) was repeatedly rejecting good primary
+  (Yahoo) data instead of catching bad data. `market_cap` now computed
+  natively (price × shares, currency-neutral); `enterprise_value` resolved
+  in a cascade (accept if plausible → reconstruct from raw debt/cash →
+  FX-correct only if the issuer's `financialCurrency` differs from the
+  quote currency → give up); `total_cash` redefined to the strict balance-
+  sheet "Cash And Cash Equivalents" line (not Yahoo's broader aggregate,
+  which silently folds in short-term investments) read from the quarterly
+  statement, not the annual one. `market_cap`/`enterprise_value`/
+  `short_float` removed from `provider_critical_fields` — they no longer
+  need cross-vendor agreement.
+- **ADR-039**: `ACOMPANHAR`, a new `RebalanceAction` value distinct from
+  `REVISAR`, for when the *only* rule that fired is `relative_decay` (a
+  comparative-only signal, `review_only: true` by design, never triggers
+  TRIM/SELL alone). Before this, `REVISAR` conflated "needs your decision"
+  (confidence gate blocked, or real distress pending confirmation) with
+  "purely informational, no action possible" — measured live, the latter
+  was 7-13 of 18 holdings, by far the largest share. Rendered in its own
+  "Sinais informativos" section of the Atlas Report with the same
+  top-negative-feature-contribution detail already used in the per-ticker
+  section (no new calculation).
+
+Net effect, measured end to end against the real portfolio: REVISAR count
+dropped from 13/18 to 6/18, and the remaining 6 are all genuinely
+actionable (confidence gate or real distress). See `docs/adr/ADR-037-*.md`,
+`ADR-038-*.md`, `ADR-039-*.md` and `STATUS.md` §6 for full detail and
+live-measured numbers.
+
+A separate, unrelated finding from the same investigation: not every
+cross-vendor `market_cap`/`total_cash` discrepancy is a bug. Berkshire's
+`total_cash` disagreement with SEC turned out to be a genuine quarter-over-
+quarter change once the timestamp bug was fixed (ADR-038 adendo 4); four
+holdings (BRK-B, JBS, PAM, SGML) still sit at a confidence gate driven by
+ordinary reporting-cadence staleness (>35 days), not vendor disagreement —
+a different, separately-scoped problem, not yet addressed.
 
 ## Current handoff — application boundaries complete
 
@@ -449,13 +510,28 @@ A task is complete only when:
   not comparable with official-reference history. See `docs/SCORING_MODEL.md`
   and ADR-012.
 
-## 9. First actions for a new Codex session
+## 9. First actions for a new agent session (Claude or Codex)
 
-1. Read `AGENTS.md` and this document.
-2. Run `git status --short` and `git log --oneline -10`.
-3. Run `python -m pytest tests -q`.
-4. Inspect the current task in `docs/BACKLOG.md`.
-5. Before editing, identify affected contracts and existing tests.
+1. Read `AGENTS.md` first — the multi-agent coordination section is not
+   optional; this repo has more than one coding agent working on it,
+   sometimes without the human relaying context between sessions. Then read
+   this document, especially "Real portfolio decision quality" above if the
+   task touches scoring, provider evidence or `portfolio/sell_rules.py`.
+2. Run `git status --short` and `git log --oneline -10` — reconcile before
+   touching anything. An uncommitted change you did not make is very likely
+   another agent's in-progress work, not stray state (see AGENTS.md).
+3. Run `python -m pytest tests -q`. STATUS.md's footer states the last known
+   green count; if your local run disagrees, investigate before assuming
+   either number is stale.
+4. If the change touches field-evidence status semantics, the
+   required-feature confidence gate, provider reconciliation, or scoring/
+   valuation weights, a green test suite is not sufficient exit criteria —
+   also run `python run_all.py --portfolio` against the real portfolio and
+   read the resulting decisions before calling the task done (AGENTS.md
+   §Required workflow, item 6, added after two real incidents where
+   synthetic-only tests missed a production-breaking bug).
+5. Inspect the current task in `docs/BACKLOG.md`.
+6. Before editing, identify affected contracts and existing tests.
 
 Recommended first prompt:
 
