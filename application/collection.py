@@ -19,6 +19,7 @@ from providers.fmp import build_fmp_secondary_provider
 from providers.massive import build_massive_secondary_provider
 from providers.sec_companyfacts import build_sec_secondary_provider
 from providers.yahoo import fetch_watchlist
+from storage.raw_snapshots import resolve_raw_snapshot_path
 
 
 Settings = dict[str, Any]
@@ -233,8 +234,10 @@ class CollectionApplicationService:
                     settings.get("provider_rate_limit_per_second", 2)
                 ),
             ),
-            raw_snapshot_dir=self.root
-            / settings.get("raw_snapshot_path", "data/raw_snapshots"),
+            raw_snapshot_dir=resolve_raw_snapshot_path(
+                self.root,
+                settings.get("raw_snapshot_path", "data/raw_snapshots"),
+            ),
             secondary_fetcher=secondary_fetcher,
             secondary_fetchers=tuple(
                 fetcher

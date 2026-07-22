@@ -63,6 +63,21 @@ python -m pytest tests -q
 python run_all.py
 ```
 
+## Workstation-local runtime storage
+
+- `data/raw_snapshots/` is the portable default, but on Marcus's Windows
+  workstation `ATLAS_RAW_SNAPSHOT_PATH` points to
+  `C:\Users\marcu\AppData\Local\Atlas_Investment_OS\raw_snapshots` so immutable
+  provider evidence does not consume the 5 GB OneDrive quota.
+- Always resolve the location through
+  `storage.raw_snapshots.resolve_raw_snapshot_path`; never assume snapshots are
+  inside the checkout or replace the tracked default with a machine-specific
+  absolute path.
+- The external directory is runtime evidence and is not in Git or OneDrive.
+  Back it up separately before disk replacement or Windows reinstallation.
+- A process started before the environment variable was configured must be
+  restarted before collecting data, otherwise it may use the portable default.
+
 ## Source-of-truth documents
 
 - Project state and handoff: `docs/ATLAS_CONTEXT.md`

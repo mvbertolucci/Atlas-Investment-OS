@@ -21,7 +21,7 @@ from providers.evidence import (
     reconcile_critical_fields,
 )
 from storage.atomic_write import replace_with_retry
-from storage.raw_snapshots import store_raw_snapshot
+from storage.raw_snapshots import resolve_raw_snapshot_path, store_raw_snapshot
 from providers.sec_companyfacts import build_sec_secondary_provider
 from universe.sources import (
     ConstituentBatch,
@@ -503,8 +503,10 @@ def main() -> None:
         rate_limit_per_second=float(
             settings.get("provider_rate_limit_per_second", 2)
         ),
-        raw_snapshot_dir=ROOT
-        / settings.get("raw_snapshot_path", "data/raw_snapshots"),
+        raw_snapshot_dir=resolve_raw_snapshot_path(
+            ROOT,
+            settings.get("raw_snapshot_path", "data/raw_snapshots"),
+        ),
         secondary_fetcher=build_sec_secondary_provider(ROOT, settings),
         critical_fields=tuple(settings.get("provider_critical_fields", ())),
         quality_policy=quality_policy,

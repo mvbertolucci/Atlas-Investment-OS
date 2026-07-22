@@ -12,7 +12,7 @@ from providers.fmp_cache import FmpCacheStore
 from providers.massive_cache import MassiveFloatSnapshotCache
 from providers.massive_prefetch import _atomic_write
 from providers.sec_companyfacts import build_sec_secondary_provider
-from storage.raw_snapshots import store_raw_snapshot
+from storage.raw_snapshots import resolve_raw_snapshot_path, store_raw_snapshot
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -267,8 +267,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 settings.get("sec_public_float_rate_limit_per_second", 2)
             ),
         ),
-        raw_snapshot_root=ROOT
-        / str(settings.get("raw_snapshot_path", "data/raw_snapshots")),
+        raw_snapshot_root=resolve_raw_snapshot_path(
+            ROOT,
+            settings.get("raw_snapshot_path", "data/raw_snapshots"),
+        ),
     )
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

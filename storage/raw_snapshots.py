@@ -13,6 +13,21 @@ from typing import Any, Mapping
 import pandas as pd
 
 
+RAW_SNAPSHOT_PATH_ENV = "ATLAS_RAW_SNAPSHOT_PATH"
+
+
+def resolve_raw_snapshot_path(
+    project_root: str | Path,
+    configured_path: str | Path = "data/raw_snapshots",
+) -> Path:
+    """Resolve the workstation override without making config machine-specific."""
+    override = os.environ.get(RAW_SNAPSHOT_PATH_ENV)
+    candidate = Path(override or configured_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path(project_root) / candidate
+    return candidate
+
+
 def _canonical(value: Any) -> Any:
     if value is None or isinstance(value, (str, bool, int)):
         return value

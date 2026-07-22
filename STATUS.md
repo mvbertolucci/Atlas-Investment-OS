@@ -225,3 +225,17 @@ evidência de retorno total deixou de ser um bloqueio.
 - Impacto esperado: a próxima coleta pode ser mais lenta e reconstruirá os
   caches conforme necessário; nenhuma configuração, regra de negócio ou
   evidência imutável foi alterada.
+
+### Migração dos raw snapshots para armazenamento local (2026-07-22)
+
+- `ATLAS_RAW_SNAPSHOT_PATH` passa a selecionar, nesta estação Windows,
+  `C:\Users\marcu\AppData\Local\Atlas_Investment_OS\raw_snapshots` sem tornar
+  `config/settings.json` específico da máquina; o default portátil permanece
+  `data/raw_snapshots`.
+- Todos os pontos de coleta resolvem o caminho pela função compartilhada
+  `storage.raw_snapshots.resolve_raw_snapshot_path`.
+- A migração operacional copia e valida integralmente os arquivos antes de
+  remover a origem do OneDrive, e atualiza os caminhos persistidos no banco
+  local `data/atlas_history.db` preservando hashes e conteúdo.
+- A evidência externa não é sincronizada nem versionada; requer backup próprio
+  antes de troca de disco ou reinstalação do Windows.
