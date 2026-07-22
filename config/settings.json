@@ -9,7 +9,7 @@
   "provider_max_retries": 2,
   "provider_backoff_seconds": 0.5,
   "provider_rate_limit_per_second": 2,
-  "provider_critical_fields": ["market_cap", "enterprise_value", "total_debt", "total_cash", "ebitda", "free_cashflow", "current_ratio", "short_float"],
+  "provider_critical_fields": ["market_cap", "enterprise_value", "total_debt", "total_cash", "ebitda", "free_cashflow", "current_ratio", "short_float", "roe"],
   "raw_snapshot_path": "data/raw_snapshots",
   "sec_secondary_enabled": true,
   "sec_public_float_alignment_days": 45,
@@ -85,6 +85,7 @@
   "outcome_horizons_days": [30, 90, 180, 365],
   "outcome_hit_threshold_pct": 0.0,
   "outcome_calibration_bucket_size": 20,
+  "portfolio_validation_report_path": "output/dados/portfolio_validation_report.json",
   "priority_enabled": true,
   "watchlist_aging_threshold_days": 180
 }

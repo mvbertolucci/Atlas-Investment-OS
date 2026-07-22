@@ -26,12 +26,13 @@ def _transport(path, params, api_key, timeout):
             "marketCapitalization": 4_860_046.5,
             "enterpriseValue": 4_899_185.5,
             "totalDebt/totalEquityAnnual": 1.3547,
+            "roeTTM": 26.26,
         },
         "series": {},
     }
 
 
-def test_finnhub_converts_millions_to_absolute_and_claims_only_ev_and_cap() -> (
+def test_finnhub_converts_millions_to_absolute_and_claims_ev_cap_and_roe() -> (
     None
 ):
     provider = FinnhubMarketDataProvider(
@@ -44,8 +45,11 @@ def test_finnhub_converts_millions_to_absolute_and_claims_only_ev_and_cap() -> (
     assert record["market_cap"] == pytest.approx(4_860_046_500_000)
     assert record["enterprise_value"] == pytest.approx(4_899_185_500_000)
     assert record["field_evidence"]["market_cap"]["status"] == "present"
+    # ROE chega em percentual do Finnhub e sai como fracao (escala do pipeline)
+    assert record["roe"] == pytest.approx(0.2626)
+    assert record["field_evidence"]["roe"]["status"] == "present"
     assert FinnhubMarketDataProvider.supported_fields == frozenset(
-        {"market_cap", "enterprise_value"}
+        {"market_cap", "enterprise_value", "roe"}
     )
 
 

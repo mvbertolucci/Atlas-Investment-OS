@@ -257,6 +257,7 @@ class CollectionApplicationService:
                         "free_cashflow",
                         "current_ratio",
                         "short_float",
+                        "roe",
                     ),
                 )
             ),

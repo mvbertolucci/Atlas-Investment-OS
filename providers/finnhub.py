@@ -79,6 +79,18 @@ def _number_millions(value: Any) -> float | None:
     return result * MILLIONS if result >= 0 else None
 
 
+def _ratio_from_percent(value: Any) -> float | None:
+    """Finnhub reports ROE as a percentage (26.26 == 26.26%); the Atlas
+    pipeline (and Yahoo's ``returnOnEquity``) express it as a fraction
+    (0.2626). Convert so a reconciled value is directly comparable and scores
+    on the same scale as the primary source."""
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result / 100.0
+
+
 def _evidence(
     value: float | None,
     *,
@@ -113,7 +125,7 @@ class FinnhubMarketDataProvider:
     """
 
     provider_name = "Finnhub"
-    supported_fields = frozenset({"market_cap", "enterprise_value"})
+    supported_fields = frozenset({"market_cap", "enterprise_value", "roe"})
 
     api_key: str
     timeout_seconds: float = 30.0
@@ -214,15 +226,27 @@ class FinnhubMarketDataProvider:
             metric = {}
         market_cap = _number_millions(metric.get("marketCapitalization"))
         enterprise_value = _number_millions(metric.get("enterpriseValue"))
+        roe = _ratio_from_percent(metric.get("roeTTM"))
         return {
             "symbol": normalized,
             "source": "Finnhub",
             "as_of": retrieved_at,
             "market_cap": market_cap,
             "enterprise_value": enterprise_value,
+            "roe": roe,
             "finnhub_endpoint_errors": endpoint_errors,
             "_raw_finnhub": payload,
             "field_evidence": {
+                "roe": _evidence(
+                    roe,
+                    retrieved_at=retrieved_at,
+                    detail=(
+                        "Finnhub Basic Financials roeTTM "
+                        "(vendor-computed TTM, percent converted to fraction)"
+                        if "metric" not in endpoint_errors
+                        else "Finnhub metric endpoint unavailable"
+                    ),
+                ),
                 "market_cap": _evidence(
                     market_cap,
                     retrieved_at=retrieved_at,

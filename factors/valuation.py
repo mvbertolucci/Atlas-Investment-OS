@@ -14,9 +14,9 @@ from providers.evidence import DataValueStatus
 # entra em cena para nao deixar o fator sem definicao. Mantenha em sincronia
 # com config/features.yaml::valuation (test_valuation_config trava isso).
 VALUATION_FEATURES = {
-    "pe": {"label": "PE", "weight": 0.20, "higher": False},
+    "pe": {"label": "PE", "weight": 0.10, "higher": False},
     "forward_pe": {"label": "Forward PE", "weight": 0.15, "higher": False},
-    "ev_ebitda": {"label": "EV EBITDA", "weight": 0.20, "higher": False},
+    "ev_ebitda": {"label": "EV EBITDA", "weight": 0.30, "higher": False},
     "ev_ebit": {"label": "EV EBIT", "weight": 0.15, "higher": False},
     "peg": {"label": "PEG", "weight": 0.10, "higher": False},
     "pb": {"label": "Price Book", "weight": 0.10, "higher": False},

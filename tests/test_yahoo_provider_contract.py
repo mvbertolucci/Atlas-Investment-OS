@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 import providers.yahoo as yahoo
 from providers.contracts import ProviderPolicy
@@ -117,3 +118,83 @@ def test_multiple_secondaries_reconcile_their_declared_fields(
     assert rows[0]["field_evidence"]["short_float"][
         "confirmation_status"
     ] == "secondary_unavailable"
+
+
+def test_trailing_pe_marked_not_applicable_when_earnings_non_positive() -> None:
+    """PE ausente por lucro trailing nao-positivo e' estrutural (not_applicable),
+    nunca `missing` -- do contrario nomes deficitarios com valuation completo
+    (EV/EBITDA, Forward PE) travam eternamente no gate de confianca."""
+    # trailingPE ausente + EPS trailing negativo => nao aplicavel
+    assert yahoo._trailing_pe_structurally_absent(
+        None, {"trailingEps": -1.42, "forwardPE": 18.0}
+    )
+    # sinal de prejuizo via margem liquida negativa tambem qualifica
+    assert yahoo._trailing_pe_structurally_absent(
+        None, {"profitMargins": -0.11}
+    )
+    # PE presente => nunca not_applicable, mesmo com sinais ruidosos
+    assert not yahoo._trailing_pe_structurally_absent(
+        22.5, {"trailingEps": -1.0}
+    )
+    # PE ausente SEM nenhum sinal de earnings => mantem `missing` conservador
+    # (nao mascara falha de coleta como se fosse estrutural)
+    assert not yahoo._trailing_pe_structurally_absent(None, {})
+    # empresa lucrativa com PE faltando por falha de fetch => segue `missing`
+    assert not yahoo._trailing_pe_structurally_absent(
+        None, {"trailingEps": 3.2, "profitMargins": 0.18}
+    )
+
+
+def test_stockholders_equity_reads_most_recent_column() -> None:
+    bs = pd.DataFrame(
+        {"2025-12-31": [81_544_000_000.0], "2024-12-31": [76_000_000_000.0]},
+        index=["Stockholders Equity"],
+    )
+    assert yahoo._stockholders_equity(bs) == pytest.approx(81_544_000_000.0)
+    # patrimonio negativo (deficit acumulado) e' devolvido como negativo
+    neg = pd.DataFrame({"2025-12-31": [-500_469_000.0]}, index=["Stockholders Equity"])
+    assert yahoo._stockholders_equity(neg) < 0
+    assert yahoo._stockholders_equity(None) is None
+
+
+def test_roe_reconciled_from_finnhub_when_yahoo_omits_it_and_equity_positive() -> None:
+    """Cenario JNJ: Yahoo omite returnOnEquity (equity>0), Finnhub supre roeTTM.
+    Como o primario esta `missing` (usable-gap), a reconciliacao preenche."""
+    from providers.evidence import ensure_field_evidence, reconcile_critical_fields
+
+    primary = ensure_field_evidence(
+        {"symbol": "JNJ", "source": "Yahoo Finance", "as_of": "2026-07-21", "roe": None},
+        raw_presence={"roe": False},
+    )
+    # Yahoo omite a chave => `missing` (ausencia genuina, dentro do usable-gap)
+    assert primary["field_evidence"]["roe"]["status"] == "missing"
+    secondary = ensure_field_evidence(
+        {"symbol": "JNJ", "source": "Finnhub", "as_of": "2026-07-21", "roe": 0.2626}
+    )
+    reconciled = reconcile_critical_fields(primary, secondary, ("roe",))
+    assert reconciled["roe"] == pytest.approx(0.2626)
+    assert reconciled["field_evidence"]["roe"]["status"] == "present"
+
+
+def test_not_applicable_roe_is_never_overwritten_by_secondary() -> None:
+    """Cenario IBRX: equity<=0 marca roe not_applicable no primario; mesmo com
+    Finnhub devolvendo um numero (enganoso), a reconciliacao nao sobrescreve."""
+    from providers.evidence import (
+        DataValueStatus,
+        FieldEvidence,
+        ensure_field_evidence,
+        reconcile_critical_fields,
+    )
+
+    primary = ensure_field_evidence(
+        {"symbol": "IBRX", "source": "Yahoo Finance", "as_of": "2026-07-21", "roe": None},
+        not_applicable_fields={"roe"},
+    )
+    assert primary["field_evidence"]["roe"]["status"] == "not_applicable"
+    secondary = ensure_field_evidence(
+        {"symbol": "IBRX", "source": "Finnhub", "as_of": "2026-07-21", "roe": -1.9329}
+    )
+    reconciled = reconcile_critical_fields(primary, secondary, ("roe",))
+    # valor e status estruturais preservados -- nunca troca por -193%
+    assert reconciled.get("roe") is None
+    assert reconciled["field_evidence"]["roe"]["status"] == "not_applicable"

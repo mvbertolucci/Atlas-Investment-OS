@@ -13,8 +13,25 @@ Evolve Atlas as a reproducible, auditable and explainable investment decision sy
 3. Preserve public interfaces and output contracts unless a migration is documented.
 4. Add or update tests for every behavioral change and bug fix.
 5. Run `python -m pytest tests -q` after changes.
-6. Update the living documentation when architecture, status, commands or contracts change.
-7. Report changed files, tests run, results, risks and the next recommended step.
+6. If the change touches field-evidence status semantics, the required-feature
+   confidence gate, provider reconciliation, or scoring/valuation weights, a
+   green synthetic test suite is not sufficient exit criteria — also run
+   `python run_all.py --portfolio` against the real portfolio and read the
+   resulting `output/dados/portfolio_report.json` decisions before calling the
+   task done. Two real incidents motivate this: `df13423` (2026-07-17) added
+   `scoring/reference.py::write_scoring_reference` without the already-known
+   OneDrive file-lock retry (the same bug had been fixed twice before
+   elsewhere in this repo but never extracted to a shared utility), only
+   caught when a broad background run failed days later; `92a8b93`
+   (2026-07-17) conflated `stale` with `missing` in the required-feature gate,
+   which sat undetected in master until 2026-07-20, when the pipeline was
+   first run against the real portfolio and 57/57 holdings capped at
+   `Model Confidence: 59`, silently disabling the sell/buy engine in
+   production. Both bugs passed every synthetic/unit test that existed at
+   merge time; neither would have survived one real `--portfolio` run. See
+   ADR-032, the "stale" fix in `STATUS.md` §6 (2026-07-20), and ADR-037.
+7. Update the living documentation when architecture, status, commands or contracts change.
+8. Report changed files, tests run, results, risks and the next recommended step.
 
 ## Non-negotiable rules
 

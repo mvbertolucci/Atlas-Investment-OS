@@ -119,6 +119,8 @@ citações abaixo apontam para a implementação real; o wrapper homônimo em
 - ~~Score cross-sectional relativo ao lote da run (achado #3 da linha PR-017.x, ficou DORMANT)~~ **RESOLVIDO (2026-07-17, ADR-012)**: scores ao vivo agora usam a distribuição oficial versionada `US_MARKET_ELIGIBLE` como denominador do percentil (ver seção 2). O `calculate_watchlist_drift` (PR-021) segue existindo, mas o problema estrutural que ele mitigava foi eliminado no caminho oficial; permanece relevante só para runs em fallback `CURRENT_BATCH`. Replay histórico (`backtesting/walk_forward.py`) continua cutoff-local por design.
 - **Cobertura de EV amplo travada na cota gratuita do FMP**: o scan real de 2026-07-17 achou market cap/float para 67/2.429 símbolos elegíveis e enterprise evidence para 6 antes do teto de 225 chamadas/dia — limite de entitlement do plano Basic, não bug. Massive Float cobre 2.364/2.429 (97,3%) para short float; os 64 gaps restantes são explicitamente `secondary_unavailable`, nunca substituídos por proxy. Próximo passo já definido em `docs/ATLAS_CONTEXT.md`: compor market cap via Massive Grouped Daily + SEC shares, aposentando o caminho de Ticker Details (~8h de runtime amplo).
 - **Referência ADR-012 congelada no snapshot 2026-07-13**: o artefato `scoring_reference_market.json` tem `reference_date: 2026-07-13`; não há processo automático de renovação (coerente com "scheduling deferred"), mas percentis oficiais envelhecem junto com a coleta ampla — renovar a referência exige rodar a coleta de mercado e regenerar o artefato conscientemente (nova `reference_version` se a política mudar).
+- ~~PE ausente por prejuízo travava o gate de confiança igual a falha de coleta~~ **RESOLVIDO (2026-07-21, ADR-037)**: rodando a carteira real com as teses preenchidas (motor de venda destravado), 12/18 posições travavam em `REVISAR` pelo `confidence_gate` (60/60 de `sell_rules.yaml`); a causa dominante era **PE (feature `required`) marcado como `missing`** em 7 nomes deficitários (FMC, IBRX, BNTX, SGML, CLF, AVAV, YPF) — medido no `field_evidence_json`, todos com `ev_ebitda`/`forward_pe` presentes, só sem PE trailing porque o lucro trailing é não-positivo (razão indefinida, não falha de coleta). Corrigido classificando esse caso como `not_applicable` na origem (`providers/yahoo.py::_trailing_pe_structurally_absent`, só quando `trailingEps`/`netIncomeToCommon`/`profitMargins ≤ 0` — ausência sem sinal de earnings permanece `missing`, conservador). O motor já tratava `NOT_APPLICABLE` corretamente (exclui do denominador de cobertura e do laço de required-feature) — nenhuma mudança em `factors/engine.py`. Na mesma decisão, **EV/EBITDA virou o múltiplo de valuation dominante** (`config/features.yaml`+`factors/valuation.py`: `pe 0.20→0.10`, `ev_ebitda 0.20→0.30`, soma do bloco = 1.0), como substituto natural do PE quando ele é indefinido. `tests/test_yahoo_provider_contract.py::test_trailing_pe_marked_not_applicable_when_earnings_non_positive`.
+  **Adendo, mesma sessão — `roe` (também `required`) travava JNJ e IBRX por motivos opostos**: JNJ tem `returnOnEquity` ausente do Yahoo por gap de coleta genuíno (patrimônio +US$81,5bi, lucro TTM positivo, ROE real ~26–33%); IBRX tem a mesma ausência mas com patrimônio **negativo** (−US$500mi, déficit acumulado) — dividir lucro por patrimônio negativo produz um número matematicamente enganoso (confirmado ao vivo: Finnhub `roeTTM=-193,29%`, não é gap de coleta, é a razão em si sem sentido econômico). Discriminado por `providers/yahoo.py::_stockholders_equity`: `equity≤0` → `not_applicable` (mesmo mecanismo do PE, nunca reconciliado — `reconcile_critical_fields` não sobrescreve `not_applicable`); `equity>0` → `roe` fica `missing` (reconciliável) e `providers/finnhub.py::FinnhubMarketDataProvider` passa a expor `roe` (`metric.roeTTM`, convertido de percentual→fração), adicionado a `provider_critical_fields` (`config/settings.json` + fallback em `application/collection.py`) para entrar na cadeia de reconciliação já existente (Finnhub é o primeiro secondary fetcher). Ver ADR-037 (adendo).
 - ~~`stale` travava o gate de required-feature igual a `missing`~~ **RESOLVIDO (2026-07-20)**: `factors/engine.py::metric_available` tratava status `stale` (valor real, só mais velho que os 35 dias de `data_quality.yaml::freshness.acceptable_days`) exatamente como `missing`/`unavailable` ao montar `Missing Required Features` — bastava **um** dos 9 features `required` (ROE, Net Margin, PE, Price/Book, RSI 14, Momentum 3M/6M/12M, Distance 52W High) ficar `stale` para travar `Model Confidence` em 59, um ponto abaixo do `confidence_gate: 60` de `sell_rules.yaml` — bloqueando toda decisão de venda/compra do holding, mesmo com o resto dos dados bons. **Achado real rodando a carteira em produção (2026-07-20, primeiro `--portfolio` desde 2026-07-16)**: ROE/Net Margin do Yahoo — cadência trimestral/anual, sempre mais velhos que a janela de 35 dias na maior parte de cada trimestre — estavam `stale` para **57/57 símbolos** (50 com só os dois, 7 também com `valuation:pe`), travando `Portfolio Score` em POOR (39,1) e forçando os 18 holdings reais para REVISAR (0 buy/sell/hold/trim). O rastreamento de staleness por campo (ADR-014) só existe desde 2026-07-17 — nunca tinha sido exercitado contra a carteira real antes deste run. Corrigido separando as duas semânticas: `metric_has_value()` (nova, só usada no loop de required-feature) conta `present` **e** `stale` como "tem valor"; `metric_available()` (cobertura/`Data Coverage`) continua descontando `stale` normalmente — frescor baixo ainda reduz `Data Coverage`, só parou de duplicar essa penalidade travando o teto de confiança. `tests/test_confidence_score.py::test_stale_required_feature_does_not_cap_confidence` + `test_missing_required_feature_still_caps_confidence` (regressão: ausência genuína continua travando).
 
 ---
@@ -167,5 +169,32 @@ silenciosamente ao mover o Excel para `output/relatorios/`. Agora recebe
 
 ## Última atualização
 - **Data**: 2026-07-21
-- **Commit**: `feat(watchlist): wire and enable automatic watchlist inclusion/exclusion (PR3/3)`
-- **Baseline de validação**: 1058 testes verdes
+- **Commit**: `fix(scoring): treat structural PE/ROE gaps correctly, reconcile ROE via Finnhub (ADR-037)`
+- **Baseline de validação**: 1068 testes verdes
+
+### Integração de validação histórica (sessão atual)
+
+`application/reporting.py::ReportingApplicationService.generate_performance_validation`
+agora lê o artefato opcional governado por
+`config/settings.json::portfolio_validation_report_path` e o incorpora como
+`historical_validation` em `performance_validation.json`. A integração é
+read-only e mantém `not_available` quando não há validação histórica completa;
+não recalcula performance nem altera scoring, decisões ou políticas.
+
+O contrato `backtesting/portfolio_validation.py::ValidationSummary` agora
+expõe retorno anualizado do benchmark, excesso anualizado, Sharpe e Sortino.
+O diagnóstico operacional usa `INCONCLUSIVE` abaixo de 12 períodos completos;
+acima desse mínimo, compara o excesso anualizado ao benchmark sem alterar o
+modelo.
+
+`backtesting/readiness.py` adiciona auditoria offline da prontidão histórica.
+Executada em 2026-07-21 sobre `output/dados/backtest_2026-01-01`, encontrou
+498 arquivos de preços, 99,2% de cobertura do universo e janela
+2024-12-02—2026-07-16. O resultado é `BLOCKED` por
+`POINT_IN_TIME_FUNDAMENTALS_MISSING` e `EXECUTION_EVIDENCE_MISSING`; nenhum
+`PASS/FAIL` de performance foi produzido.
+
+`backtesting/total_return_batch.py` materializa os CSVs de preços em
+`output/dados/total_return_evidence.json`, com 9.437 observações mensais
+dividend-inclusive e benchmark `SPY`. O auditor reconhece esse artefato; a
+evidência de retorno total deixou de ser um bloqueio.

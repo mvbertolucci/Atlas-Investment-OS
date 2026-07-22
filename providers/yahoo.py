@@ -33,6 +33,53 @@ def _safe_float(value: Any):
         return None
 
 
+def _trailing_pe_structurally_absent(pe_value: Any, info: dict[str, Any]) -> bool:
+    """Whether a missing trailing PE reflects non-positive trailing earnings
+    (a structural absence) rather than a fetch failure.
+
+    Yahoo simply omits ``trailingPE`` for companies with non-positive trailing
+    EPS -- the ratio is mathematically undefined, not merely unfetched. In that
+    case PE should be marked ``not_applicable`` (excluded from the coverage
+    denominator and the required-feature confidence gate), not ``missing``,
+    which would wrongly penalise loss-making/turnaround holdings that still have
+    full valuation evidence (EV/EBITDA, Forward PE, Price/Book). We only
+    conclude "structural" when a positive earnings signal confirms the loss --
+    absence of every signal keeps the conservative ``missing`` classification so
+    a genuine fetch failure is never masked.
+    """
+    if _safe_float(pe_value) is not None:
+        return False
+    for key in ("trailingEps", "netIncomeToCommon", "profitMargins"):
+        signal = _safe_float(info.get(key))
+        if signal is not None and signal <= 0:
+            return True
+    return False
+
+
+def _stockholders_equity(balance_sheet: "pd.DataFrame | None") -> float | None:
+    """Most recent common/stockholders equity from the annual balance sheet.
+
+    Used only to tell apart the two reasons ``returnOnEquity`` can be absent
+    from Yahoo: a genuine fetch gap for a solvent company (equity > 0 -> ROE
+    exists, reconcile it) versus a structurally undefined ratio (equity <= 0,
+    e.g. an accumulated-deficit biotech -> dividing by negative book equity
+    yields a meaningless number, so ROE is not_applicable)."""
+    if balance_sheet is None:
+        return None
+    for label in (
+        "Stockholders Equity",
+        "Total Stockholder Equity",
+        "Common Stock Equity",
+        "Total Equity Gross Minority Interest",
+    ):
+        try:
+            if label in balance_sheet.index:
+                return _safe_float(balance_sheet.loc[label].iloc[0])
+        except Exception:
+            continue
+    return None
+
+
 def _safe_statement(ticker: "yf.Ticker", attr: str):
     """Busca uma demonstração financeira anual (balance_sheet/financials/
     cashflow). Alguns tickers (ETFs, ADRs sem cobertura) não têm essas
@@ -270,6 +317,18 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
     short_interest_date = _unix_date(info.get("dateShortInterest"))
     if short_interest_date:
         observed_at_by_field["short_float"] = short_interest_date
+    not_applicable_fields: set[str] = set()
+    if _trailing_pe_structurally_absent(record.get("pe"), info):
+        not_applicable_fields.add("pe")
+    if record.get("roe") is None:
+        equity = _stockholders_equity(balance_sheet)
+        if equity is not None and equity <= 0:
+            # ROE undefined on negative book equity -- do NOT reconcile from a
+            # secondary source (which would surface a misleading value); mark
+            # not_applicable so it drops out of the confidence gate. When
+            # equity > 0 the field stays `missing`, letting the Finnhub roeTTM
+            # reconciliation fill a genuine value (ADR-037).
+            not_applicable_fields.add("roe")
     annotated = ensure_field_evidence(
         record,
         source="Yahoo Finance",
@@ -278,6 +337,7 @@ def fetch_symbol(symbol: str, name_hint: str = "", period: str = "2y", interval:
         raw_values=raw_values,
         observed_at_by_category={"market": market_observed_at},
         observed_at_by_field=observed_at_by_field,
+        not_applicable_fields=not_applicable_fields,
     )
     for field_name in ("free_cashflow", "ebitda"):
         evidence = annotated["field_evidence"].get(field_name)

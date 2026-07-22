@@ -65,7 +65,7 @@ business:
 valuation:
   pe:
     label: PE
-    weight: 0.20
+    weight: 0.10
     higher_is_better: false
     required: true
     percentile_scope: sector
@@ -77,7 +77,7 @@ valuation:
     percentile_scope: sector
   ev_ebitda:
     label: EV EBITDA
-    weight: 0.20
+    weight: 0.30
     higher_is_better: false
     required: false
     percentile_scope: sector
