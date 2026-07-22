@@ -160,6 +160,15 @@ def test_complete_validation_computes_return_risk_cost_and_concentration() -> No
     assert report.summary.annualized_volatility == pytest.approx(
         expected_volatility
     )
+    assert report.summary.benchmark_annualized_return == pytest.approx(
+        (1.0404**6) - 1
+    )
+    assert report.summary.annualized_excess_return == pytest.approx(
+        report.summary.annualized_return
+        - report.summary.benchmark_annualized_return
+    )
+    assert report.summary.sharpe_ratio is not None
+    assert report.summary.sortino_ratio is not None
     assert report.summary.maximum_drawdown == -0.001
     assert report.summary.average_turnover == 0.525
     assert report.summary.total_estimated_cost == 0.00105

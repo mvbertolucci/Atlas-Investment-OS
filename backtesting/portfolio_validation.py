@@ -366,7 +366,11 @@ class ValidationSummary:
     benchmark_total_return: float
     relative_return: float | None
     annualized_return: float
+    benchmark_annualized_return: float
+    annualized_excess_return: float
     annualized_volatility: float
+    sharpe_ratio: float | None
+    sortino_ratio: float | None
     maximum_drawdown: float
     average_turnover: float
     total_estimated_cost: float
@@ -541,10 +545,33 @@ def _summary(
         if total_return <= -1
         else (1.0 + total_return) ** (policy.periods_per_year / len(periods)) - 1.0
     )
+    benchmark_annualized = (
+        -1.0
+        if benchmark_total <= -1
+        else (1.0 + benchmark_total)
+        ** (policy.periods_per_year / len(periods))
+        - 1.0
+    )
     volatility = (
         statistics.stdev(net_returns) * math.sqrt(policy.periods_per_year)
         if len(net_returns) > 1
         else 0.0
+    )
+    downside = [min(0.0, value) for value in net_returns]
+    downside_deviation = math.sqrt(
+        sum(value * value for value in downside) / len(downside)
+    ) * math.sqrt(policy.periods_per_year)
+    sharpe = (
+        statistics.mean(net_returns) / statistics.stdev(net_returns)
+        * math.sqrt(policy.periods_per_year)
+        if len(net_returns) > 1 and statistics.stdev(net_returns) > 0
+        else None
+    )
+    sortino = (
+        statistics.mean(net_returns) / downside_deviation
+        * math.sqrt(policy.periods_per_year)
+        if downside_deviation > 0
+        else None
     )
     relative = (
         None
@@ -565,7 +592,11 @@ def _summary(
         benchmark_total_return=_rounded(benchmark_total),
         relative_return=_rounded(relative) if relative is not None else None,
         annualized_return=_rounded(annualized),
+        benchmark_annualized_return=_rounded(benchmark_annualized),
+        annualized_excess_return=_rounded(annualized - benchmark_annualized),
         annualized_volatility=_rounded(volatility),
+        sharpe_ratio=_rounded(sharpe) if sharpe is not None else None,
+        sortino_ratio=_rounded(sortino) if sortino is not None else None,
         maximum_drawdown=_rounded(_maximum_drawdown(net_returns)),
         average_turnover=_rounded(statistics.mean(item.turnover for item in periods)),
         total_estimated_cost=_rounded(sum(item.estimated_cost for item in periods)),

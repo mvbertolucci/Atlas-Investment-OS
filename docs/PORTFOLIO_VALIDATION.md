@@ -74,6 +74,17 @@ pinned as version 1; `config/portfolio_validation_input.example.json` is a
 loadable, fully synthetic shape example only. Its symbols and returns are not
 research evidence and must never be reported as Atlas performance.
 
+## Operational report integration
+
+The main pipeline reads the optional
+`output/dados/portfolio_validation_report.json` artifact, governed by
+`config/settings.json::portfolio_validation_report_path`, and copies its
+status, coverage and validated summary into
+`output/dados/performance_validation.json`. This integration is read-only: it
+does not recalculate performance or change scores, decisions, weights or
+thresholds. If the artifact is absent or invalid, the performance report keeps
+`historical_validation.status = not_available` and remains conservative.
+
 Every input requires a manifest naming the dataset/version, portfolio source,
 return source, benchmark source, period convention, terminal-event source and
 tested Atlas revision. Each return row still retains its own source so mixed
@@ -138,6 +149,41 @@ relative return, annualized return, sample annualized volatility, maximum
 drawdown, average turnover, total estimated cost and concentration summaries.
 Costs are removed proportionally at rebalance before the period return, which
 preserves the economic -100% return floor.
+
+The summary also reports annualized benchmark return, annualized excess return,
+Sharpe ratio and Sortino ratio. The operational performance report adds a
+provisional assessment: fewer than 12 complete periods is `INCONCLUSIVE`; with
+at least 12 complete periods, positive annualized excess return is `PASS` and
+non-positive excess return is `FAIL`. This is a transparent screening rule,
+not a statistical guarantee or an automatic permission to change the model.
+
+## Readiness audit
+
+Before collecting or interpreting a backtest, run the offline readiness audit:
+
+```powershell
+.\.venv\Scripts\python.exe -m backtesting.readiness `
+  --price-dir output\dados\backtest_2026-01-01\prices `
+  --universe-manifest output\dados\backtest_2026-01-01\universe_manifest.json `
+  --total-return-evidence output\dados\total_return_evidence.json `
+  --output output\dados\historical_readiness.json
+```
+
+The audit reports price coverage and explicit blockers such as missing
+point-in-time fundamentals, execution evidence or benchmark prices. A
+`BLOCKED` result is a data-readiness result, not a performance verdict.
+
+Once price files are available, their dividend-inclusive monthly returns can
+be materialized without network access:
+
+```powershell
+.\.venv\Scripts\python.exe -m backtesting.total_return_batch `
+  --price-dir output\dados\backtest_2026-01-01\prices `
+  --output output\dados\total_return_evidence.json
+```
+
+This artifact is reusable evidence only; it does not create historical Atlas
+decisions or bypass the point-in-time and execution gates.
 
 Every JSON report is advisory-only, includes the input schema version,
 manifest, performance disclaimer and row-level return sources, and states

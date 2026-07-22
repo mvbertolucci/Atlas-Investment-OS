@@ -111,6 +111,7 @@ citações abaixo apontam para a implementação real; o wrapper homônimo em
 
 ## 6. Pendências conhecidas
 
+- **Auditoria do ADR-032 (proteção contra o lock de escrita do OneDrive) não foi completa (achado 2026-07-21).** Além dos 11 pontos corrigidos em 2026-07-18, mais 8 escritores gravam com `write_text()` puro em vez de `storage/atomic_write.py`: `backtesting/total_return_evidence.py`, `backtesting/execution_evidence.py`, `backtesting/walk_forward.py`, `analytics/performance_validation.py`, `universe/report.py`, `watchlist/report.py`, `portfolio/model_portfolio.py`, `portfolio/pipeline.py` (todos anteriores a 07-18, nunca pegos pela auditoria original). Um nono ponto (`backtesting/readiness.py`, novo) foi corrigido na mesma sessão em que foi achado. Não corrigido em massa agora — escopo maior que a tarefa em andamento; próxima sessão que tocar esses arquivos deve aplicar `atomic_write_json`/`replace_with_retry`.
 - **"Catálogo de venda"**: nenhuma ocorrência do termo em `docs/`. O que existe hoje cobrindo esse espaço: `portfolio/sell_rules.py` + `config/sell_rules.yaml`, `watchlist/triggers.py`, `decision/engine.py`. Se specs recentes assumem 4 pré-requisitos nomeados dessa forma, não foram encontrados documentados sob esse nome — checar se é terminologia de outra sessão/conversa antes de assumir que falta algo.
 - ~~Reconciliação priority/ vs decision/~~ **RESOLVIDA** — ver conflito #2 (seção 1) e ADR-011.
 - **Conflito Altman Z (clássico vs Z'')**: não existe no código — só uma fórmula clássica é usada, com isenção setorial (não coeficiente alternativo) como mitigação. Nenhuma menção em `docs/` a um conflito de variantes. O que existe de fato é a fórmula clássica aplicada uniformemente mesmo a setores onde ela é estruturalmente enganosa (mitigado só por isenção, não por Z'' apropriado). **A duplicação das listas de setores isentos entre `scoring/investment.py` (`config/deal_breakers.json`) e `portfolio/sell_rules.py` (`config/sell_rules.yaml`) foi reconciliada** (mesmo conteúdo — Utilities/Financial Services/Banks/Insurance/Biotechnology para Altman Z, Software/Tobacco para liquidez, mais `net_debt_ebitda_exempt_sectors`/`f_score_exempt_sectors` novos no lado do score) — continuam sendo dois arquivos com nomes de chave próprios (consumidores diferentes), não uma fonte única, então ainda cabe a um editor futuro atualizar os dois lados manualmente. **Teste de equivalência adicionado (2026-07-18)**: `tests/test_governed_config.py::test_exempt_sectors_match_between_deal_breakers_and_sell_rules` trava os dois arquivos JSON/YAML batendo; `test_sell_rules_python_defaults_match_deal_breakers` trava os fallbacks `DEFAULT_*` hardcoded em `portfolio/sell_rules.py` contra o mesmo JSON. Achado real ao escrever o teste: os fallbacks Python estavam desatualizados (`DEFAULT_SOLVENCY_EXEMPT_SECTORS` sem "Biotechnology", `DEFAULT_LIQUIDITY_EXEMPT_SECTORS` sem "Tobacco", mais dois defaults de `net_debt_ebitda`/`f_score` que eram `()` vazio) — inofensivo hoje porque `sell_rules.yaml` sempre especifica as chaves (o fallback nunca era de fato lido), mas divergiria silenciosamente do `deal_breakers.json` no dia em que alguém remover uma chave do YAML. Corrigido junto com o teste.
@@ -171,7 +172,7 @@ silenciosamente ao mover o Excel para `output/relatorios/`. Agora recebe
 
 ## Última atualização
 - **Data**: 2026-07-21
-- **Commit**: `fix(providers): reject implausible Yahoo enterprise_value (FX-conversion protocol, ADR-037 adendo 2)`
+- **Commit**: `feat(backtesting): finish PR-034 readiness/total-return-batch WIP, fix OneDrive-lock gap`
 - **Baseline de validação**: 1070 testes verdes
 
 ### Integração de validação histórica (sessão atual)
@@ -194,7 +195,19 @@ Executada em 2026-07-21 sobre `output/dados/backtest_2026-01-01`, encontrou
 498 arquivos de preços, 99,2% de cobertura do universo e janela
 2024-12-02—2026-07-16. O resultado é `BLOCKED` por
 `POINT_IN_TIME_FUNDAMENTALS_MISSING` e `EXECUTION_EVIDENCE_MISSING`; nenhum
-`PASS/FAIL` de performance foi produzido.
+`PASS/FAIL` de performance foi produzido. **`write_readiness_report` grava via
+`storage/atomic_write.py::atomic_write_json`** (achado ao terminar este WIP:
+grafava com `write_text()` puro, o mesmo padrão de bug do lock do OneDrive já
+documentado no ADR-032 — corrigido antes de rodar contra o dataset real).
+Reexecutado ao vivo pós-fix contra o mesmo dataset de 498 símbolos: números
+idênticos aos acima, confirma que o fix não alterou comportamento.
+**Achado maior da mesma auditoria**: mais 8 escritores pré-existentes
+(`total_return_evidence.py`, `execution_evidence.py`, `walk_forward.py`,
+`performance_validation.py`, `universe/report.py`, `watchlist/report.py`,
+`portfolio/model_portfolio.py`, `portfolio/pipeline.py`) ainda usam
+`write_text()` puro — a auditoria do ADR-032 (2026-07-18) não foi completa.
+Não corrigido nesta sessão (fora do escopo deste WIP); registrado como
+pendência aberta abaixo.
 
 `backtesting/total_return_batch.py` materializa os CSVs de preços em
 `output/dados/total_return_evidence.json`, com 9.437 observações mensais

@@ -311,6 +311,37 @@ def test_reporting_service_respects_disabled_publications(
     assert service.generate_performance_validation(
         pd.DataFrame(), {"performance_validation_enabled": False}
     ) is None
+
+
+def test_reporting_service_includes_configured_historical_validation(
+    tmp_path: Path,
+) -> None:
+    validation_path = tmp_path / "historical.json"
+    validation_path.write_text(
+        json.dumps(
+            {
+                "status": "complete",
+                "summary": {"annualized_return": 0.1},
+                "periods": [{}],
+                "incomplete_periods": [],
+                "return_sources": ["test"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    service = _reporting_service(tmp_path)
+    output = service.generate_performance_validation(
+        pd.DataFrame({"Investment Score": [50]}),
+        {
+            "performance_validation_enabled": True,
+            "portfolio_validation_report_path": str(validation_path),
+        },
+    )
+
+    assert output is not None
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["historical_validation"]["status"] == "complete"
+    assert report["historical_validation"]["summary"]["annualized_return"] == 0.1
     assert service.generate_priority_report(
         {"priority_enabled": False},
         ranking_report=None,

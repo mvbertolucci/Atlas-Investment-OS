@@ -59,10 +59,31 @@ class ReportingApplicationService:
             self.logger.info("Performance Validation desabilitado.")
             return None
 
+        validation_path = Path(
+            settings.get(
+                "portfolio_validation_report_path",
+                self.performance_validation_file.parent
+                / "portfolio_validation_report.json",
+            )
+        )
+        portfolio_validation_report = None
+        if validation_path.exists():
+            try:
+                portfolio_validation_report = json.loads(
+                    validation_path.read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError) as exc:
+                self.logger.warning(
+                    "Relatório histórico ignorado (%s): %s",
+                    validation_path,
+                    exc,
+                )
+
         report = build_performance_validation_report(
             frame,
             portfolio_report=portfolio_report,
             outcome_report=outcome_report,
+            portfolio_validation_report=portfolio_validation_report,
             snapshot_date=snapshot_date,
         )
         path = write_performance_validation_report(

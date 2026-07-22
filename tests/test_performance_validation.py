@@ -121,6 +121,41 @@ def test_outcome_validation_reads_hit_rate() -> None:
     assert outcome["hit_rate"] == 0.6
 
 
+def test_historical_validation_reads_completed_contract() -> None:
+    report = build_performance_validation_report(
+        _scored_df(),
+        portfolio_validation_report={
+            "status": "complete",
+            "summary": {
+                "annualized_return": 0.12,
+                "annualized_volatility": 0.18,
+                "maximum_drawdown": -0.22,
+            },
+            "periods": [{"period_start": "2025-01-01"}],
+            "incomplete_periods": [],
+            "return_sources": ["synthetic"],
+        },
+    )
+    historical = report["historical_validation"]
+    assert historical["available"] is True
+    assert historical["status"] == "complete"
+    assert historical["summary"]["maximum_drawdown"] == -0.22
+    assert historical["periods"] == 1
+    assert historical["assessment"]["status"] == "INCONCLUSIVE"
+
+
+def test_historical_validation_is_unavailable_without_artifact() -> None:
+    report = build_performance_validation_report(_scored_df())
+    assert report["historical_validation"] == {
+        "available": False,
+        "status": "not_available",
+        "summary": None,
+        "periods": 0,
+        "incomplete_periods": 0,
+        "return_sources": [],
+    }
+
+
 def test_degrades_gracefully_without_reports() -> None:
     report = build_performance_validation_report(_scored_df())
     assert report["coverage"]["portfolio_report_available"] is False

@@ -382,6 +382,27 @@
         finance-standard sense of "factor contribution") remains open --
         needs a statistical methodology to validate and document, a
         separate, larger increment than the exposure summary above
+      - [x] Add an offline readiness audit (`backtesting/readiness.py`):
+        checks price-file coverage against a universe manifest and reports
+        explicit named blockers (missing point-in-time fundamentals,
+        execution evidence, total-return evidence, benchmark price) before
+        a broad real run is attempted -- `BLOCKED` is a data-readiness
+        result, not a performance verdict
+      - [x] Add an offline dividend-inclusive total-return batch
+        materializer (`backtesting/total_return_batch.py`): derives
+        `TotalReturnEvidence` for every symbol in a price-CSV directory from
+        the benchmark's own monthly boundaries, reusing the existing
+        `extract_total_return_observations` formula -- no network calls, so
+        it can be re-run freely while assembling a broad real dataset
+      - [x] Add Sharpe/Sortino ratios and annualized benchmark/excess return
+        to `ValidationSummary`, computed from the existing return series
+        (no new input)
+      - [x] Wire the validated historical contract (if present) read-only
+        into the operational `performance_validation.json` report
+        (`portfolio_validation_report_path` in `config/settings.json`) with
+        an explicit PASS/FAIL/INCONCLUSIVE screening rule (>=12 complete
+        periods, no incomplete periods) documented as a transparent
+        screening rule, not a statistical guarantee
       - [ ] Run broad real validation and report coverage
 - [ ] PR-035 Track a prospective shadow portfolio
 - [ ] PR-036 Calibrate only from versioned out-of-sample evidence
