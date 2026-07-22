@@ -15,6 +15,14 @@ TRIGGER_STATUSES = (
 )
 
 WATCHLIST_ENTRY_SOURCES = ("manual", "auto")
+WATCHLIST_LIFECYCLE_STATES = (
+    "monitoring",
+    "analyzing",
+    "waiting_trigger",
+    "promotion_ready",
+    "review_required",
+    "discard_review",
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +46,13 @@ class WatchlistEntry:
     note: str = ""
     trigger_condition: str = ""
     source: str = "manual"
+    lifecycle_state: str = "monitoring"
+    analytical_origin: str = "manual"
+    entry_rank: int | None = None
+    entry_score: float | None = None
+    review_due_at: date | str | None = None
+    promotion_condition: str = ""
+    discard_condition: str = ""
 
     def __post_init__(self) -> None:
         symbol = normalize_symbol(self.symbol)
@@ -45,7 +60,10 @@ class WatchlistEntry:
             raise ValueError("WatchlistEntry exige um símbolo válido.")
         object.__setattr__(self, "symbol", symbol)
 
-        for field_name in ("name", "note", "trigger_condition"):
+        for field_name in (
+            "name", "note", "trigger_condition", "analytical_origin",
+            "promotion_condition", "discard_condition",
+        ):
             object.__setattr__(
                 self,
                 field_name,
@@ -60,6 +78,34 @@ class WatchlistEntry:
             )
         object.__setattr__(self, "source", source)
 
+        lifecycle_state = normalize_text(self.lifecycle_state).lower() or "monitoring"
+        if lifecycle_state not in WATCHLIST_LIFECYCLE_STATES:
+            raise ValueError(f"estado de Watchlist inválido: {lifecycle_state!r}")
+        object.__setattr__(self, "lifecycle_state", lifecycle_state)
+        if not self.analytical_origin:
+            object.__setattr__(self, "analytical_origin", source)
+
+        entry_rank = self.entry_rank
+        if entry_rank not in (None, ""):
+            numeric_rank = float(entry_rank)
+            if not numeric_rank.is_integer():
+                raise ValueError("entry_rank deve ser inteiro.")
+            entry_rank = int(numeric_rank)
+            if entry_rank <= 0:
+                raise ValueError("entry_rank deve ser positivo.")
+        else:
+            entry_rank = None
+        object.__setattr__(self, "entry_rank", entry_rank)
+
+        entry_score = self.entry_score
+        if entry_score not in (None, ""):
+            entry_score = float(entry_score)
+            if not 0 <= entry_score <= 100:
+                raise ValueError("entry_score deve estar entre 0 e 100.")
+        else:
+            entry_score = None
+        object.__setattr__(self, "entry_score", entry_score)
+
         included_at = self.included_at
         if isinstance(included_at, str):
             text = included_at.strip()
@@ -73,6 +119,20 @@ class WatchlistEntry:
             raise TypeError("included_at exige date, string ISO ou None.")
         object.__setattr__(self, "included_at", included_at)
 
+        review_due_at = self.review_due_at
+        if isinstance(review_due_at, str):
+            text = review_due_at.strip()
+            try:
+                review_due_at = date.fromisoformat(text) if text else None
+            except ValueError as exc:
+                raise ValueError("review_due_at deve usar o formato YYYY-MM-DD.") from exc
+        if review_due_at is not None and not isinstance(review_due_at, date):
+            raise TypeError("review_due_at exige date, string ISO ou None.")
+        object.__setattr__(self, "review_due_at", review_due_at)
+
+        if not self.promotion_condition and self.trigger_condition:
+            object.__setattr__(self, "promotion_condition", self.trigger_condition)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "symbol": self.symbol,
@@ -85,6 +145,13 @@ class WatchlistEntry:
             "note": self.note,
             "trigger_condition": self.trigger_condition,
             "source": self.source,
+            "lifecycle_state": self.lifecycle_state,
+            "analytical_origin": self.analytical_origin,
+            "entry_rank": self.entry_rank,
+            "entry_score": self.entry_score,
+            "review_due_at": self.review_due_at.isoformat() if self.review_due_at else None,
+            "promotion_condition": self.promotion_condition,
+            "discard_condition": self.discard_condition,
         }
 
 
@@ -137,6 +204,7 @@ class WatchlistReport:
     results: tuple[WatchlistTriggerResult, ...] = field(default_factory=tuple)
     generated_at: datetime = field(default_factory=datetime.now)
     auto_curation: dict[str, Any] | None = None
+    active_queue: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
     @property
     def triggered(self) -> tuple[WatchlistTriggerResult, ...]:
@@ -153,4 +221,5 @@ class WatchlistReport:
             "cleanup_candidate_count": len(self.cleanup_candidates),
             "results": [item.to_dict() for item in self.results],
             "auto_curation": self.auto_curation,
+            "active_queue": list(self.active_queue),
         }

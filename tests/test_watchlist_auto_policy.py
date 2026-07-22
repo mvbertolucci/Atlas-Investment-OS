@@ -27,6 +27,7 @@ def test_shipped_config_values_are_pinned(policy: WatchlistAutoPolicy) -> None:
     assert policy.top_n == 30
     assert policy.qualifying_decisions == ("STRONG_BUY", "BUY", "ACCUMULATE")
     assert policy.min_confidence_score == 60.0
+    assert policy.review_sla_days == 30
     assert policy.exit_investment_score_threshold == 40.0
     assert policy.protect_portfolio_holdings is True
     assert policy.protect_manual_entries is True
@@ -85,6 +86,19 @@ def test_qualifying_decisions_cannot_be_empty(tmp_path: Path) -> None:
         load_watchlist_auto_policy(path)
 
 
+def test_review_sla_days_must_be_positive(tmp_path: Path) -> None:
+    path = tmp_path / "watchlist_auto.yaml"
+    path.write_text(
+        "enabled: true\n"
+        "selection: {top_n: 30, qualifying_decisions: [BUY], review_sla_days: 0}\n"
+        "exit: {investment_score_threshold: 40.0}\n"
+        "safeguards: {}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError):
+        load_watchlist_auto_policy(path)
+
+
 def test_missing_sections_fall_back_to_in_code_defaults(tmp_path: Path) -> None:
     """selection/exit/safeguards ausentes viram {} -- as @property tipadas
     fornecem o default, mesmo padrão de SellRulesPolicy."""
@@ -94,6 +108,7 @@ def test_missing_sections_fall_back_to_in_code_defaults(tmp_path: Path) -> None:
     loaded = load_watchlist_auto_policy(path)
 
     assert loaded.top_n == 30
+    assert loaded.review_sla_days == 30
     assert loaded.exit_investment_score_threshold == 40.0
     assert loaded.protect_portfolio_holdings is True
     assert loaded.protect_manual_entries is True

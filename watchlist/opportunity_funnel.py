@@ -100,6 +100,7 @@ def build_opportunity_funnel(
             "top_n": policy.top_n,
             "qualifying_decisions": list(policy.qualifying_decisions),
             "min_confidence_score": policy.min_confidence_score,
+            "review_sla_days": policy.review_sla_days,
         },
     )
 

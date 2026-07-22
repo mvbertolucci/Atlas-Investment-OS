@@ -231,7 +231,11 @@ def render_watchlist(context: ReportContext) -> str:
         "<tr>"
         f'<td><a class="symbol-link" href="#{_e(row.anchor_id)}">{_e(row.symbol)}</a></td>'
         f"<td>{_e(row.name)}</td>"
-        f"<td>{_e(row.trigger_condition) or 'acompanhamento passivo'}</td>"
+        f"<td>{_e(row.effective_state)}</td>"
+        f"<td>{_e(row.analytical_origin)}</td>"
+        + (f"<td>#{row.entry_rank}</td>" if row.entry_rank is not None else "<td>—</td>")
+        + (f"<td>{row.entry_score:.1f}</td>" if row.entry_score is not None else "<td>—</td>")
+        + f"<td>{_e(row.trigger_condition) or 'acompanhamento passivo'}</td>"
         + (f"<td>{row.score:.1f}</td>" if row.score is not None else "<td>—</td>")
         + (f"<td>{row.age_days}d</td>" if row.age_days is not None else "<td>—</td>")
         + (
@@ -244,6 +248,8 @@ def render_watchlist(context: ReportContext) -> str:
             if row.cleanup_suggested
             else "<td>—</td>"
         )
+        + (f"<td>{_e(row.review_due_at)}</td>" if row.review_due_at else "<td>—</td>")
+        + (f"<td>{_e(row.discard_condition)}</td>" if row.discard_condition else "<td>—</td>")
         + "</tr>"
         for row in context.watchlist_rows
     )
@@ -252,12 +258,12 @@ def render_watchlist(context: ReportContext) -> str:
 <div class="table-scroll">
 <table>
 <colgroup>
-<col style="width:12%"><col style="width:18%"><col style="width:24%">
-<col style="width:10%"><col style="width:10%"><col style="width:14%">
-<col style="width:12%">
+<col><col><col><col><col><col><col><col><col><col><col><col><col>
 </colgroup>
-<thead><tr><th>Símbolo</th><th>Nome</th><th>Condição</th><th>Score</th>
-<th>Idade</th><th>Trigger</th><th>Limpeza?</th></tr></thead>
+<thead><tr><th>Símbolo</th><th>Nome</th><th>Estado</th><th>Origem</th>
+<th>Rank entrada</th><th>Score entrada</th><th>Condição promoção</th>
+<th>Score atual</th><th>Idade</th><th>Trigger</th><th>Limpeza?</th>
+<th>Revisar em</th><th>Condição descarte</th></tr></thead>
 <tbody>{rows_html}</tbody>
 </table>
 </div>

@@ -8,6 +8,13 @@ OPTIONAL_COLUMNS = (
     "note",
     "trigger_condition",
     "source",
+    "lifecycle_state",
+    "analytical_origin",
+    "entry_rank",
+    "entry_score",
+    "review_due_at",
+    "promotion_condition",
+    "discard_condition",
 )
 
 SUPPORTED_COLUMNS = (
@@ -34,6 +41,13 @@ COLUMN_ALIASES = {
     "condição de trigger": "trigger_condition",
     "trigger": "trigger_condition",
     "trigger_condition": "trigger_condition",
+    "estado": "lifecycle_state",
+    "origem_analitica": "analytical_origin",
+    "rank_entrada": "entry_rank",
+    "score_entrada": "entry_score",
+    "revisar_em": "review_due_at",
+    "condicao_promocao": "promotion_condition",
+    "condicao_descarte": "discard_condition",
 }
 
 

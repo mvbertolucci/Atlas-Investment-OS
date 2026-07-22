@@ -50,6 +50,8 @@ class WatchlistAutoPolicy:
             )
         if not self.qualifying_decisions:
             raise ValueError("selection.qualifying_decisions não pode ser vazio.")
+        if self.review_sla_days <= 0:
+            raise ValueError("selection.review_sla_days deve ser positivo.")
 
     @property
     def top_n(self) -> int:
@@ -65,6 +67,10 @@ class WatchlistAutoPolicy:
     @property
     def min_confidence_score(self) -> float:
         return float(self.selection.get("min_confidence_score", 60.0))
+
+    @property
+    def review_sla_days(self) -> int:
+        return int(self.selection.get("review_sla_days", 30))
 
     @property
     def exit_investment_score_threshold(self) -> float:

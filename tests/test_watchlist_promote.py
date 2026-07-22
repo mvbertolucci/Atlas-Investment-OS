@@ -202,6 +202,34 @@ def test_source_auto_persists_for_auto_curation_flow(tmp_path: Path) -> None:
     assert nem.source == "auto"
 
 
+def test_promotion_persists_active_queue_metadata(tmp_path: Path) -> None:
+    watchlist_path = _write_watchlist(
+        tmp_path / "watchlist.csv", "symbol,name\nADBE,Adobe\n"
+    )
+    promote_to_watchlist(
+        "KGC",
+        "ADR qualificado",
+        watchlist_path=watchlist_path,
+        trigger_condition="score > 80",
+        source="auto",
+        analytical_origin="adr",
+        entry_rank=1,
+        entry_score=72.2,
+        review_sla_days=30,
+        discard_condition="investment_score < 40",
+        today=date(2026, 7, 22),
+    )
+
+    kgc = next(item for item in load_watchlist_csv(watchlist_path) if item.symbol == "KGC")
+    assert kgc.lifecycle_state == "analyzing"
+    assert kgc.analytical_origin == "adr"
+    assert kgc.entry_rank == 1
+    assert kgc.entry_score == 72.2
+    assert kgc.review_due_at == date(2026, 8, 21)
+    assert kgc.promotion_condition == "score > 80"
+    assert kgc.discard_condition == "investment_score < 40"
+
+
 def test_legacy_rows_without_source_column_backfill_to_manual(
     tmp_path: Path,
 ) -> None:

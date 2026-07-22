@@ -29,6 +29,7 @@ from watchlist import (
 )
 from watchlist.auto_curation import AutoCurationResult, run_auto_curation
 from watchlist.auto_policy import load_watchlist_auto_policy
+from watchlist.active_queue import build_active_queue
 from watchlist.opportunity_funnel import (
     build_opportunity_funnel,
     write_opportunity_funnel,
@@ -247,6 +248,15 @@ class IntelligenceApplicationService:
         report = WatchlistReport(
             results=results,
             auto_curation=auto_curation.to_dict() if auto_curation else None,
+            active_queue=build_active_queue(
+                entries,
+                results,
+                as_of=(
+                    pd.Timestamp(current_run_at).date()
+                    if current_run_at is not None
+                    else datetime.now().date()
+                ),
+            ),
         )
         report_path = write_watchlist_report(
             report, self.watchlist_report_file

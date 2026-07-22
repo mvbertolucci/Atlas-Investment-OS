@@ -43,6 +43,7 @@ class AutoInclusionCandidate:
     source_report: str
     trigger_condition: str
     note: str
+    candidate_rank: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -55,6 +56,7 @@ class AutoInclusionCandidate:
             "source_report": self.source_report,
             "trigger_condition": self.trigger_condition,
             "note": self.note,
+            "candidate_rank": self.candidate_rank,
         }
 
 
@@ -171,6 +173,11 @@ def select_auto_inclusion_candidates(
                         f"Auto-inclusão ({label}): decisão estimada "
                         f"{decision_estimate}, Investment Score "
                         f"{investment_score:.1f}."
+                    ),
+                    candidate_rank=(
+                        int(company["candidate_rank"])
+                        if company.get("candidate_rank") is not None
+                        else None
                     ),
                 )
             )
@@ -306,6 +313,14 @@ def run_auto_curation(
                     name=candidate.name,
                     trigger_condition=candidate.trigger_condition,
                     source="auto",
+                    analytical_origin=candidate.source_report,
+                    entry_rank=candidate.candidate_rank,
+                    entry_score=candidate.investment_score,
+                    review_sla_days=policy.review_sla_days,
+                    discard_condition=(
+                        f"investment_score < "
+                        f"{policy.exit_investment_score_threshold:.1f}"
+                    ),
                     today=today,
                 )
             )

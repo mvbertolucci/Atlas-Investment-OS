@@ -24,6 +24,8 @@ selection:
   # de um nome de baixa qualidade de dado entrar só por causa dessa
   # aproximação otimista.
   min_confidence_score: 60.0
+  # Prazo para a primeira revisão formal de uma entrada automática.
+  review_sla_days: 30
 
 exit:
   # Entrada com source=auto e Investment Score atual abaixo disto é

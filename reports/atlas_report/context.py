@@ -72,6 +72,12 @@ class WatchlistRow:
     age_days: int | None
     cleanup_suggested: bool
     message: str
+    effective_state: str = "monitoring"
+    analytical_origin: str = "manual"
+    entry_rank: int | None = None
+    entry_score: float | None = None
+    review_due_at: str | None = None
+    discard_condition: str = ""
     anchor_id: str = ""
 
 
@@ -293,8 +299,13 @@ def build_report_context(
     # --- watchlist ------------------------------------------------------
     watchlist_rows: list[WatchlistRow] = []
     if watchlist_report is not None:
+        active_by_symbol = {
+            str(item.get("symbol", "")): item
+            for item in watchlist_report.active_queue
+        }
         for result in watchlist_report.results:
             current = current_by_symbol.get(result.symbol, {})
+            active = active_by_symbol.get(result.symbol, {})
             watchlist_rows.append(
                 WatchlistRow(
                     symbol=result.symbol,
@@ -306,6 +317,20 @@ def build_report_context(
                     age_days=result.age_days,
                     cleanup_suggested=result.cleanup_suggested,
                     message=result.message,
+                    effective_state=str(active.get("effective_state", "monitoring")),
+                    analytical_origin=str(active.get("analytical_origin", "manual")),
+                    entry_rank=(
+                        int(active["entry_rank"])
+                        if active.get("entry_rank") is not None
+                        else None
+                    ),
+                    entry_score=_number(active.get("entry_score")),
+                    review_due_at=(
+                        str(active["review_due_at"])
+                        if active.get("review_due_at")
+                        else None
+                    ),
+                    discard_condition=str(active.get("discard_condition", "")),
                     anchor_id=anchor_id(result.symbol),
                 )
             )

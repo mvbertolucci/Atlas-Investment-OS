@@ -80,6 +80,13 @@ def entries_from_dataframe(
                         row.get("trigger_condition")
                     ),
                     source=_clean_optional_text(row.get("source")) or "manual",
+                    lifecycle_state=_clean_optional_text(row.get("lifecycle_state")) or "monitoring",
+                    analytical_origin=_clean_optional_text(row.get("analytical_origin")) or "manual",
+                    entry_rank=_clean_optional_text(row.get("entry_rank")) or None,
+                    entry_score=_clean_optional_text(row.get("entry_score")) or None,
+                    review_due_at=_clean_optional_text(row.get("review_due_at")) or None,
+                    promotion_condition=_clean_optional_text(row.get("promotion_condition")),
+                    discard_condition=_clean_optional_text(row.get("discard_condition")),
                 )
             )
         except Exception as exc:

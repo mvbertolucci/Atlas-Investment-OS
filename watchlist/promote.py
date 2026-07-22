@@ -4,7 +4,7 @@ import argparse
 import csv
 import json
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -96,6 +96,11 @@ def promote_to_watchlist(
     name: str | None = None,
     trigger_condition: str = "",
     source: str = "manual",
+    analytical_origin: str | None = None,
+    entry_rank: int | None = None,
+    entry_score: float | None = None,
+    review_sla_days: int = 30,
+    discard_condition: str = "",
 ) -> PromotionResult:
     """
     Promove um símbolo do output do screener para a watchlist: preenche
@@ -130,6 +135,8 @@ def promote_to_watchlist(
         raise ValueError(
             f"source inválido: {source!r} (esperado um de {WATCHLIST_ENTRY_SOURCES})"
         )
+    if review_sla_days <= 0:
+        raise ValueError("review_sla_days deve ser positivo.")
 
     watchlist_path = Path(watchlist_path)
     if not watchlist_path.exists():
@@ -153,6 +160,7 @@ def promote_to_watchlist(
         name.strip() if name is not None else _lookup_name(symbol, Path(source_path))
     )
     included_at = (today or date.today()).isoformat()
+    review_due_at = ((today or date.today()) + timedelta(days=review_sla_days)).isoformat()
 
     new_row = {
         "symbol": symbol,
@@ -161,6 +169,13 @@ def promote_to_watchlist(
         "note": reason,
         "trigger_condition": trigger_condition.strip(),
         "source": source,
+        "lifecycle_state": "analyzing" if source == "auto" else "monitoring",
+        "analytical_origin": (analytical_origin or source).strip(),
+        "entry_rank": entry_rank if entry_rank is not None else "",
+        "entry_score": entry_score if entry_score is not None else "",
+        "review_due_at": review_due_at,
+        "promotion_condition": trigger_condition.strip(),
+        "discard_condition": discard_condition.strip(),
     }
 
     # União das colunas existentes (preserva o que já está no arquivo) com as
