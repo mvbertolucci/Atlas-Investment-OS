@@ -213,3 +213,15 @@ pendência aberta abaixo.
 `output/dados/total_return_evidence.json`, com 9.437 observações mensais
 dividend-inclusive e benchmark `SPY`. O auditor reconhece esse artefato; a
 evidência de retorno total deixou de ser um bloqueio.
+
+### Manutenção local do OneDrive (2026-07-22)
+
+- Enviados para a Lixeira apenas os caches recriáveis em
+  `data/provider_cache/`: `finnhub.json`, `fmp.json`, `massive_float.json`,
+  `massive_grouped_daily.json`, `massive_ticker_details.json` e
+  `sec_shares.json` (830,3 MB no total).
+- Preservados `data/provider_cache/fmp_quota.json`, `data/raw_snapshots/`,
+  `.venv/`, bancos e relatórios.
+- Impacto esperado: a próxima coleta pode ser mais lenta e reconstruirá os
+  caches conforme necessário; nenhuma configuração, regra de negócio ou
+  evidência imutável foi alterada.
