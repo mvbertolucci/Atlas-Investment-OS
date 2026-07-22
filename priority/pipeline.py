@@ -50,7 +50,9 @@ def build_sell_priority(
             continue
 
         action = str(action_data.get("action", "")).strip().upper()
-        if action == "BUY":
+        if action in ("BUY", "ACOMPANHAR"):
+            # ACOMPANHAR is a comparative-only signal, never a sell
+            # decision -- excluded the same way BUY already is.
             continue
         if action not in {"SELL", "TRIM", "HOLD", "REVISAR"}:
             raise ValueError(

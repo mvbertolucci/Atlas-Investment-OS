@@ -19,6 +19,8 @@ _STYLE = """
   --revisar-bg: #fef9c3;
   --sell: #b91c1c;
   --sell-bg: #fee2e2;
+  --acompanhar: #1d4ed8;
+  --acompanhar-bg: #dbeafe;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -30,6 +32,7 @@ _STYLE = """
     --hold-bg: #14532d;
     --revisar-bg: #713f12;
     --sell-bg: #7f1d1d;
+    --acompanhar-bg: #1e3a8a;
   }
 }
 * { box-sizing: border-box; }
@@ -53,6 +56,9 @@ th { color: var(--muted); font-weight: 600; }
 .pill-hold { color: var(--hold); background: var(--hold-bg); }
 .pill-revisar { color: var(--revisar); background: var(--revisar-bg); }
 .pill-trim, .pill-sell { color: var(--sell); background: var(--sell-bg); }
+.pill-acompanhar { color: var(--acompanhar); background: var(--acompanhar-bg); }
+.informational-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 0.8rem; margin-bottom: 0.4rem; font-size: 0.85rem; }
+.informational-card .features { color: var(--muted); font-size: 0.8rem; margin-top: 0.2rem; }
 .delta-up { color: var(--hold); }
 .delta-down { color: var(--sell); }
 .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; }
@@ -73,6 +79,7 @@ _PILL_CLASS = {
     "REVISAR": "pill-revisar",
     "TRIM": "pill-trim",
     "SELL": "pill-sell",
+    "ACOMPANHAR": "pill-acompanhar",
 }
 
 
@@ -125,6 +132,36 @@ def render_required_actions(context: ReportContext) -> str:
         for item in context.required_actions
     )
     return f"<h2>Ações requeridas</h2>\n{cards}"
+
+
+def render_informational_signals(context: ReportContext) -> str:
+    """ACOMPANHAR: nunca esconde o sinal, mas nunca o mistura com Ações
+    Requeridas -- seção deliberadamente mais leve, sempre com o mesmo
+    detalhe numérico (top contribuições negativas) que já existe na seção
+    de detalhe por ativo, nunca um rótulo vazio."""
+    if not context.informational_signals:
+        return "<h2>Sinais informativos</h2>" + _not_included(
+            "Nenhum sinal informativo"
+        ).replace("não incluído neste run.", "")
+    cards = "\n".join(
+        f'<div class="informational-card">'
+        f'<a class="symbol-link" href="#{_e(item.anchor_id)}"><strong>{_e(item.symbol)}</strong></a> '
+        f'{_pill("ACOMPANHAR")} {_e(item.name)}'
+        f'<br>{_e(item.message)}'
+        + (
+            '<div class="features">'
+            + " · ".join(
+                f"{_e(feature.label)} (percentil {feature.percentile:.0f})"
+                for feature in item.top_negative_features
+            )
+            + "</div>"
+            if item.top_negative_features
+            else ""
+        )
+        + "</div>"
+        for item in context.informational_signals
+    )
+    return f"<h2>Sinais informativos</h2>\n{cards}"
 
 
 def render_portfolio(context: ReportContext) -> str:
@@ -663,6 +700,7 @@ def render_report(context: ReportContext) -> str:
         (
             render_header(context),
             render_required_actions(context),
+            render_informational_signals(context),
             render_portfolio(context),
             render_watchlist(context),
             render_watchlist_proposals(context),

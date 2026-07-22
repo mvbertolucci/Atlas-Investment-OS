@@ -567,10 +567,15 @@ def evaluate_sell_rules(
             f"{', '.join(actionable_non_distress)}."
         )
     elif triggered:
-        action = "REVISAR"
+        # Only a review_only rule (relative_decay) fired -- a comparative
+        # signal, never company deterioration, that by design never reduces
+        # the position on its own. ACOMPANHAR (not REVISAR) keeps this out
+        # of the "needs your decision" surface: it is worth seeing, never
+        # worth acting on by itself.
+        action = "ACOMPANHAR"
         reason = (
-            "Sinal exclusivamente relativo/informativo; revisar sem redução "
-            "automática da posição."
+            "Sinal exclusivamente relativo/informativo; acompanhar sem "
+            "redução automática da posição."
         )
     else:
         action = "HOLD"

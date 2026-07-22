@@ -470,15 +470,18 @@ def test_distress_review_remains_conservative_when_override_disabled(
     assert result.action == "REVISAR"
 
 
-def test_relative_decay_alone_requires_review_without_reduction(
+def test_relative_decay_alone_is_informational_not_a_review_request(
     policy: SellRulesPolicy,
 ) -> None:
+    """relative_decay is a comparative signal, never company deterioration
+    -- alone, it must never inflate the REVISAR ("needs your decision")
+    surface. ACOMPANHAR keeps it visible without asking for action."""
     result = evaluate_sell_rules(
         _ctx(score_percentile=10.0, universe_size=50, universe_scope="reduced"),
         policy,
     )
     assert result.triggered_rules == ("relative_decay",)
-    assert result.action == "REVISAR"
+    assert result.action == "ACOMPANHAR"
 
 
 def test_relative_decay_does_not_escalate_an_actionable_rule(

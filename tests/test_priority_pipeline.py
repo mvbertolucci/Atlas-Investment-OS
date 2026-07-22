@@ -254,3 +254,20 @@ def test_reports_are_serializable() -> None:
     assert buy_data["items"][0]["symbol"] == "BBB"
     assert "target_weight" not in sell_data["items"][0]
     assert "target_weight" not in buy_data["items"][0]
+
+
+def test_sell_priority_excludes_acompanhar_like_buy() -> None:
+    """ACOMPANHAR is a comparative-only signal (portfolio/sell_rules.py),
+    never a sell decision -- excluded the same way BUY already is, not
+    treated as an invalid action."""
+    report = build_sell_priority(
+        [_ranked("AAA", 40.0), _ranked("BBB", 60.0)],
+        rebalance_actions=[
+            _action("AAA", "ACOMPANHAR", 35),
+            _action("BBB", "TRIM", 10),
+        ],
+    )
+
+    symbols = [item.symbol for item in report.items]
+    assert "AAA" not in symbols
+    assert symbols == ["BBB"]

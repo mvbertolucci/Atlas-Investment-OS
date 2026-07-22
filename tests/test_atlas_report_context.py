@@ -105,6 +105,48 @@ def test_rebalance_actions_populate_portfolio_rows_and_required_actions() -> Non
     assert ctx.portfolio_warnings == ("aviso de teste",)
 
 
+def test_acompanhar_goes_to_informational_signals_not_required_actions() -> None:
+    """ACOMPANHAR (portfolio/sell_rules.py: relative_decay alone) must never
+    inflate "Ações Requeridas" -- it belongs only in the separate,
+    lighter-weight informational section."""
+    plan = RebalancePlan(
+        actions=(
+            RebalanceAction(
+                symbol="AAA",
+                action="ACOMPANHAR",
+                current_weight=0.1,
+                target_weight=0.1,
+                target_value=100,
+                trade_value=0,
+                reason="Sinal exclusivamente relativo/informativo",
+            ),
+            RebalanceAction(
+                symbol="BBB",
+                action="SELL",
+                current_weight=0.1,
+                target_weight=0.0,
+                target_value=0,
+                trade_value=-100,
+                reason="distress disparou",
+                triggered_rules=("distress",),
+            ),
+        ),
+    )
+    ctx = build_report_context(
+        mode="full",
+        df=_df(),
+        snapshot_date="2026-07-14T00:00:00",
+        rebalance=plan.to_dict(),
+    )
+
+    assert not any(action.symbol == "AAA" for action in ctx.required_actions)
+    assert any(action.symbol == "BBB" for action in ctx.required_actions)
+    assert len(ctx.informational_signals) == 1
+    signal = ctx.informational_signals[0]
+    assert signal.symbol == "AAA"
+    assert signal.message == "Sinal exclusivamente relativo/informativo"
+
+
 def test_score_delta_only_when_baseline_comparable() -> None:
     plan = RebalancePlan(
         actions=(

@@ -659,9 +659,13 @@ def build_stateful_sell_plan(
                 target_value=target_weight * portfolio.total_value,
                 trade_value=trade_value,
                 reason=reason,
-                priority={"SELL": 0, "TRIM": 10, "REVISAR": 20, "HOLD": 50}[
-                    decision.action
-                ],
+                priority={
+                    "SELL": 0,
+                    "TRIM": 10,
+                    "REVISAR": 20,
+                    "ACOMPANHAR": 35,
+                    "HOLD": 50,
+                }[decision.action],
                 triggered_rules=decision.triggered_rules,
                 rule_results=tuple(
                     item.to_dict() for item in decision.evaluations

@@ -217,6 +217,42 @@ def test_rebalance_plan_groups_actions() -> None:
     assert plan.net_cash_requirement == 0.0
 
 
+def test_acompanhar_is_valid_and_kept_out_of_review_actions() -> None:
+    """ACOMPANHAR is a comparative-only signal (portfolio/sell_rules.py) --
+    must be a valid action and must never count as `review_actions`
+    (REVISAR, "needs your decision"), only its own `informational_actions`."""
+    acompanhar = RebalanceAction(
+        symbol="CCC",
+        action="acompanhar",
+        current_weight=0.10,
+        target_weight=0.10,
+        target_value=1000,
+        trade_value=0,
+        reason="Sinal exclusivamente relativo/informativo",
+    )
+    revisar = RebalanceAction(
+        symbol="DDD",
+        action="REVISAR",
+        current_weight=0.05,
+        target_weight=0.05,
+        target_value=500,
+        trade_value=0,
+        reason="Gating de confiança",
+    )
+
+    assert acompanhar.action == "ACOMPANHAR"
+
+    plan = RebalancePlan(
+        actions=(acompanhar, revisar),
+        required_cash=0,
+        released_cash=0,
+        estimated_turnover=0.0,
+    )
+
+    assert plan.informational_actions == (acompanhar,)
+    assert plan.review_actions == (revisar,)
+
+
 def test_models_are_serializable() -> None:
     portfolio = Portfolio(
         name="Serializable",

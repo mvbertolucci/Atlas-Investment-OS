@@ -682,9 +682,10 @@ class RebalanceAction:
             "HOLD",
             "TRIM",
             "REVISAR",
+            "ACOMPANHAR",
         }:
             raise ValueError(
-                "action deve ser BUY, SELL, HOLD, TRIM ou REVISAR."
+                "action deve ser BUY, SELL, HOLD, TRIM, REVISAR ou ACOMPANHAR."
             )
 
         if not reason:
@@ -903,6 +904,17 @@ class RebalancePlan:
             action
             for action in self.actions
             if action.action == "REVISAR"
+        )
+
+    @property
+    def informational_actions(self) -> tuple[RebalanceAction, ...]:
+        """ACOMPANHAR: a comparative signal worth seeing, never worth a
+        decision on its own -- kept separate from `review_actions` so it
+        never inflates the "needs your attention" count."""
+        return tuple(
+            action
+            for action in self.actions
+            if action.action == "ACOMPANHAR"
         )
 
     @property

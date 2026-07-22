@@ -153,13 +153,13 @@ def test_pill_matches_rebalance_action_1_to_1() -> None:
     assert '<span class="pill pill-sell">SELL</span>' in html
 
 
-@pytest.mark.parametrize("action_value", ["HOLD", "REVISAR", "TRIM", "SELL"])
+@pytest.mark.parametrize("action_value", ["HOLD", "REVISAR", "ACOMPANHAR", "TRIM", "SELL"])
 def test_pill_never_shows_a_decision_not_in_the_source_action(action_value: str) -> None:
     """
     Com uma única posição na carteira, qualquer pill renderizado em
-    QUALQUER seção da página (Ações Requeridas ou Carteira) só pode
-    mostrar o mesmo action_value que veio do RebalanceAction -- nunca uma
-    decisão diferente, nunca recalculada.
+    QUALQUER seção da página (Ações Requeridas, Sinais Informativos ou
+    Carteira) só pode mostrar o mesmo action_value que veio do
+    RebalanceAction -- nunca uma decisão diferente, nunca recalculada.
     """
     plan = RebalancePlan(
         actions=(
@@ -167,7 +167,7 @@ def test_pill_never_shows_a_decision_not_in_the_source_action(action_value: str)
                 symbol="AAA",
                 action=action_value,
                 current_weight=0.1,
-                target_weight=0.1 if action_value in ("HOLD", "REVISAR") else 0.0,
+                target_weight=0.1 if action_value in ("HOLD", "REVISAR", "ACOMPANHAR") else 0.0,
                 target_value=100,
                 trade_value=0,
                 reason="teste",
@@ -191,6 +191,34 @@ def test_no_external_resources_in_generated_html() -> None:
 def test_required_action_card_shows_which_engine_signed_it() -> None:
     html = render_report(_full_context())
     assert "[portfolio.sell_rules]" in html
+
+
+def test_acompanhar_renders_in_informational_section_not_required_actions() -> None:
+    """ACOMPANHAR must never inflate Ações Requeridas -- it belongs only in
+    the separate, lighter "Sinais informativos" section, correctly pilled
+    (not silently falling back to pill-revisar's default)."""
+    plan = RebalancePlan(
+        actions=(
+            RebalanceAction(
+                symbol="AAA",
+                action="ACOMPANHAR",
+                current_weight=0.1,
+                target_weight=0.1,
+                target_value=100,
+                trade_value=0,
+                reason="Sinal exclusivamente relativo/informativo",
+            ),
+        )
+    )
+    ctx = build_report_context(
+        mode="full", df=_df(), snapshot_date="2026-07-14T00:00:00", rebalance=plan.to_dict()
+    )
+    html = render_report(ctx)
+
+    assert "<h2>Sinais informativos</h2>" in html
+    assert '<span class="pill pill-acompanhar">ACOMPANHAR</span>' in html
+    required_section = html.split("<h2>Sinais informativos</h2>")[0]
+    assert "ACOMPANHAR" not in required_section
 
 
 def test_diagnostico_heading_present() -> None:

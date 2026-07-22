@@ -148,6 +148,9 @@ def build_portfolio_report(
         "review_actions": len(
             rebalance_plan.review_actions
         ),
+        "acompanhar_actions": len(
+            rebalance_plan.informational_actions
+        ),
         "required_cash": rebalance_plan.required_cash,
         "released_cash": rebalance_plan.released_cash,
         "net_cash_requirement": (

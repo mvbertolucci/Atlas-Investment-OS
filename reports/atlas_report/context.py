@@ -11,7 +11,12 @@ from analytics.history import earnings_between_runs
 from ranking.models import RankingReport
 from reports.atlas_report.broad_screener import BroadScreenerSummary, load_broad_screener_summary
 from reports.atlas_report.diagnostics import extract_status_conflicts
-from reports.atlas_report.ticker_detail import TickerDetail, anchor_id, build_ticker_detail
+from reports.atlas_report.ticker_detail import (
+    FeatureDetail,
+    TickerDetail,
+    anchor_id,
+    build_ticker_detail,
+)
 from watchlist.screening import (
     WatchlistProposal,
     propose_from_broad_reports,
@@ -88,6 +93,21 @@ class RequiredAction:
 
 
 @dataclass(frozen=True)
+class InformationalSignal:
+    """ACOMPANHAR: comparative-only signal, kept out of `required_actions`
+    on purpose (never resolves into TRIM/SELL alone) but shown with the
+    same numeric decomposition as the ticker-detail section (top negative
+    contributions, read-only, no new calculation) so it is never a bare
+    label with nothing behind it."""
+
+    symbol: str
+    name: str
+    anchor_id: str
+    message: str
+    top_negative_features: tuple[FeatureDetail, ...] = ()
+
+
+@dataclass(frozen=True)
 class ScreenerSummary:
     included: bool
     total_count: int = 0
@@ -125,6 +145,7 @@ class ReportContext:
     data_quality: DataQualityFootnote
     engine_conflicts: tuple[str, ...] = ()
     ticker_details: tuple[TickerDetail, ...] = ()
+    informational_signals: tuple[InformationalSignal, ...] = ()
     broad_screeners: tuple[BroadScreenerSummary, ...] = ()
     watchlist_proposals: tuple[WatchlistProposal, ...] = ()
     watchlist_auto_curation: dict[str, Any] | None = None
@@ -258,7 +279,7 @@ def build_report_context(
                     rule_results=tuple(action.get("rule_results", ()) or ()),
                 )
             )
-            if action_value != "HOLD":
+            if action_value not in ("HOLD", "ACOMPANHAR"):
                 required_actions.append(
                     RequiredAction(
                         symbol=symbol,
@@ -354,6 +375,27 @@ def build_report_context(
                     as_of=as_of,
                 )
             )
+
+    # ACOMPANHAR: lido do mesmo ticker_details já montado acima -- nenhuma
+    # decomposição nova, só a mesma seção read-only reaproveitada para dar
+    # detalhe numérico (top contribuições negativas) sem ser um rótulo vazio.
+    informational_signals: list[InformationalSignal] = []
+    ticker_details_by_symbol = {detail.symbol: detail for detail in ticker_details}
+    for row in portfolio_rows:
+        if row.action != "ACOMPANHAR":
+            continue
+        detail = ticker_details_by_symbol.get(row.symbol)
+        informational_signals.append(
+            InformationalSignal(
+                symbol=row.symbol,
+                name=name_by_symbol.get(row.symbol, row.symbol),
+                anchor_id=anchor_id(row.symbol),
+                message=row.reason or _REASON_PENDING,
+                top_negative_features=(
+                    detail.negative_features if detail is not None else ()
+                ),
+            )
+        )
 
     # --- earnings (carteira + watchlist, união por símbolo) ------------
     earnings_symbols: dict[str, str] = {}
@@ -507,6 +549,7 @@ def build_report_context(
         ),
         engine_conflicts=extract_status_conflicts(status_md_text),
         ticker_details=tuple(ticker_details),
+        informational_signals=tuple(informational_signals),
         broad_screeners=tuple(broad_screeners),
         watchlist_proposals=watchlist_proposals,
         watchlist_auto_curation=(
