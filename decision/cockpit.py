@@ -50,6 +50,7 @@ def render_decision_cockpit(
     scenario: PortfolioScenario | None = None,
     journal_summary: dict[str, object] | None = None,
     execution_summary: dict[str, object] | None = None,
+    reconciliation_summary: dict[str, object] | None = None,
 ) -> str:
     if not isinstance(queue, DecisionQueue):
         raise TypeError("queue deve ser DecisionQueue.")
@@ -100,6 +101,17 @@ def render_decision_cockpit(
             f'<span><b>Caixa líquido:</b> {_e(execution_summary.get("net_cash_delta", 0))}</span>'
             '</div><p class="meta">Registro auditável; não altera carteira nem envia ordens.</p></section>'
         )
+    reconciliation_html = ""
+    if reconciliation_summary is not None:
+        reconciliation_html = (
+            '<section class="scenario"><h2>Reconciliação de custódia</h2><div class="metadata">'
+            f'<span><b>Confirmadas:</b> {_e(reconciliation_summary.get("confirmed", 0))}</span>'
+            f'<span><b>Parciais:</b> {_e(reconciliation_summary.get("partial", 0))}</span>'
+            f'<span><b>Não refletidas:</b> {_e(reconciliation_summary.get("not_reflected", 0))}</span>'
+            f'<span><b>Divergências:</b> {_e(reconciliation_summary.get("variance", 0))}</span>'
+            f'<span><b>Não verificáveis:</b> {_e(reconciliation_summary.get("unverifiable", 0))}</span>'
+            '</div></section>'
+        )
     sections = []
     for name in ("EXECUTE", "INVESTIGATE", "WAIT", "MONITOR"):
         items = groups[name]
@@ -141,7 +153,7 @@ font-size:13px;margin-bottom:8px}}small,.empty{{color:var(--muted)}}
 </style></head><body><main><header><div><h1>Atlas Decision Cockpit</h1>
 <p class="meta">Fila decisória consolidada · somente consultiva</p></div>
 <p class="meta">Gerado em {_e(payload["generated_at"])}</p></header>
-<div class="summary-grid">{summary_cards}</div>{scenario_html}{journal_html}{execution_html}{''.join(sections)}
+<div class="summary-grid">{summary_cards}</div>{scenario_html}{journal_html}{execution_html}{reconciliation_html}{''.join(sections)}
 </main></body></html>"""
 
 
@@ -152,6 +164,7 @@ def write_decision_cockpit(
     scenario: PortfolioScenario | None = None,
     journal_summary: dict[str, object] | None = None,
     execution_summary: dict[str, object] | None = None,
+    reconciliation_summary: dict[str, object] | None = None,
 ) -> Path:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -160,6 +173,7 @@ def write_decision_cockpit(
         render_decision_cockpit(
             queue, scenario=scenario, journal_summary=journal_summary,
             execution_summary=execution_summary,
+            reconciliation_summary=reconciliation_summary,
         ),
         encoding="utf-8",
     )

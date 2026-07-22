@@ -32,7 +32,8 @@ execution evidence remains in the ledger artifact.
 2. Review and explicitly mark the decision `ACCEPTED` in the Decision Journal.
 3. Execute outside Atlas, using the authorized brokerage process.
 4. Record the actual fill in the Execution Ledger.
-5. Reconcile the next portfolio import against ledger evidence.
+5. Reconcile the next complete portfolio snapshot against the baseline and
+   ledger evidence using [Execution Reconciliation](EXECUTION_RECONCILIATION.md).
 
-Step 5 remains a separate future control; this increment does not infer fills,
-update holdings or authorize purchases.
+Reconciliation does not infer missing baseline quantities, update holdings or
+authorize purchases.

@@ -94,3 +94,13 @@ def test_renders_execution_ledger_summary() -> None:
     assert "Execuções reais informadas" in html
     assert "Preenchimentos:</b> 2" in html
     assert "Caixa líquido:</b> 497.5" in html
+
+
+def test_renders_reconciliation_summary() -> None:
+    html = render_decision_cockpit(
+        _queue(), reconciliation_summary={"confirmed": 2, "partial": 1,
+        "not_reflected": 1, "variance": 1, "unverifiable": 0}
+    )
+    assert "Reconciliação de custódia" in html
+    assert "Confirmadas:</b> 2" in html
+    assert "Divergências:</b> 1" in html

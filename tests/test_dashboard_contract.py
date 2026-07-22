@@ -46,6 +46,7 @@ def test_empty_build_is_valid_and_versioned() -> None:
     assert data["portfolio_scenario"] is None
     assert data["decision_journal"] is None
     assert data["execution_ledger"] is None
+    assert data["execution_reconciliation"] is None
     assert "generated_at" in data
 
 

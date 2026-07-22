@@ -30,6 +30,7 @@
 | Dashboard/API/SDK | Yes | Yes | N/A | N/A | Read-only platform contracts operational |
 | Human decision journal | Yes | Yes | N/A | N/A | Append-only explicit review evidence; no trade execution |
 | Execution ledger | Yes | Yes | N/A | N/A | Append-only actual SELL/TRIM fills linked to latest ACCEPTED decision; no orders or portfolio mutation |
+| Execution reconciliation | Yes | Yes | N/A | N/A | Diagnostic comparison of ledger fills against explicit baseline/current custody snapshots |
 
 ## Conditional outputs
 

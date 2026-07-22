@@ -1,5 +1,16 @@
 # Changelog
 
+## Reconcile execution evidence against custody snapshots
+
+### Added
+
+- Diagnostic reconciliation of aggregated `SELL`/`TRIM` fills against explicit
+  before/after portfolio quantities, with `CONFIRMED`, `PARTIAL`,
+  `NOT_REFLECTED`, `VARIANCE` and `UNVERIFIABLE` states.
+- Future-dated fills are excluded from a reconciliation snapshot; missing
+  baseline quantities are never inferred.
+- Read-only status counts in Dashboard Contract 1.6 and Decision Cockpit.
+
 ## Add an auditable, human-informed execution ledger
 
 ### Added
