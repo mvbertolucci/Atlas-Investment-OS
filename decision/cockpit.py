@@ -164,10 +164,68 @@ def _item_card(item: dict[str, object]) -> str:
     )
 
 
+def _opportunity_card(item: dict[str, object]) -> str:
+    metadata = []
+    for key, label in (
+        ("opportunity_score", "Opportunity"),
+        ("conviction_score", "Convicção"),
+        ("decision_confidence", "Confiança"),
+        ("data_coverage", "Cobertura"),
+        ("risk_penalty", "Risco"),
+    ):
+        value = item.get(key)
+        if value is not None and value != "":
+            metadata.append(f"<span><b>{_e(label)}:</b> {_e(value)}</span>")
+    thesis_html = (
+        f'<p><b>Tese:</b> {_e(item.get("investment_thesis"))}</p>'
+        if item.get("investment_thesis")
+        else ""
+    )
+    drivers = item.get("decision_drivers") or ()
+    drivers_html = (
+        f'<p><b>Por quê:</b> {_e("; ".join(str(d) for d in drivers))}</p>'
+        if drivers
+        else ""
+    )
+    return (
+        '<article class="decision-card">'
+        f'<div class="card-head"><strong>{_e(item.get("company_name")) or _e(item.get("symbol"))} '
+        f'<small>({_e(item.get("symbol"))})</small></strong>'
+        f'<span class="action">{_e(item.get("action")) or "CANDIDATA"}</span></div>'
+        f'{drivers_html}'
+        f'{thesis_html}'
+        f'<div class="metadata">{"".join(metadata)}</div>'
+        f'<small>fora da carteira · consultivo</small>'
+        "</article>"
+    )
+
+
+def _health_section(health: dict[str, object] | None) -> str:
+    if not health:
+        return ""
+    warnings = health.get("warnings") or ()
+    warnings_html = "".join(f"<li>{_e(w)}</li>" for w in warnings) or (
+        "<li>Sem alertas de alocação.</li>"
+    )
+    return (
+        '<section class="scenario"><h2>Saúde da carteira</h2><div class="metadata">'
+        f'<span><b>Valor:</b> {_e(health.get("currency", "USD"))} '
+        f'{_e(health.get("total_value", "-"))}</span>'
+        f'<span><b>Qualidade:</b> {_e(health.get("quality_score", "-"))} '
+        f'({_e(health.get("quality_rating", "-"))})</span>'
+        f'<span><b>Caixa:</b> {_e(health.get("cash_weight", "-"))}</span>'
+        f'<span><b>Maior posição:</b> {_e(health.get("largest_position_weight", "-"))}</span>'
+        f'</div><ul>{warnings_html}</ul></section>'
+    )
+
+
 def render_decision_cockpit(
     queue: DecisionQueue,
     *,
     delta: dict[str, object] | None = None,
+    opportunities: tuple[dict[str, object], ...] = (),
+    portfolio_health: dict[str, object] | None = None,
+    outcomes_line: str | None = None,
     scenario: PortfolioScenario | None = None,
     journal_summary: dict[str, object] | None = None,
     execution_summary: dict[str, object] | None = None,
@@ -234,17 +292,59 @@ def render_decision_cockpit(
             '</div></section>'
         )
     delta_html = _delta_section(delta)
-    sections = []
-    for name in ("EXECUTE", "INVESTIGATE", "WAIT", "MONITOR"):
+
+    def _group_block(name: str) -> str:
         items = groups[name]
-        body = "".join(_item_card(item) for item in items)
-        if not body:
-            body = '<p class="empty">Nenhum item nesta fila.</p>'
-        sections.append(
-            f'<section id="{name.lower()}"><div class="section-head">'
-            f'<h2>{GROUP_LABELS[name]}</h2><span>{len(items)}</span></div>'
-            f'<div class="cards">{body}</div></section>'
+        body = "".join(_item_card(item) for item in items) or (
+            '<p class="empty">Nenhum item nesta fila.</p>'
         )
+        return (
+            f'<div class="section-head"><h3>{GROUP_LABELS[name]}</h3>'
+            f'<span>{len(items)}</span></div><div class="cards">{body}</div>'
+        )
+
+    # Tier 1 — AÇÃO: decisões sobre a carteira que pedem ação/revisão agora.
+    action_count = summary["execute"] + summary["investigate"]
+    action_html = (
+        f'<section id="acao" class="tier tier-action">'
+        f'<div class="tier-head"><h2>Agir agora</h2><span>{action_count}</span></div>'
+        f'{_group_block("EXECUTE")}{_group_block("INVESTIGATE")}</section>'
+    )
+
+    # Tier 2 — OPORTUNIDADE: candidatas de compra fora da carteira e gatilhos
+    # de entrada aguardando (watchlist waiting_trigger).
+    opportunity_cards = "".join(_opportunity_card(item) for item in opportunities)
+    wait_items = groups["WAIT"]
+    wait_cards = "".join(_item_card(item) for item in wait_items)
+    opportunity_body = opportunity_cards + wait_cards or (
+        '<p class="empty">Nenhuma oportunidade qualificada nesta execução.</p>'
+    )
+    opportunity_count = len(opportunities) + len(wait_items)
+    opportunity_html = (
+        f'<section id="oportunidade" class="tier tier-opportunity">'
+        f'<div class="tier-head"><h2>Oportunidades</h2><span>{opportunity_count}</span></div>'
+        f'<div class="cards">{opportunity_body}</div></section>'
+    )
+
+    # Tier 3 — MONITORAMENTO: sem ação; colapsado para não competir com o topo.
+    monitor_items = groups["MONITOR"]
+    monitor_cards = "".join(_item_card(item) for item in monitor_items) or (
+        '<p class="empty">Nenhum item em monitoramento.</p>'
+    )
+    monitor_html = (
+        f'<section id="monitor" class="tier tier-monitor"><details>'
+        f'<summary><h2>Acompanhar</h2><span>{len(monitor_items)}</span>'
+        '<em>sem ação — clique para expandir</em></summary>'
+        f'<div class="cards">{monitor_cards}</div></details></section>'
+    )
+
+    health_html = _health_section(portfolio_health)
+    outcomes_html = (
+        f'<section class="scenario"><h2>Evidência histórica</h2>'
+        f'<p>{_e(outcomes_line)}</p></section>'
+        if outcomes_line
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -273,13 +373,21 @@ font-size:13px;margin-bottom:8px}}small,.empty{{color:var(--muted)}}
 border-radius:10px;padding:16px 20px}}.delta h2{{margin-bottom:6px}}.delta-block{{margin:12px 0}}
 .delta-block h3{{margin:0 0 6px;font-size:14px}}.delta ul{{margin:0;padding-left:18px}}
 .delta li{{margin:4px 0;color:#344054}}
+.tier{{border-left:4px solid var(--line);padding-left:16px}}.tier-action{{border-left-color:var(--execute)}}
+.tier-opportunity{{border-left-color:#12805c}}.tier-monitor{{border-left-color:var(--monitor)}}
+.tier-head{{display:flex;align-items:center;gap:10px;margin-bottom:6px}}.tier-head h2{{margin:0}}
+.tier-head span,.section-head span,summary span{{background:#e9eef4;border-radius:999px;padding:2px 9px;font-size:14px}}
+.section-head{{display:flex;align-items:center;gap:8px;margin:14px 0 0}}.section-head h3{{margin:0;font-size:15px;color:var(--muted)}}
+.tier-monitor summary{{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}}
+.tier-monitor summary h2{{margin:0}}.tier-monitor summary em{{color:var(--muted);font-style:normal;font-size:13px}}
+.tier-monitor summary::-webkit-details-marker{{display:none}}
 @media(max-width:800px){{main{{padding:16px}}header{{display:block}}.summary-grid{{grid-template-columns:repeat(2,1fr)}}
 .cards{{grid-template-columns:1fr}}}}@media(prefers-color-scheme:dark){{:root{{--bg:#101828;--surface:#1d2939;
---text:#f2f4f7;--muted:#98a2b3;--line:#344054}}.decision-card p,.delta li{{color:#d0d5dd}}.action,.section-head span{{background:#344054}}}}
-</style></head><body><main><header><div><h1>Atlas Decision Cockpit</h1>
-<p class="meta">Fila decisória consolidada · tese e evidências por item · somente consultiva</p></div>
+--text:#f2f4f7;--muted:#98a2b3;--line:#344054}}.decision-card p,.delta li{{color:#d0d5dd}}.action,.tier-head span,.section-head span,summary span{{background:#344054}}}}
+</style></head><body><main><header><div><h1>Atlas — Hoje</h1>
+<p class="meta">Mesa de decisão consolidada · agir agora, oportunidades e acompanhamento · somente consultiva</p></div>
 <p class="meta">Gerado em {_e(payload["generated_at"])}</p></header>
-<div class="summary-grid">{summary_cards}</div>{delta_html}{scenario_html}{journal_html}{execution_html}{reconciliation_html}{''.join(sections)}
+<div class="summary-grid">{summary_cards}</div>{delta_html}{action_html}{opportunity_html}{scenario_html}{journal_html}{execution_html}{reconciliation_html}{monitor_html}{health_html}{outcomes_html}
 </main></body></html>"""
 
 
@@ -288,6 +396,9 @@ def write_decision_cockpit(
     path: str | Path,
     *,
     delta: dict[str, object] | None = None,
+    opportunities: tuple[dict[str, object], ...] = (),
+    portfolio_health: dict[str, object] | None = None,
+    outcomes_line: str | None = None,
     scenario: PortfolioScenario | None = None,
     journal_summary: dict[str, object] | None = None,
     execution_summary: dict[str, object] | None = None,
@@ -298,7 +409,9 @@ def write_decision_cockpit(
     temporary = output.with_suffix(output.suffix + ".tmp")
     temporary.write_text(
         render_decision_cockpit(
-            queue, delta=delta, scenario=scenario, journal_summary=journal_summary,
+            queue, delta=delta, opportunities=opportunities,
+            portfolio_health=portfolio_health, outcomes_line=outcomes_line,
+            scenario=scenario, journal_summary=journal_summary,
             execution_summary=execution_summary,
             reconciliation_summary=reconciliation_summary,
         ),

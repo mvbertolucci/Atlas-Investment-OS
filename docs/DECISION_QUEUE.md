@@ -22,10 +22,16 @@ carries `advisory_only: true`. The contract is embedded in `dashboard.json`
 ## Decision Cockpit
 
 The same queue is rendered without recomputation to
-`output/relatorios/decision_cockpit.html`. The standalone responsive page
-shows queue totals and one card per decision, with reason, engine and available
-portfolio/Watchlist metadata. It contains no forms or mutation controls; its
-purpose is immediate visual triage over the versioned read-only contract.
+`output/relatorios/decision_cockpit.html` — the single human page ("Atlas —
+Hoje"). It is organized by a rigid three-tier hierarchy rather than the four
+raw queue groups: **Agir agora** (EXECUTE + INVESTIGATE, on top), **Oportunidades**
+(buy candidates outside the portfolio, plus waiting entry triggers) and
+**Acompanhar** (MONITOR, collapsed in a `<details>` so it does not compete with
+sell/review). It also carries the portfolio-health summary and historical
+evidence that used to live in the retired `decision_brief.html`. Each decision
+is a card with reason, engine and available metadata. It contains no forms or
+mutation controls; its purpose is immediate visual triage over the versioned
+read-only contract.
 
 When a portfolio scenario is available, the cockpit also summarizes released
 cash, post-trade cash weight and turnover. It does not add replacement buys.

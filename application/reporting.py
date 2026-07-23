@@ -47,7 +47,6 @@ from priority import (
 )
 from ranking import RankingReport
 from reports.excel import write_latest_and_history
-from reports.decision_brief import write_decision_brief
 from reports.morning_brief import render_morning_brief, write_morning_brief
 from reports.report_engine import build_company_reports
 from universe import UniverseReport
@@ -57,6 +56,95 @@ from watchlist.models import WatchlistReport
 Settings = dict[str, Any]
 MorningBriefWriter = Callable[..., Path]
 MorningBriefRenderer = Callable[..., str]
+
+_BUY_DECISIONS = {"STRONG_BUY", "BUY", "ACCUMULATE"}
+
+
+def _fmt_percent(value: Any) -> str:
+    try:
+        return f"{float(value) * 100:.1f}%"
+    except (TypeError, ValueError):
+        return "-"
+
+
+def _fmt_number(value: Any) -> str:
+    try:
+        return f"{float(value):.1f}"
+    except (TypeError, ValueError):
+        return "-"
+
+
+def _build_cockpit_opportunities(
+    company_reports: tuple[Any, ...],
+    portfolio_report: PortfolioReport | None,
+    *,
+    limit: int = 5,
+) -> tuple[dict[str, Any], ...]:
+    """Candidatas de compra fora da carteira (mesma seleção do antigo brief).
+
+    Ordena por opportunity_score desc; exclui o que já é posição. Move para o
+    cockpit o único conteúdo que o `decision_brief.html` tinha de próprio.
+    """
+    held: set[str] = set()
+    if portfolio_report is not None:
+        allocation = portfolio_report.to_dict().get("allocation", {}) or {}
+        held = {str(sym).upper() for sym in (allocation.get("by_symbol", {}) or {})}
+    candidates = [
+        report
+        for report in company_reports
+        if str(report.symbol).upper() not in held
+        and report.decision in _BUY_DECISIONS
+    ]
+    candidates.sort(key=lambda r: r.opportunity_score or 0.0, reverse=True)
+    return tuple(
+        {
+            "symbol": report.symbol,
+            "company_name": report.company_name,
+            "action": "CANDIDATA",
+            "decision_drivers": tuple(report.decision_drivers),
+            "investment_thesis": report.investment_thesis,
+            "opportunity_score": report.opportunity_score,
+            "conviction_score": report.conviction_score,
+            "decision_confidence": report.decision_confidence,
+            "data_coverage": report.data_coverage,
+            "risk_penalty": report.risk_penalty,
+        }
+        for report in candidates[:limit]
+    )
+
+
+def _build_cockpit_health(
+    portfolio_report: PortfolioReport | None,
+) -> dict[str, Any] | None:
+    if portfolio_report is None:
+        return None
+    payload = portfolio_report.to_dict()
+    summary = payload.get("summary", {}) or {}
+    if not summary.get("total_value"):
+        return None
+    return {
+        "currency": summary.get("currency", "USD"),
+        "total_value": f"{float(summary.get('total_value', 0.0)):,.2f}",
+        "quality_score": _fmt_number(summary.get("quality_score")),
+        "quality_rating": summary.get("quality_rating", "-"),
+        "cash_weight": _fmt_percent(summary.get("cash_weight")),
+        "largest_position_weight": _fmt_percent(
+            summary.get("largest_position_weight")
+        ),
+        "warnings": tuple(payload.get("warnings", ()) or ()),
+    }
+
+
+def _build_cockpit_outcomes_line(
+    outcome_report: OutcomeAnalyticsReport | None,
+) -> str | None:
+    hit_rate = getattr(outcome_report, "hit_rate", None)
+    if hit_rate is None or getattr(hit_rate, "eligible_count", 0) == 0:
+        return "Ainda não há amostra direcional madura."
+    return (
+        f"Hit rate direcional: {hit_rate.hit_rate:.1f}% "
+        f"({hit_rate.hit_count}/{hit_rate.eligible_count})."
+    )
 
 
 @dataclass(frozen=True)
@@ -214,11 +302,19 @@ class ReportingApplicationService:
                     execution_reconciliation = reconciliation.to_dict()["summary"]
         elif reconciliation_path.exists():
             execution_reconciliation = load_reconciliation_summary(reconciliation_path)
+        cockpit_opportunities = _build_cockpit_opportunities(
+            company_reports, portfolio_report
+        )
+        cockpit_health = _build_cockpit_health(portfolio_report)
+        cockpit_outcomes_line = _build_cockpit_outcomes_line(outcome_report)
         cockpit_path = self.output_reports / "decision_cockpit.html"
         write_decision_cockpit(
             decision_queue,
             cockpit_path,
             delta=decision_delta.to_dict(),
+            opportunities=cockpit_opportunities,
+            portfolio_health=cockpit_health,
+            outcomes_line=cockpit_outcomes_line,
             scenario=portfolio_scenario,
             journal_summary=decision_journal,
             execution_summary=execution_ledger,
@@ -331,12 +427,5 @@ class ReportingApplicationService:
             portfolio_report=portfolio_report,
             outcome_report=outcome_report,
         )
-        decision_brief_path = write_decision_brief(
-            build_company_reports(frame),
-            self.output_reports / "decision_brief.html",
-            portfolio_report=portfolio_report,
-            outcome_report=outcome_report,
-        )
-        self.logger.info("Relatório de Decisão gerado em %s.", decision_brief_path)
         self.logger.info("Morning Brief gerado em %s.", brief_path)
         return brief_path, brief_text

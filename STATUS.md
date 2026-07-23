@@ -82,8 +82,16 @@ evidência que aparece/some é sempre material, `current_weight` é ignorado
 (ruído de preço). Itens sem mudança são contados, não listados.
 
 `decision/cockpit.py` renderiza a mesma fila, sem nova consulta a motores, em
-`output/relatorios/decision_cockpit.html`. A página é responsiva, consultiva e
-organizada pelas quatro filas; não possui controles de mutação ou execução.
+`output/relatorios/decision_cockpit.html` — a **página humana única** ("Atlas —
+Hoje"). Desde 2026-07-22 (PR-C) é organizada por hierarquia rígida de três
+níveis em vez das quatro filas cruas: **Agir agora** (EXECUTE+INVESTIGATE, no
+topo), **Oportunidades** (candidatas de compra fora da carteira + gatilhos de
+entrada aguardando) e **Acompanhar** (MONITOR, colapsado em `<details>` para não
+competir com venda/revisão). Absorveu o conteúdo próprio do antigo
+`decision_brief.html` (candidatas de compra, saúde da carteira, evidência
+histórica), que foi **aposentado** — `reports/decision_brief.py` e seu teste
+removidos, um único ponto de entrada humano. Responsiva, consultiva, sem
+controles de mutação ou execução.
 
 `portfolio/scenario.py` publica `output/dados/portfolio_scenario.json` e resume
 o resultado no cockpit. O cenário executa matematicamente apenas os

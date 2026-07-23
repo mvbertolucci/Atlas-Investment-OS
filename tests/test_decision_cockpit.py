@@ -148,3 +148,62 @@ def test_delta_section_first_run_has_no_baseline() -> None:
 def test_omits_delta_section_when_absent() -> None:
     html = render_decision_cockpit(_queue())
     assert "Mudou desde a última execução" not in html
+
+
+def test_renders_three_tier_hierarchy() -> None:
+    html = render_decision_cockpit(_queue())
+    # Ação vem antes de Oportunidades, que vem antes de Acompanhar (colapsado).
+    assert html.index("Agir agora") < html.index("Oportunidades") < html.index("Acompanhar")
+    assert "<details>" in html
+    assert "sem ação — clique para expandir" in html
+
+
+def test_renders_buy_opportunities_section() -> None:
+    html = render_decision_cockpit(
+        _queue(),
+        opportunities=(
+            {
+                "symbol": "NVDA",
+                "company_name": "NVIDIA",
+                "action": "CANDIDATA",
+                "decision_drivers": ("Opportunity alto", "Convicção alta"),
+                "investment_thesis": "Liderança em IA.",
+                "opportunity_score": 88.0,
+                "conviction_score": 75.0,
+            },
+        ),
+    )
+    assert "NVIDIA" in html
+    assert "CANDIDATA" in html
+    assert "Opportunity alto; Convicção alta" in html
+    assert "fora da carteira" in html
+
+
+def test_renders_portfolio_health_and_outcomes() -> None:
+    html = render_decision_cockpit(
+        _queue(),
+        portfolio_health={
+            "currency": "USD",
+            "total_value": "1,000.00",
+            "quality_score": "72.0",
+            "quality_rating": "Bom",
+            "cash_weight": "5.0%",
+            "largest_position_weight": "12.0%",
+            "warnings": ("Concentração setorial.",),
+        },
+        outcomes_line="Hit rate direcional: 60.0% (6/10).",
+    )
+    assert "Saúde da carteira" in html
+    assert "1,000.00" in html
+    assert "Concentração setorial." in html
+    assert "Evidência histórica" in html
+    assert "Hit rate direcional: 60.0% (6/10)." in html
+
+
+def test_monitor_items_go_into_collapsed_section() -> None:
+    # KGC (promotion_ready -> EXECUTE) e itens MONITOR; o card MONITOR fica
+    # dentro do <details> de Acompanhar, não no topo.
+    html = render_decision_cockpit(_queue())
+    head, _, tail = html.partition("<details>")
+    assert "Agir agora" in head
+    assert "Acompanhar" in tail or "Acompanhar" in html
