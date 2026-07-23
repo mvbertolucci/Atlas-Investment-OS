@@ -24,6 +24,11 @@ def _item_card(item: dict[str, object]) -> str:
     metadata = []
     for key, label in (
         ("investment_score", "Score"),
+        ("opportunity_score", "Opportunity"),
+        ("conviction_score", "Convicção"),
+        ("decision_confidence", "Confiança"),
+        ("data_coverage", "Cobertura"),
+        ("risk_penalty", "Risco"),
         ("current_weight", "Peso"),
         ("analytical_origin", "Origem"),
         ("entry_rank", "Rank entrada"),
@@ -33,11 +38,18 @@ def _item_card(item: dict[str, object]) -> str:
         value = item.get(key)
         if value is not None and value != "":
             metadata.append(f"<span><b>{_e(label)}:</b> {_e(value)}</span>")
+    thesis_html = (
+        f'<p><b>Tese:</b> {_e(item.get("investment_thesis"))}</p>'
+        if item.get("investment_thesis")
+        else ""
+    )
     return (
         '<article class="decision-card">'
-        f'<div class="card-head"><strong>{_e(item.get("symbol"))}</strong>'
+        f'<div class="card-head"><strong>{_e(item.get("company_name")) or _e(item.get("symbol"))} '
+        f'<small>({_e(item.get("symbol"))})</small></strong>'
         f'<span class="action">{_e(item.get("action"))}</span></div>'
         f'<p>{_e(item.get("reason")) or "Sem justificativa publicada."}</p>'
+        f'{thesis_html}'
         f'<div class="metadata">{"".join(metadata)}</div>'
         f'<small>{_e(item.get("engine"))} · consultivo</small>'
         "</article>"
@@ -151,7 +163,7 @@ font-size:13px;margin-bottom:8px}}small,.empty{{color:var(--muted)}}
 .cards{{grid-template-columns:1fr}}}}@media(prefers-color-scheme:dark){{:root{{--bg:#101828;--surface:#1d2939;
 --text:#f2f4f7;--muted:#98a2b3;--line:#344054}}.decision-card p{{color:#d0d5dd}}.action,.section-head span{{background:#344054}}}}
 </style></head><body><main><header><div><h1>Atlas Decision Cockpit</h1>
-<p class="meta">Fila decisória consolidada · somente consultiva</p></div>
+<p class="meta">Fila decisória consolidada · tese e evidências por item · somente consultiva</p></div>
 <p class="meta">Gerado em {_e(payload["generated_at"])}</p></header>
 <div class="summary-grid">{summary_cards}</div>{scenario_html}{journal_html}{execution_html}{reconciliation_html}{''.join(sections)}
 </main></body></html>"""

@@ -35,9 +35,27 @@ def build_decision_queue(
     priority: Mapping[str, Any] | None,
     active_watchlist: tuple[dict[str, Any], ...] = (),
     portfolio_actions: tuple[Mapping[str, Any], ...] = (),
+    company_context: Mapping[str, Mapping[str, Any]] | None = None,
     generated_at: str | None = None,
 ) -> DecisionQueue:
     items: list[dict[str, Any]] = []
+    context_by_symbol = {
+        str(symbol).upper(): dict(context)
+        for symbol, context in (company_context or {}).items()
+    }
+
+    def enrich(item: dict[str, Any]) -> dict[str, Any]:
+        context = context_by_symbol.get(str(item["symbol"]).upper(), {})
+        return {
+            **item,
+            "company_name": str(context.get("company_name", "")),
+            "investment_thesis": str(context.get("investment_thesis", "")),
+            "opportunity_score": context.get("opportunity_score"),
+            "conviction_score": context.get("conviction_score"),
+            "decision_confidence": context.get("decision_confidence"),
+            "data_coverage": context.get("data_coverage"),
+            "risk_penalty": context.get("risk_penalty"),
+        }
     sell_items = ((priority or {}).get("sell") or {}).get("items") or []
     for raw in sell_items:
         action = str(raw.get("action", "")).upper()
@@ -49,7 +67,7 @@ def build_decision_queue(
             group, rank = "MONITOR", 40
         else:
             continue
-        items.append(
+        items.append(enrich(
             {
                 "symbol": str(raw.get("symbol", "")).upper(),
                 "group": group,
@@ -61,7 +79,7 @@ def build_decision_queue(
                 "current_weight": raw.get("current_weight"),
                 "advisory_only": True,
             }
-        )
+        ))
 
     existing_portfolio_symbols = {
         str(item["symbol"]) for item in items if item["engine"] == "portfolio.sell_rules"
@@ -70,7 +88,7 @@ def build_decision_queue(
         symbol = str(raw.get("symbol", "")).upper()
         if str(raw.get("action", "")).upper() != "ACOMPANHAR" or symbol in existing_portfolio_symbols:
             continue
-        items.append(
+        items.append(enrich(
             {
                 "symbol": symbol,
                 "group": "MONITOR",
@@ -81,7 +99,7 @@ def build_decision_queue(
                 "current_weight": raw.get("current_weight"),
                 "advisory_only": True,
             }
-        )
+        ))
 
     state_map = {
         "promotion_ready": ("EXECUTE", "REVIEW_FOR_PURCHASE", 5),
@@ -94,7 +112,7 @@ def build_decision_queue(
     for raw in active_watchlist:
         state = str(raw.get("effective_state", "monitoring"))
         group, action, rank = state_map.get(state, state_map["monitoring"])
-        items.append(
+        items.append(enrich(
             {
                 "symbol": str(raw.get("symbol", "")).upper(),
                 "group": group,
@@ -108,7 +126,7 @@ def build_decision_queue(
                 "review_due_at": raw.get("review_due_at"),
                 "advisory_only": True,
             }
-        )
+        ))
     items.sort(key=lambda item: (int(item["priority"]), str(item["symbol"])))
     queue_generated_at = generated_at or datetime.now().isoformat(timespec="seconds")
     for item in items:

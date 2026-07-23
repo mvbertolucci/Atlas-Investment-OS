@@ -23,6 +23,12 @@ def _queue():
                 ]
             }
         },
+        company_context={
+            "<FMC>": {
+                "company_name": "FMC Corporation",
+                "investment_thesis": "Tese com evidência.",
+            }
+        },
         active_watchlist=(
             {
                 "symbol": "KGC",
@@ -43,6 +49,8 @@ def test_renders_responsive_cockpit_and_escapes_content() -> None:
     assert "&lt;FMC&gt;" in html
     assert "distress &amp; risco" in html
     assert "REVIEW_FOR_PURCHASE" in html
+    assert "FMC Corporation" in html
+    assert "Tese com evidência." in html
     assert "Nenhum item nesta fila." in html
 
 

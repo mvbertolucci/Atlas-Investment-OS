@@ -38,6 +38,7 @@ from priority import (
 )
 from ranking import RankingReport
 from reports.excel import write_latest_and_history
+from reports.decision_brief import write_decision_brief
 from reports.morning_brief import render_morning_brief, write_morning_brief
 from reports.report_engine import build_company_reports
 from universe import UniverseReport
@@ -125,6 +126,19 @@ class ReportingApplicationService:
         if portfolio_rebalance is None and portfolio_report is not None:
             serialized_portfolio = portfolio_report.to_dict()
             portfolio_rebalance = serialized_portfolio.get("rebalance", {})
+        company_reports = build_company_reports(frame)
+        company_context = {
+            report.symbol: {
+                "company_name": report.company_name,
+                "investment_thesis": report.investment_thesis,
+                "opportunity_score": report.opportunity_score,
+                "conviction_score": report.conviction_score,
+                "decision_confidence": report.decision_confidence,
+                "data_coverage": report.data_coverage,
+                "risk_penalty": report.risk_penalty,
+            }
+            for report in company_reports
+        }
         decision_queue = build_decision_queue(
             priority=(priority_report.to_dict() if priority_report else None),
             active_watchlist=(watchlist_report.active_queue if watchlist_report else ()),
@@ -133,6 +147,7 @@ class ReportingApplicationService:
                 if portfolio_rebalance is not None
                 else ()
             ),
+            company_context=company_context,
         )
         write_decision_queue(
             decision_queue, self.dashboard_report_file.parent / "decision_queue.json"
@@ -187,7 +202,7 @@ class ReportingApplicationService:
             reconciliation_summary=execution_reconciliation,
         )
         view = build_dashboard_view(
-            build_company_reports(frame),
+            company_reports,
             market=universe_report,
             portfolio=portfolio_report,
             outcomes=outcome_report,
@@ -293,5 +308,12 @@ class ReportingApplicationService:
             portfolio_report=portfolio_report,
             outcome_report=outcome_report,
         )
+        decision_brief_path = write_decision_brief(
+            build_company_reports(frame),
+            self.output_reports / "decision_brief.html",
+            portfolio_report=portfolio_report,
+            outcome_report=outcome_report,
+        )
+        self.logger.info("Relatório de Decisão gerado em %s.", decision_brief_path)
         self.logger.info("Morning Brief gerado em %s.", brief_path)
         return brief_path, brief_text

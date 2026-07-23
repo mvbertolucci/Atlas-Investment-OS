@@ -37,6 +37,17 @@ def test_consolidates_portfolio_and_watchlist_without_redeciding() -> None:
         portfolio_actions=(
             {"symbol": "MSFT", "action": "ACOMPANHAR", "reason": "relativo"},
         ),
+        company_context={
+            "FMC": {
+                "company_name": "FMC Corporation",
+                "investment_thesis": "Recuperar geração de caixa.",
+                "opportunity_score": 30.0,
+                "conviction_score": 40.0,
+                "decision_confidence": 62.0,
+                "data_coverage": 62.0,
+                "risk_penalty": 55.0,
+            }
+        },
         generated_at="2026-07-22T00:00:00",
     ).to_dict()
 
@@ -50,6 +61,9 @@ def test_consolidates_portfolio_and_watchlist_without_redeciding() -> None:
     assert [item["symbol"] for item in execute] == ["FMC", "KGC"]
     assert execute[0]["action"] == "SELL"
     assert execute[0]["engine"] == "portfolio.sell_rules"
+    assert execute[0]["company_name"] == "FMC Corporation"
+    assert execute[0]["investment_thesis"] == "Recuperar geração de caixa."
+    assert execute[0]["risk_penalty"] == 55.0
     assert execute[1]["action"] == "REVIEW_FOR_PURCHASE"
     assert execute[1]["advisory_only"] is True
     assert queue["groups"]["MONITOR"][0]["action"] == "ACOMPANHAR"
