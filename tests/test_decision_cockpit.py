@@ -244,10 +244,48 @@ def test_low_confidence_explanation_brk_b() -> None:
         generated_at="2026-07-22T10:00:00",
     )
     html = render_decision_cockpit(queue)
-    assert "Confiança baixa." in html
+    assert "Por que a confiança está baixa:" in html
     assert "F-Score Piotroski (anual)" in html
     assert "o motor trata a decisão como menos confiável" in html
+    # sem divergência de fonte -> ação é recoletar
     assert "atualizar-ticker" in html
+
+
+def test_low_confidence_explains_source_divergence_and_suppresses_refresh() -> None:
+    # Caso AVAV: net_debt_ebitda suprimido porque as fontes divergem no caixa.
+    # A explicação deve dizer o porquê e NÃO mandar recoletar.
+    queue = build_decision_queue(
+        priority={
+            "sell": {
+                "items": [
+                    {"symbol": "AVAV", "action": "SELL", "reason": "distress",
+                     "priority": 0}
+                ]
+            }
+        },
+        company_context={
+            "AVAV": {
+                "company_name": "AeroVironment",
+                "decision_confidence": 34.2,
+                "data_coverage": 62.2,
+                "missing_evidence": ("net_debt_ebitda",),
+                "missing_evidence_detail": (
+                    {
+                        "field": "net_debt_ebitda",
+                        "label": "Net Debt/EBITDA",
+                        "reason": "Net Debt/EBITDA não foi calculado: caixa total — "
+                                  "o valor foi rejeitado (implausível ou fontes divergem).",
+                    },
+                ),
+            }
+        },
+        generated_at="2026-07-22T10:00:00",
+    )
+    html = render_decision_cockpit(queue)
+    assert "Net Debt/EBITDA não foi calculado" in html
+    assert "caixa total" in html
+    assert "As fontes divergem no valor — recoletar não resolve" in html
+    assert "atualizar-ticker" not in html
 
 
 def test_no_low_confidence_block_when_confidence_ok() -> None:

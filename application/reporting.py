@@ -47,6 +47,7 @@ from priority import (
     write_priority_report,
 )
 from ranking import RankingReport
+from reports.evidence_reasons import build_missing_reasons
 from reports.excel import write_latest_and_history
 from reports.morning_brief import render_morning_brief, write_morning_brief
 from reports.report_engine import build_company_reports
@@ -244,8 +245,18 @@ class ReportingApplicationService:
             serialized_portfolio = portfolio_report.to_dict()
             portfolio_rebalance = serialized_portfolio.get("rebalance", {})
         company_reports = build_company_reports(frame)
-        company_context = {
-            report.symbol: {
+        field_evidence_by_symbol = (
+            {
+                str(row.get("symbol", "")).upper(): (row.get("field_evidence") or {})
+                for _, row in frame.iterrows()
+            }
+            if "field_evidence" in frame.columns
+            else {}
+        )
+        company_context = {}
+        for report in company_reports:
+            missing = _missing_evidence(report)
+            company_context[report.symbol] = {
                 "company_name": report.company_name,
                 "investment_thesis": report.investment_thesis,
                 "opportunity_score": report.opportunity_score,
@@ -253,10 +264,12 @@ class ReportingApplicationService:
                 "decision_confidence": report.decision_confidence,
                 "data_coverage": report.data_coverage,
                 "risk_penalty": report.risk_penalty,
-                "missing_evidence": _missing_evidence(report),
+                "missing_evidence": missing,
+                "missing_evidence_detail": build_missing_reasons(
+                    missing,
+                    field_evidence_by_symbol.get(str(report.symbol).upper(), {}),
+                ),
             }
-            for report in company_reports
-        }
         decision_queue = build_decision_queue(
             priority=(priority_report.to_dict() if priority_report else None),
             active_watchlist=(watchlist_report.active_queue if watchlist_report else ()),

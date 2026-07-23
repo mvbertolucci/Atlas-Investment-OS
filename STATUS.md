@@ -83,11 +83,16 @@ evidência que aparece/some é sempre material, `current_weight` é ignorado
 
 Confiança explicável (PR-E, 2026-07-22): itens da fila carregam
 `missing_evidence` (união de `missing_required_features` e
-`risk_evidence_missing`, sem o placeholder "Nenhum"; aditivo ao contrato v1.1).
-Cards com `decision_confidence` ou `data_coverage` abaixo do piso 60 ganham um
-bloco curto dizendo o que falta (ex.: BRK-B → "F-Score Piotroski (anual)"), o
-efeito (o motor mantém a decisão em revisão em vez de agir) e como atualizar
-(recoletar o ticker via skill `atualizar-ticker`).
+`risk_evidence_missing`, sem o placeholder "Nenhum") e
+`missing_evidence_detail` (aditivo ao contrato v1.1). Cards com
+`decision_confidence` ou `data_coverage` abaixo do piso 60 ganham um bloco que
+explica **por que** cada campo falta, lendo o `field_evidence` real do pipeline
+(`reports/evidence_reasons.py`): para um campo derivado nomeia a dependência
+culpada e seu status (ex.: AVAV → "Net Debt/EBITDA não foi calculado: dívida
+total — o valor foi rejeitado"; BRK-B → "F-Score Piotroski (anual): nenhuma
+fonte retornou o dado"). A ação sugerida depende da causa: divergência/rejeição
+de fonte diz que **recoletar não resolve** (verificar fonte/reconciliação);
+gap de coleta ou dado velho sugere recoletar via skill `atualizar-ticker`.
 
 `decision/cockpit.py` renderiza a mesma fila, sem nova consulta a motores, em
 `output/relatorios/decision_cockpit.html` — a **página humana única** ("Atlas —

@@ -59,6 +59,9 @@ def build_decision_queue(
             "data_coverage": context.get("data_coverage"),
             "risk_penalty": context.get("risk_penalty"),
             "missing_evidence": tuple(context.get("missing_evidence") or ()),
+            "missing_evidence_detail": tuple(
+                context.get("missing_evidence_detail") or ()
+            ),
         }
     sell_items = ((priority or {}).get("sell") or {}).get("items") or []
     for raw in sell_items:

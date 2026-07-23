@@ -38,12 +38,17 @@ cash, post-trade cash weight and turnover. It does not add replacement buys.
 
 Each queue item carries `missing_evidence` (the union of
 `missing_required_features` and `risk_evidence_missing`, minus the "Nenhum"
-placeholder; additive to contract v1.1). A card whose `decision_confidence` or
-`data_coverage` is below the confidence floor (60) renders a short explanation:
-which fields are missing (e.g. BRK-B → the annual Piotroski F-Score), the
-effect on the decision (the engine keeps it under review instead of acting) and
-how to refresh the evidence (recollect the ticker via the `atualizar-ticker`
-skill).
+placeholder) and `missing_evidence_detail` (additive to contract v1.1). A card
+whose `decision_confidence` or `data_coverage` is below the confidence floor
+(60) renders a block that explains **why** each field is missing, reading the
+pipeline's own `field_evidence` (`reports/evidence_reasons.py`): for a derived
+field it names the culprit dependency and its status. Examples measured live:
+AVAV → "Net Debt/EBITDA não foi calculado: dívida total — o valor foi rejeitado
+(implausível ou fontes divergem)"; BRK-B → "F-Score Piotroski (anual): nenhuma
+fonte retornou o dado". The suggested action follows the cause: a source
+divergence/rejection says recollecting will not help (check which source is
+right or adjust reconciliation), while a genuine collection gap or stale value
+suggests recollecting the ticker via the `atualizar-ticker` skill.
 
 Queue items carry a deterministic `decision_id` (hash of symbol, action and
 engine — stable across runs since contract v1.1, ADR-040) used by the

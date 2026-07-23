@@ -226,17 +226,47 @@ def _confidence_explanation(item: dict[str, object]) -> str:
         return ""
     symbol = str(item.get("symbol", ""))
     missing = tuple(item.get("missing_evidence") or ())
-    detail = (
-        f"Falta: {', '.join(_humanize_evidence(str(m)) for m in missing)}."
-        if missing
-        else "Cobertura de dados abaixo do usual para os fatores exigidos."
+    detail_rows = tuple(item.get("missing_evidence_detail") or ())
+    # Explicação por campo: prefere a razão real do field_evidence (por que o
+    # campo não veio); cai no rótulo simples quando não há evidência registrada.
+    reason_by_field = {
+        str(d.get("field")): str(d.get("reason") or "") for d in detail_rows
+    }
+    any_source_divergence = any(
+        "divergem" in r or "rejeitado" in r for r in reason_by_field.values()
     )
+    if missing:
+        lines = []
+        for field in missing:
+            reason = reason_by_field.get(str(field))
+            if reason:
+                lines.append(f"<li>{_e(reason)}</li>")
+            else:
+                lines.append(f"<li>{_e(_humanize_evidence(str(field)))}: não coletado.</li>")
+        body = f"<b>Por que a confiança está baixa:</b><ul>{''.join(lines)}</ul>"
+    else:
+        body = (
+            "<b>Confiança baixa.</b> Cobertura de dados abaixo do usual para os "
+            "fatores exigidos."
+        )
+    # Ação certa depende da causa: divergência de fontes não se resolve
+    # recoletando; gap de coleta sim.
+    if any_source_divergence:
+        action = (
+            "As fontes divergem no valor — recoletar não resolve. Verifique qual "
+            "fonte está certa ou ajuste a tolerância de reconciliação do campo."
+        )
+    else:
+        action = (
+            f"Atualizar evidência: recolete {_e(symbol)} "
+            "(skill <code>atualizar-ticker</code>) e rode novamente."
+        )
     return (
-        '<div class="lowconf"><b>Confiança baixa.</b> '
-        f"{_e(detail)} Efeito: o motor trata a decisão como menos confiável e a "
-        "mantém em revisão em vez de agir. "
-        f"<span class=\"refresh\">Atualizar evidência: recolete {_e(symbol)} "
-        "(skill <code>atualizar-ticker</code>) e rode novamente.</span></div>"
+        '<div class="lowconf">'
+        f"{body}"
+        "<p class=\"lowconf-effect\">Efeito: o motor trata a decisão como menos "
+        "confiável e a mantém em revisão em vez de agir.</p>"
+        f'<p class="refresh">{action}</p></div>'
     )
 
 
@@ -524,6 +554,8 @@ padding:3px 9px;cursor:pointer}}.review button:hover{{border-color:var(--muted)}
 padding:10px 14px;margin-bottom:18px;font-size:14px;display:none}}
 .lowconf{{background:#fff8ec;border:1px solid #f0d9a8;border-radius:7px;
 padding:8px 11px;margin:8px 0;font-size:13px;color:#7a4d00}}
+.lowconf ul{{margin:4px 0;padding-left:18px}}.lowconf li{{margin:2px 0}}
+.lowconf p{{margin:5px 0 0}}.lowconf .lowconf-effect{{opacity:.9}}
 .lowconf code{{background:rgba(0,0,0,.06);padding:1px 4px;border-radius:4px}}
 @media(max-width:800px){{main{{padding:16px}}header{{display:block}}.summary-grid{{grid-template-columns:repeat(2,1fr)}}
 .cards{{grid-template-columns:1fr}}}}@media(prefers-color-scheme:dark){{:root{{--bg:#101828;--surface:#1d2939;
