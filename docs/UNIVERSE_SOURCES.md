@@ -1,5 +1,42 @@
 # Research Universe Sources
 
+## Sample overview — which universe to update, and when
+
+Atlas works with **several distinct universe samples**, layered from the whole
+listed market down to what actually gets deep, per-company fundamentals. They
+are independent: each has its own source, artifact, checkpoint and refresh
+command, so updating one is an explicit choice that does not touch the others.
+
+| Sample | What it is | Size | Artifact | Refresh command |
+|--------|-----------|------|----------|-----------------|
+| **S&P 500 research** | Deep-collection working set for the default run; the S&P 500 | ~503 | `config/research_universe.csv` (+ checkpoint `data/research_universe_collection.json`) | `python -m universe.sources` → `python -m universe.collector` |
+| **Broad US market** | Every US-listed common stock (small caps included) | ~7,093 raw | `config/research_universe_market.csv` (+ checkpoint `data/research_universe_collection_market.json`) | `python -m universe.sources --market` → `python -m universe.collector --market` |
+| **US_MARKET_ELIGIBLE scoring reference** | Cross-sectional percentile base for scores (the eligible subset of the broad market) | ~2,429 eligible | `output/dados/scoring_reference_market.json` | rebuilt by the market model-portfolio build over the eligible market collection (`portfolio/model_portfolio.py`) |
+| **Portfolio + watchlist** | What `run_all.py --portfolio` and the default run deep-collect for decisions | ~57 | `config/portfolio.csv` + `config/watchlist.csv` | normal `run_all.py` (fetched live per run) |
+| **ADR lens** | Foreign issuers, US-listed — a policy view, not a separate collection | — | `config/universe_adr.yaml` | none: reuses the broad-market collection |
+
+**How the layers relate.** The broad market (~7,093 listed symbols) is filtered
+by eligibility (country, volume, market-cap floor, live `quote_type`) into the
+**US_MARKET_ELIGIBLE** set (~2,429), which is the cross-sectional reference that
+score percentiles are computed against. Separately, a **working set** is
+deep-collected for fundamentals: by default the **S&P 500** (~503), and for a
+decision run the **portfolio + watchlist** (~57). The number you see as
+`reference_count` on a company (e.g. 2,429) is the *scoring reference size*, not
+what was deep-collected that run.
+
+**Freshness matters more than size.** As of this writing the broad-market
+collection and the 2,429 reference were last built on **2026-07-13**
+(reference/reports generated 2026-07-17) — so refreshing them is a real,
+periodic task, not a one-off. Deciding which sample to refresh is an operational
+choice; the scale/time trade-off (a single ~50-min S&P 500 run vs. a multi-hour
+broad-market collection) is described per screener below.
+
+> Note: an earlier revision of this doc said the broad-market screener "has not
+> been run yet." That is stale — its checkpoint
+> (`data/research_universe_collection_market.json`) and the derived
+> `*_market.json` reports and scoring reference exist (built 2026-07-13/17). The
+> broad-market ranking/model-portfolio step *has* run.
+
 ## Current snapshot
 
 `config/research_universe.csv` is the reproducible research population used to
@@ -107,11 +144,13 @@ substantially longer and hit Yahoo rate limits more often; this is exactly why
 the checkpointed, resumable, retryable collector design (built for the S&P 500
 screener) matters here.
 
-This screener's collection has not been run yet as of this writing --
-`config/universe_market.yaml` and the source/collector code are in place, but
-no snapshot or checkpoint file exists. Running the ranking/model-portfolio step
-over this broader universe is a deliberate follow-up, not part of this
-increment.
+This screener's collection **has** been run (checkpoint
+`data/research_universe_collection_market.json` and the derived
+`research_universe_report_market.json` / `research_ranking_report_market.json` /
+`scoring_reference_market.json` all exist, built 2026-07-13/17). The ~2,429-name
+`US_MARKET_ELIGIBLE` scoring reference is the eligible output of this
+collection. Re-running it to refresh the broad market and the reference is a
+periodic operational task (see the Sample overview at the top).
 
 ## Third screener: US-listed ADRs
 

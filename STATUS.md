@@ -202,8 +202,11 @@ janela. Dashboard v1.7. Não corrige custódia nem ledger. Ver
 | Portfolio | `config/portfolio.csv` | holdings reais do usuário | manual |
 | Watchlist | `config/watchlist.csv` | curadoria manual | manual |
 | Research (S&P 500) | `config/universe.yaml` + `research_universe.csv` | scrape Wikipedia S&P 500, min $1B mkt cap | manual, `python -m universe.sources` |
-| Broad market | `config/universe_market.yaml` + `research_universe_market.csv` | NASDAQ Trader listas, min $300M mkt cap | manual, `universe.collector --market` |
+| Broad market | `config/universe_market.yaml` + `research_universe_market.csv` (~7.093) | NASDAQ Trader listas, min $300M mkt cap | manual, `universe.collector --market` |
+| Scoring reference (US_MARKET_ELIGIBLE) | `output/dados/scoring_reference_market.json` (~2.429) | subconjunto elegível do broad market; base cross-sectional dos percentis de score | reconstruído no build de model-portfolio de mercado (`portfolio/model_portfolio.py`) |
 | ADR | `config/universe_adr.yaml` | reusa snapshot broad-market, filtra `excluded_countries:[United States]` | sem coleta própria |
+
+**Amostras e qual atualizar**: as diferentes amostras (S&P 500 ~503 profundo, broad market ~7.093, referência elegível ~2.429, portfolio+watchlist ~57) e o comando de refresh de cada uma estão consolidados numa tabela em `docs/UNIVERSE_SOURCES.md` ("Sample overview"). O `reference_count` numa empresa (ex.: 2.429) é o tamanho da referência de score, **não** o que foi coletado a fundo naquele run. Broad market + referência foram construídos por último em 2026-07-13/17 — refresh é tarefa periódica.
 
 **Origin**: atribuído em `application/collection.py::merge_watchlist_with_portfolio` (wrapper homônimo preservado em `run_all.py`) — default `watchlist`, sobrescrito para `portfolio` se símbolo está em `portfolio.csv`. Prioridade `portfolio > watchlist > universe`; `ORIGIN_UNIVERSE` é constante definida mas **não wireada** neste merge. Propagado read-only por `portfolio/pipeline.py::enrich_portfolio_from_analysis`, checado em `portfolio/rebalance.py` (sell-side) e `ranking/pipeline.py` (`already_held`, buy-side). Contrato coberto por `tests/test_origin_provenance.py`, verificado batendo com a implementação real.
 
@@ -275,9 +278,10 @@ silenciosamente ao mover o Excel para `output/relatorios/`. Agora recebe
 ---
 
 ## Última atualização
-- **Data**: 2026-07-22
-- **Commit**: `feat(portfolio): add ACOMPANHAR status for relative-decay-only signals (ADR-039)`
-- **Baseline de validação**: 1085 testes verdes
+- **Data**: 2026-07-23
+- **Commit**: `fix(sec): anchor total_debt on the long-term-debt period (ADR-043)`
+- **Baseline de validação**: 1175 testes verdes
+- **Sessão 07-23**: mesa de decisão "Hoje" (roadmap A–E: identidade estável ADR-040, delta run-over-run, cockpit único, journal interativo POST /journal ADR-041, confiança explicável lendo `field_evidence`); consertos de dados que a explicabilidade expôs (`total_debt` fora dos críticos ADR-042; extração SEC ancorada no período ADR-043); documentação das amostras de universo (§5 + `docs/UNIVERSE_SOURCES.md`). 4 runs `--portfolio` reais, decisões SELL estáveis (AVAV/CLF/FMC), journal intocado (0 eventos).
 
 ### Integração de validação histórica (sessão atual)
 
