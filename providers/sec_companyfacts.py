@@ -221,11 +221,29 @@ def record_from_company_facts(
         )
 
     debt_fields = ("long_term_debt", "long_term_debt_current", "short_term_debt")
-    debt_periods = sorted(
-        {period for name in debt_fields for period in indexed.get(name, {})}
-    )
-    if debt_periods:
-        period = debt_periods[-1]
+    # Anchor the debt total on the latest fiscal period of the main long-term
+    # debt line, then add only the current/short components reported for that
+    # SAME period. Summing "the latest period any component appears" let a
+    # stray current-portion filed after a company stopped tagging its
+    # long-term debt stand in for the whole balance: COP stopped tagging
+    # LongTermDebtNoncurrent after 2021-Q3 while DebtCurrent continued into
+    # 2026, so the old code returned the ~$1.07B current piece alone instead
+    # of the real ~$23B. Anchoring keeps components period-consistent; when the
+    # anchor is old (COP), the resulting observed_at makes the value
+    # legitimately STALE downstream rather than silently wrong. total_debt is
+    # no longer a critical cross-vendor field (ADR-042), so this only sharpens
+    # the SEC secondary's own value.
+    if indexed.get("long_term_debt"):
+        period: str | None = sorted(indexed["long_term_debt"])[-1]
+    elif any(indexed.get(name) for name in debt_fields):
+        # No long-term line at all -> best effort on the latest period any
+        # remaining component appears (filers that only carry short-term debt).
+        period = sorted(
+            {p for name in debt_fields for p in indexed.get(name, {})}
+        )[-1]
+    else:
+        period = None
+    if period is not None:
         debt_items = [
             indexed[name][period]
             for name in debt_fields
@@ -234,7 +252,7 @@ def record_from_company_facts(
         values["total_debt"] = sum(float(item.value) for item in debt_items)
         evidence["total_debt"] = _evidence(
             debt_items,
-            detail="sum of reported debt components for one fiscal period",
+            detail="sum of debt components at the latest long-term-debt period",
         )
     else:
         values["total_debt"] = None

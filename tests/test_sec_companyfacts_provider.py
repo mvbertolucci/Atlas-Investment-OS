@@ -79,6 +79,68 @@ def test_companyfacts_maps_comparable_critical_fields() -> None:
     assert record["field_evidence"]["market_cap"]["status"] == "unavailable"
 
 
+def test_total_debt_anchors_on_long_term_period_not_stray_current() -> None:
+    # Regressão do caso COP: a empresa parou de taguear a dívida de longo prazo
+    # (LongTermDebtNoncurrent) num período antigo, mas continuou reportando a
+    # parcela circulante (DebtCurrent) em períodos recentes. A soma deve
+    # ancorar no período da dívida de longo prazo (incluindo o grosso da
+    # dívida), não pegar só a parcela circulante recente.
+    facts = {
+        "facts": {
+            "us-gaap": {
+                "LongTermDebtNoncurrent": {
+                    "units": {
+                        "USD": [
+                            _entry(19_106, end="2020-12-31"),
+                            _entry(22_797, end="2021-09-30"),
+                        ]
+                    }
+                },
+                "DebtCurrent": {
+                    "units": {
+                        "USD": [
+                            _entry(920, end="2021-09-30"),
+                            _entry(1_016, end="2025-09-30"),
+                            _entry(1_065, end="2026-03-31"),
+                        ]
+                    }
+                },
+            }
+        }
+    }
+
+    record = record_from_company_facts(
+        "COP",
+        facts,
+        cik="0000000002",
+        retrieved_at="2026-07-17T12:00:00+00:00",
+    )
+
+    # Ancorado em 2021-09-30: 22.797 (LT) + 920 (curto do MESMO período).
+    assert record["total_debt"] == 23_717
+    assert record["field_evidence"]["total_debt"]["observed_at"] == "2021-09-30"
+    # O comportamento antigo teria retornado só a parcela recente (1.065).
+    assert record["total_debt"] != 1_065
+
+
+def test_total_debt_falls_back_when_no_long_term_line() -> None:
+    # Emissor que só carrega dívida de curto prazo: usa o último período dela.
+    facts = {
+        "facts": {
+            "us-gaap": {
+                "ShortTermBorrowings": {
+                    "units": {"USD": [_entry(300, end="2026-03-31")]}
+                }
+            }
+        }
+    }
+    record = record_from_company_facts(
+        "BBB", facts, cik="0000000003", retrieved_at="2026-07-17T12:00:00+00:00"
+    )
+    assert record["total_debt"] == 300
+    assert record["field_evidence"]["total_debt"]["observed_at"] == "2026-03-31"
+
+
 def test_public_float_extractor_accepts_annual_forms_and_usd_only() -> None:
     facts = {
         "facts": {
