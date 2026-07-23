@@ -185,8 +185,11 @@ def test_wildcard_country_still_excludes_named_country() -> None:
 
 def test_default_allow_list_behavior_is_unchanged_by_the_new_field() -> None:
     """
-    Sem wildcard e sem excluded_countries, o comportamento das duas
-    politicas existentes (S&P 500 e mercado amplo) continua identico.
+    Sem wildcard e sem excluded_countries, a allow-list estrita continua
+    identica (aqui exercitada com uma politica US-only de fixture). Desde
+    ADR-044 o screener de mercado amplo real usa `["*"]`; a politica do S&P 500
+    (`config/universe.yaml`) segue US-only. Este teste cobre o comportamento
+    da allow-list estrita, nao o valor de config de nenhum screener.
     """
     foreign_row = _eligible_row("FGN")
     foreign_row["country"] = "Argentina"

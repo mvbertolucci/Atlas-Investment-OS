@@ -203,7 +203,7 @@ janela. Dashboard v1.7. Não corrige custódia nem ledger. Ver
 | Watchlist | `config/watchlist.csv` | curadoria manual | manual |
 | Research (S&P 500) | `config/universe.yaml` + `research_universe.csv` | scrape Wikipedia S&P 500, min $1B mkt cap | manual, `python -m universe.sources` |
 | Broad market | `config/universe_market.yaml` + `research_universe_market.csv` (~7.093) | NASDAQ Trader listas, min $300M mkt cap | manual, `universe.collector --market` |
-| Scoring reference (US_MARKET_ELIGIBLE) | `output/dados/scoring_reference_market.json` (~2.429) | subconjunto elegível do broad market; base cross-sectional dos percentis de score | reconstruído no build de model-portfolio de mercado (`portfolio/model_portfolio.py`) |
+| Scoring reference (US_MARKET_ELIGIBLE) | `output/dados/scoring_reference_market.json` (~2.930) | elegíveis do broad market **de qualquer domicílio** (ADR-044: inclui ADRs/estrangeiros US-listed); base cross-sectional dos percentis | reconstruído no build de model-portfolio de mercado (`portfolio/model_portfolio.py`) |
 | ADR | `config/universe_adr.yaml` | reusa snapshot broad-market, filtra `excluded_countries:[United States]` | sem coleta própria |
 
 **Amostras e qual atualizar**: as diferentes amostras (S&P 500 ~503 profundo, broad market ~7.093, referência elegível ~2.429, portfolio+watchlist ~57) e o comando de refresh de cada uma estão consolidados numa tabela em `docs/UNIVERSE_SOURCES.md` ("Sample overview"). O `reference_count` numa empresa (ex.: 2.429) é o tamanho da referência de score, **não** o que foi coletado a fundo naquele run. Broad market + referência foram construídos por último em 2026-07-13/17 — refresh é tarefa periódica.
@@ -279,9 +279,10 @@ silenciosamente ao mover o Excel para `output/relatorios/`. Agora recebe
 
 ## Última atualização
 - **Data**: 2026-07-23
-- **Commit**: `fix(sec): anchor total_debt on the long-term-debt period (ADR-043)`
+- **Commit**: `feat(scoring): scoring reference includes any issuer domicile (ADR-044)`
 - **Baseline de validação**: 1175 testes verdes
-- **Sessão 07-23**: mesa de decisão "Hoje" (roadmap A–E: identidade estável ADR-040, delta run-over-run, cockpit único, journal interativo POST /journal ADR-041, confiança explicável lendo `field_evidence`); consertos de dados que a explicabilidade expôs (`total_debt` fora dos críticos ADR-042; extração SEC ancorada no período ADR-043); documentação das amostras de universo (§5 + `docs/UNIVERSE_SOURCES.md`). 4 runs `--portfolio` reais, decisões SELL estáveis (AVAV/CLF/FMC), journal intocado (0 eventos).
+- **Sessão 07-23**: mesa de decisão "Hoje" (roadmap A–E: identidade estável ADR-040, delta run-over-run, cockpit único, journal interativo POST /journal ADR-041, confiança explicável lendo `field_evidence`); consertos de dados que a explicabilidade expôs (`total_debt` fora dos críticos ADR-042; extração SEC ancorada no período ADR-043); metodologia: referência de score passa a incluir qualquer domicílio (ADR-044, 2.429→2.930, +501 ADRs/estrangeiros US-listed, rebuild do checkpoint 07-13 sem recoleta); documentação das amostras de universo (§5 + `docs/UNIVERSE_SOURCES.md`). 5 runs `--portfolio` reais, decisões SELL estáveis (AVAV/CLF/FMC), journal intocado (0 eventos).
+- **Impacto medido do ADR-044** (antes US-2429 → depois 2930, `--portfolio`): holdings estrangeiras mal moveram (|Δopportunity| médio 0,43), nenhuma mudou de recomendação; shift das US (1,62) na verdade maior — sinal de que o movimento é dominado por dado fresco, não pela referência. 6 decisões mudaram de banda adjacente (SNA/CF BUY↔ACCUMULATE, PHM/GOOG/DHI ACCUMULATE→HOLD, FCX HOLD→WATCH), todas US, dentro da variação run-a-run. Correção de método, não de decisões.
 
 ### Integração de validação histórica (sessão atual)
 

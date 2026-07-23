@@ -11,14 +11,18 @@ command, so updating one is an explicit choice that does not touch the others.
 |--------|-----------|------|----------|-----------------|
 | **S&P 500 research** | Deep-collection working set for the default run; the S&P 500 | ~503 | `config/research_universe.csv` (+ checkpoint `data/research_universe_collection.json`) | `python -m universe.sources` → `python -m universe.collector` |
 | **Broad US market** | Every US-listed common stock (small caps included) | ~7,093 raw | `config/research_universe_market.csv` (+ checkpoint `data/research_universe_collection_market.json`) | `python -m universe.sources --market` → `python -m universe.collector --market` |
-| **US_MARKET_ELIGIBLE scoring reference** | Cross-sectional percentile base for scores (the eligible subset of the broad market) | ~2,429 eligible | `output/dados/scoring_reference_market.json` | rebuilt by the market model-portfolio build over the eligible market collection (`portfolio/model_portfolio.py`) |
+| **US_MARKET_ELIGIBLE scoring reference** | Cross-sectional percentile base for scores; eligible US-listed equities of **any issuer domicile** (ADR-044 — includes ADRs/foreign) | ~2,930 eligible | `output/dados/scoring_reference_market.json` | rebuilt by the market model-portfolio build over the eligible market collection (`portfolio/model_portfolio.py`) |
 | **Portfolio + watchlist** | What `run_all.py --portfolio` and the default run deep-collect for decisions | ~57 | `config/portfolio.csv` + `config/watchlist.csv` | normal `run_all.py` (fetched live per run) |
 | **ADR lens** | Foreign issuers, US-listed — a policy view, not a separate collection | — | `config/universe_adr.yaml` | none: reuses the broad-market collection |
 
 **How the layers relate.** The broad market (~7,093 listed symbols) is filtered
-by eligibility (country, volume, market-cap floor, live `quote_type`) into the
-**US_MARKET_ELIGIBLE** set (~2,429), which is the cross-sectional reference that
-score percentiles are computed against. Separately, a **working set** is
+by eligibility (volume, market-cap floor, live `quote_type`, USD, required
+fields) into the **US_MARKET_ELIGIBLE** set (~2,930), which is the
+cross-sectional reference that score percentiles are computed against. Since
+ADR-044 this set includes eligible US-listed equities of **any issuer
+domicile** (ADRs and foreign-domiciled companies that pass the same filters as
+US names), so foreign holdings are scored against a cross-section that contains
+their peers, not a US-only universe. Separately, a **working set** is
 deep-collected for fundamentals: by default the **S&P 500** (~503), and for a
 decision run the **portfolio + watchlist** (~57). The number you see as
 `reference_count` on a company (e.g. 2,429) is the *scoring reference size*, not

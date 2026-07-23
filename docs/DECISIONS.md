@@ -47,6 +47,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-041 | Local `POST /journal` write endpoint (hardened, loopback-only) plus derived decision status in the cockpit | Accepted 2026-07-22 |
 | ADR-042 | Remove `total_debt` from cross-vendor critical agreement (flaky SEC debt sum was nulling correct Yahoo values on ~48% of holdings) | Accepted 2026-07-22 |
 | ADR-043 | SEC `total_debt` extraction anchors on the long-term-debt period (root-cause fix for the period-misaligned sum; COP \$1.07B → \$23.7B) | Accepted 2026-07-23 |
+| ADR-044 | Scoring reference includes any issuer domicile (US-listed ADRs join the cross-section; 2,429 → 2,930), so foreign holdings aren't scored against a US-only universe | Accepted 2026-07-23 |
 
 ## Recording a new decision
 

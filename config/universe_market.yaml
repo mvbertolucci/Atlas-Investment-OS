@@ -5,8 +5,15 @@ allowed_quote_types:
   - EQUITY
 allowed_currencies:
   - USD
+# ADR-044: qualquer domicílio de emissor é elegível, desde que o papel seja
+# US-listed em USD e passe os demais filtros (tamanho/preço/volume/campos).
+# A referência de score cross-sectional passa a incluir ADRs/estrangeiros que
+# passam nos mesmos filtros das empresas dos EUA -- antes eram excluídos só por
+# `allowed_countries: [United States]`, o que pontuava as holdings estrangeiras
+# contra um universo puramente doméstico. O universe_id permanece
+# US_MARKET_ELIGIBLE (denota o mercado de listagem, os EUA), não o domicílio.
 allowed_countries:
-  - United States
+  - "*"
 min_market_cap: 300000000
 min_price: 5
 min_volume: 100000
