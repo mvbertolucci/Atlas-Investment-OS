@@ -177,14 +177,18 @@ def evaluate_due_outcomes(
     }
 
     prices: dict[str, float] = {}
+    company_names: dict[str, str] = {}
     for _, row in analysis_df.iterrows():
         symbol = str(row.get("symbol", "")).strip().upper()
+        company_name = str(row.get("name", "")).strip()
         price = pd.to_numeric(
             row.get("price"),
             errors="coerce",
         )
         if symbol and not pd.isna(price) and float(price) > 0:
             prices[symbol] = float(price)
+        if symbol and company_name:
+            company_names[symbol] = company_name
 
     results: list[OutcomeResult] = []
     pending_count = 0
@@ -196,6 +200,9 @@ def evaluate_due_outcomes(
             decision_date_text
         )
         symbol = str(row["symbol"])
+        company_name = str(row.get("company_name", "")).strip()
+        if not company_name:
+            company_name = company_names.get(symbol, "")
 
         for horizon_days in horizons:
             key = (
@@ -218,10 +225,15 @@ def evaluate_due_outcomes(
                 missing_prices.append(symbol)
                 continue
 
+            if not company_name:
+                missing_prices.append(symbol)
+                continue
+
             results.append(
                 OutcomeResult(
                     decision_date=decision_at,
                     symbol=symbol,
+                    company_name=company_name,
                     horizon_days=horizon_days,
                     evaluation_date=evaluation_at,
                     decision_price=float(

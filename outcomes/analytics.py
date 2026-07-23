@@ -64,6 +64,7 @@ class OutcomeAnalyticsReport:
     # Aditivo (default = ()): descreve a estabilidade da watchlist entre datas
     # de decisão. Não altera nenhum campo existente do contrato JSON.
     watchlist_drift: tuple[dict[str, Any], ...] = ()
+    evaluated_outcomes: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -91,6 +92,10 @@ class OutcomeAnalyticsReport:
             "watchlist_drift": [
                 dict(row)
                 for row in self.watchlist_drift
+            ],
+            "evaluated_outcomes": [
+                dict(row)
+                for row in self.evaluated_outcomes
             ],
         }
 
@@ -538,4 +543,19 @@ def build_outcome_analytics_report(
             calculate_deal_breaker_attribution(dataset)
         ),
         watchlist_drift=watchlist_drift,
+        evaluated_outcomes=tuple(
+            dataset.loc[
+                :,
+                [
+                    "decision_date",
+                    "symbol",
+                    "company_name",
+                    "horizon_days",
+                    "due_date",
+                    "evaluation_date",
+                    "return_pct",
+                    "decision",
+                ],
+            ].to_dict("records")
+        ) if not dataset.empty else (),
     )

@@ -153,6 +153,7 @@ def test_outcome_analytics_report_joins_persisted_data(
     snapshot = OutcomeSnapshot(
         decision_date="2026-01-01T10:00:00",
         symbol="AAA",
+        company_name="Alpha",
         decision_price=100,
         decision="BUY",
         opportunity_score=85,
@@ -165,6 +166,7 @@ def test_outcome_analytics_report_joins_persisted_data(
     result = OutcomeResult(
         decision_date=snapshot.decision_date,
         symbol="AAA",
+        company_name="Alpha",
         horizon_days=30,
         evaluation_date="2026-01-31T10:00:00",
         decision_price=100,
@@ -180,6 +182,18 @@ def test_outcome_analytics_report_joins_persisted_data(
     assert len(dataset) == 1
     assert dataset.loc[0, "decision"] == "BUY"
     assert report.hit_rate.hit_rate == 100.0
+    assert report.evaluated_outcomes == (
+        {
+            "decision_date": "2026-01-01T10:00:00",
+            "symbol": "AAA",
+            "company_name": "Alpha",
+            "horizon_days": 30,
+            "due_date": "2026-01-31T10:00:00",
+            "evaluation_date": "2026-01-31T10:00:00",
+            "return_pct": 10.0,
+            "decision": "BUY",
+        },
+    )
     assert report.opportunity_calibration[0]["count"] == 1
     assert report.factor_attribution
     assert report.decision_attribution[0]["value"] == "BUY"

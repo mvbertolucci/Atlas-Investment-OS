@@ -123,6 +123,7 @@ def test_outcome_result_repository_is_immutable_per_horizon(
     first = OutcomeResult(
         decision_date="2026-01-01T10:00:00",
         symbol="AAA",
+        company_name="Company AAA",
         horizon_days=30,
         evaluation_date="2026-01-31T10:00:00",
         decision_price=100,
@@ -131,6 +132,7 @@ def test_outcome_result_repository_is_immutable_per_horizon(
     duplicate = OutcomeResult(
         decision_date="2026-01-01T10:00:00",
         symbol="AAA",
+        company_name="Company AAA",
         horizon_days=30,
         evaluation_date="2026-02-02T10:00:00",
         decision_price=100,

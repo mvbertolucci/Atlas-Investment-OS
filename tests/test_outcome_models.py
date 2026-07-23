@@ -59,6 +59,7 @@ def test_outcome_snapshot_rejects_invalid_contract(
     values = {
         "decision_date": datetime(2026, 7, 12),
         "symbol": "AAA",
+        "company_name": "Alpha",
         "decision_price": 100.0,
         "decision": "HOLD",
     }
@@ -113,6 +114,7 @@ def test_outcome_result_calculates_return_and_lag() -> None:
     result = OutcomeResult(
         decision_date="2026-01-01T10:00:00",
         symbol=" aaa ",
+        company_name=" Alpha ",
         horizon_days=30,
         evaluation_date="2026-02-02T09:00:00",
         decision_price=100,
@@ -120,6 +122,7 @@ def test_outcome_result_calculates_return_and_lag() -> None:
     )
 
     assert result.symbol == "AAA"
+    assert result.company_name == "Alpha"
     assert result.due_date.isoformat() == "2026-01-31T10:00:00"
     assert result.evaluation_lag_days == 2
     assert result.return_pct == 15.0
@@ -145,6 +148,7 @@ def test_outcome_result_rejects_invalid_contract(
     values = {
         "decision_date": "2026-01-01T10:00:00",
         "symbol": "AAA",
+        "company_name": "Alpha",
         "horizon_days": 30,
         "evaluation_date": "2026-02-01T10:00:00",
         "decision_price": 100,

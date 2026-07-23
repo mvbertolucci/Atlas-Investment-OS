@@ -11,7 +11,7 @@ trades.
 `outcomes.models.OutcomeSnapshot` is the immutable decision-time contract. It
 records:
 
-- decision timestamp and symbol;
+- decision timestamp, symbol and company name;
 - observed decision price;
 - Atlas decision and presentation rating;
 - Investment, Opportunity, Conviction and Decision Confidence scores;
@@ -44,7 +44,7 @@ Each main-pipeline run evaluates stored decisions whose configured horizon has
 matured. The first valid Atlas price observed on or after the due timestamp is
 stored as an immutable `OutcomeResult`.
 
-Each result records decision date, symbol, horizon, due date, evaluation date,
+Each result records decision date, symbol, company name, horizon, due date, evaluation date,
 evaluation lag, both prices and the simple percentage return. The
 `outcome_results` table is keyed by decision, symbol and horizon, so later runs
 do not overwrite the first observation. Missing prices can be evaluated later.
@@ -117,6 +117,11 @@ machine-readable analytical contract. The Excel workbook conditionally adds
 `Outcome Summary`, `Outcome Calibration` and `Outcome Attribution` worksheets.
 Morning Brief adds the directional hit rate, mature results by horizon and the
 calibration bands with the largest samples.
+
+The JSON report also exposes `evaluated_outcomes`, where every evaluated row
+contains both `symbol` and `company_name`; new captures and results reject a
+missing company name. Existing result rows receive the name from their matched
+decision snapshot during the additive database migration.
 
 When no directional result has matured, the report explicitly states that the
 sample is insufficient. Reporting is descriptive and does not modify weights,

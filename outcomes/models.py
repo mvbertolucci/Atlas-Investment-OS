@@ -90,6 +90,12 @@ class OutcomeSnapshot:
                 "OutcomeSnapshot exige um símbolo válido."
             )
 
+        company_name = str(self.company_name).strip()
+        if not company_name:
+            raise ValueError(
+                "OutcomeSnapshot exige o nome da empresa."
+            )
+
         if decision not in VALID_DECISIONS:
             raise ValueError(
                 "decision deve ser uma decisão válida do Atlas."
@@ -125,7 +131,7 @@ class OutcomeSnapshot:
         object.__setattr__(
             self,
             "company_name",
-            str(self.company_name).strip(),
+            company_name,
         )
         object.__setattr__(
             self,
@@ -224,6 +230,7 @@ class OutcomeResult:
 
     decision_date: datetime | str
     symbol: str
+    company_name: str
     horizon_days: int
     evaluation_date: datetime | str
     decision_price: float
@@ -237,6 +244,12 @@ class OutcomeResult:
         if not symbol:
             raise ValueError(
                 "OutcomeResult exige um símbolo válido."
+            )
+
+        company_name = str(self.company_name).strip()
+        if not company_name:
+            raise ValueError(
+                "OutcomeResult exige o nome da empresa."
             )
 
         if isinstance(self.horizon_days, bool):
@@ -280,6 +293,7 @@ class OutcomeResult:
         object.__setattr__(self, "decision_date", decision_date)
         object.__setattr__(self, "evaluation_date", evaluation_date)
         object.__setattr__(self, "symbol", symbol)
+        object.__setattr__(self, "company_name", company_name)
         object.__setattr__(self, "horizon_days", horizon_days)
         object.__setattr__(
             self,
@@ -318,6 +332,7 @@ class OutcomeResult:
                 timespec="seconds"
             ),
             "symbol": self.symbol,
+            "company_name": self.company_name,
             "horizon_days": self.horizon_days,
             "due_date": self.due_date.isoformat(
                 timespec="seconds"

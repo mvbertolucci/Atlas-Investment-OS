@@ -138,6 +138,7 @@ def test_generate_outcome_analytics_reads_persisted_results(
     snapshot = OutcomeSnapshot(
         decision_date="2026-01-01T10:00:00",
         symbol="AAA",
+        company_name="Alpha",
         decision_price=100,
         decision="BUY",
         opportunity_score=85,
@@ -146,6 +147,7 @@ def test_generate_outcome_analytics_reads_persisted_results(
     result = OutcomeResult(
         decision_date=snapshot.decision_date,
         symbol="AAA",
+        company_name="Alpha",
         horizon_days=30,
         evaluation_date="2026-01-31T10:00:00",
         decision_price=100,

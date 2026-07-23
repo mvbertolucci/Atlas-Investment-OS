@@ -89,6 +89,7 @@ class HistoryDatabase:
             (
                 decision_date       TEXT NOT NULL,
                 symbol              TEXT NOT NULL,
+                company_name        TEXT,
                 horizon_days        INTEGER NOT NULL,
                 due_date            TEXT NOT NULL,
                 evaluation_date     TEXT NOT NULL,
@@ -137,6 +138,7 @@ class HistoryDatabase:
         )
 
         self._ensure_outcome_snapshot_columns()
+        self._ensure_outcome_result_columns()
 
         cursor.execute(
             """
@@ -209,6 +211,31 @@ class HistoryDatabase:
                     f"ALTER TABLE outcome_snapshots "
                     f"ADD COLUMN {name} {definition}"
                 )
+
+    def _ensure_outcome_result_columns(self) -> None:
+        columns = {
+            row[1]
+            for row in self.connection.execute(
+                "PRAGMA table_info(outcome_results)"
+            ).fetchall()
+        }
+        if "company_name" not in columns:
+            self.connection.execute(
+                "ALTER TABLE outcome_results "
+                "ADD COLUMN company_name TEXT"
+            )
+        self.connection.execute(
+            """
+            UPDATE outcome_results
+            SET company_name = (
+                SELECT company_name
+                FROM outcome_snapshots
+                WHERE outcome_snapshots.decision_date = outcome_results.decision_date
+                  AND outcome_snapshots.symbol = outcome_results.symbol
+            )
+            WHERE COALESCE(TRIM(company_name), '') = ''
+            """
+        )
 
     def save_outcome_snapshot(
         self,
@@ -335,6 +362,7 @@ class HistoryDatabase:
             (
                 decision_date,
                 symbol,
+                company_name,
                 horizon_days,
                 due_date,
                 evaluation_date,
@@ -343,11 +371,12 @@ class HistoryDatabase:
                 outcome_price,
                 return_pct
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 data["decision_date"],
                 data["symbol"],
+                data["company_name"],
                 data["horizon_days"],
                 data["due_date"],
                 data["evaluation_date"],
