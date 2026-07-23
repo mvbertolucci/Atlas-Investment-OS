@@ -875,3 +875,19 @@ def test_intelligence_service_watchlist_auto_curation_respects_disabled_flag(
 
     assert result.enabled is False
     assert watchlist_path.read_text(encoding="utf-8") == original
+
+
+def test_missing_evidence_filters_placeholders_and_dedupes() -> None:
+    report = SimpleNamespace(
+        missing_required_features=("Nenhum",),
+        risk_evidence_missing=("f_score_annual", "f_score_annual", "-"),
+    )
+    assert reporting_module._missing_evidence(report) == ("f_score_annual",)
+
+
+def test_missing_evidence_unions_both_sources_in_order() -> None:
+    report = SimpleNamespace(
+        missing_required_features=("roic",),
+        risk_evidence_missing=("f_score_annual",),
+    )
+    assert reporting_module._missing_evidence(report) == ("roic", "f_score_annual")

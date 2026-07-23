@@ -81,6 +81,14 @@ transição, não como saída+entrada; scores movem acima de limiar (5.0),
 evidência que aparece/some é sempre material, `current_weight` é ignorado
 (ruído de preço). Itens sem mudança são contados, não listados.
 
+Confiança explicável (PR-E, 2026-07-22): itens da fila carregam
+`missing_evidence` (união de `missing_required_features` e
+`risk_evidence_missing`, sem o placeholder "Nenhum"; aditivo ao contrato v1.1).
+Cards com `decision_confidence` ou `data_coverage` abaixo do piso 60 ganham um
+bloco curto dizendo o que falta (ex.: BRK-B → "F-Score Piotroski (anual)"), o
+efeito (o motor mantém a decisão em revisão em vez de agir) e como atualizar
+(recoletar o ticker via skill `atualizar-ticker`).
+
 `decision/cockpit.py` renderiza a mesma fila, sem nova consulta a motores, em
 `output/relatorios/decision_cockpit.html` — a **página humana única** ("Atlas —
 Hoje"). Desde 2026-07-22 (PR-C) é organizada por hierarquia rígida de três

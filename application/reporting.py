@@ -59,6 +59,25 @@ MorningBriefWriter = Callable[..., Path]
 MorningBriefRenderer = Callable[..., str]
 
 _BUY_DECISIONS = {"STRONG_BUY", "BUY", "ACCUMULATE"}
+# Placeholders que os motores emitem quando nada falta -- não são campos reais.
+_MISSING_PLACEHOLDERS = {"", "nenhum", "none", "-", "n/a"}
+
+
+def _missing_evidence(report: Any) -> tuple[str, ...]:
+    """Campos de evidência genuinamente ausentes, sem os placeholders "Nenhum".
+
+    Une `missing_required_features` (features obrigatórias faltantes) e
+    `risk_evidence_missing` (evidência de risco não coletada, ex.:
+    `f_score_annual`), preservando ordem e sem duplicar.
+    """
+    seen: list[str] = []
+    for field_name in ("missing_required_features", "risk_evidence_missing"):
+        for value in getattr(report, field_name, ()) or ():
+            text = str(value).strip()
+            if text.lower() in _MISSING_PLACEHOLDERS or text in seen:
+                continue
+            seen.append(text)
+    return tuple(seen)
 
 
 def _fmt_percent(value: Any) -> str:
@@ -234,6 +253,7 @@ class ReportingApplicationService:
                 "decision_confidence": report.decision_confidence,
                 "data_coverage": report.data_coverage,
                 "risk_penalty": report.risk_penalty,
+                "missing_evidence": _missing_evidence(report),
             }
             for report in company_reports
         }

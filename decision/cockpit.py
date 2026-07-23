@@ -187,6 +187,59 @@ def _delta_section(delta: dict[str, object] | None) -> str:
     return f'<section class="delta"><h2>Mudou desde a última execução</h2>{body}</section>'
 
 
+# Piso de confiança/cobertura abaixo do qual o motor trata a decisão como pouco
+# confiável (alinhado ao gate de Model Confidence ~59-60, ver STATUS.md §6).
+CONFIDENCE_FLOOR = 60.0
+
+_EVIDENCE_LABELS = {
+    "f_score_annual": "F-Score Piotroski (anual)",
+    "f_score": "F-Score Piotroski",
+    "roic": "ROIC",
+    "roe": "ROE",
+    "ev_ebitda": "EV/EBITDA",
+    "ev_ebit": "EV/EBIT",
+    "fcf_yield": "FCF Yield",
+    "shareholder_yield": "Shareholder Yield",
+    "net_margin": "Margem líquida",
+    "pe": "P/L",
+    "peg": "PEG",
+}
+
+
+def _humanize_evidence(field: str) -> str:
+    key = field.strip().lower()
+    if key in _EVIDENCE_LABELS:
+        return _EVIDENCE_LABELS[key]
+    return field.replace("_", " ").strip().title()
+
+
+def _is_low(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and (
+        float(value) < CONFIDENCE_FLOOR
+    )
+
+
+def _confidence_explanation(item: dict[str, object]) -> str:
+    confidence = item.get("decision_confidence")
+    coverage = item.get("data_coverage")
+    if not (_is_low(confidence) or _is_low(coverage)):
+        return ""
+    symbol = str(item.get("symbol", ""))
+    missing = tuple(item.get("missing_evidence") or ())
+    detail = (
+        f"Falta: {', '.join(_humanize_evidence(str(m)) for m in missing)}."
+        if missing
+        else "Cobertura de dados abaixo do usual para os fatores exigidos."
+    )
+    return (
+        '<div class="lowconf"><b>Confiança baixa.</b> '
+        f"{_e(detail)} Efeito: o motor trata a decisão como menos confiável e a "
+        "mantém em revisão em vez de agir. "
+        f"<span class=\"refresh\">Atualizar evidência: recolete {_e(symbol)} "
+        "(skill <code>atualizar-ticker</code>) e rode novamente.</span></div>"
+    )
+
+
 def _review_controls(item: dict[str, object], statuses: dict[str, str]) -> str:
     decision_id = str(item.get("decision_id", ""))
     if not decision_id:
@@ -233,6 +286,7 @@ def _item_card(item: dict[str, object], statuses: dict[str, str] | None = None) 
         f'<p>{_e(item.get("reason")) or "Sem justificativa publicada."}</p>'
         f'{thesis_html}'
         f'<div class="metadata">{"".join(metadata)}</div>'
+        f'{_confidence_explanation(item)}'
         f'<small>{_e(item.get("engine"))} · consultivo</small>'
         f'{_review_controls(item, statuses or {})}'
         "</article>"
@@ -468,6 +522,9 @@ padding:3px 9px;cursor:pointer}}.review button:hover{{border-color:var(--muted)}
 .status-descartado{{background:#fdeceb;color:#b42318}}
 .notice{{background:#fff4e5;color:#7a4d00;border:1px solid #f0c98a;border-radius:8px;
 padding:10px 14px;margin-bottom:18px;font-size:14px;display:none}}
+.lowconf{{background:#fff8ec;border:1px solid #f0d9a8;border-radius:7px;
+padding:8px 11px;margin:8px 0;font-size:13px;color:#7a4d00}}
+.lowconf code{{background:rgba(0,0,0,.06);padding:1px 4px;border-radius:4px}}
 @media(max-width:800px){{main{{padding:16px}}header{{display:block}}.summary-grid{{grid-template-columns:repeat(2,1fr)}}
 .cards{{grid-template-columns:1fr}}}}@media(prefers-color-scheme:dark){{:root{{--bg:#101828;--surface:#1d2939;
 --text:#f2f4f7;--muted:#98a2b3;--line:#344054}}.decision-card p,.delta li{{color:#d0d5dd}}.action,.tier-head span,.section-head span,summary span{{background:#344054}}

@@ -50,6 +50,7 @@ def test_consolidates_portfolio_and_watchlist_without_redeciding() -> None:
                 "decision_confidence": 62.0,
                 "data_coverage": 62.0,
                 "risk_penalty": 55.0,
+                "missing_evidence": ("f_score_annual",),
             }
         },
         generated_at="2026-07-22T00:00:00",
@@ -68,6 +69,7 @@ def test_consolidates_portfolio_and_watchlist_without_redeciding() -> None:
     assert execute[0]["company_name"] == "FMC Corporation"
     assert execute[0]["investment_thesis"] == "Recuperar geração de caixa."
     assert execute[0]["risk_penalty"] == 55.0
+    assert list(execute[0]["missing_evidence"]) == ["f_score_annual"]
     assert execute[1]["action"] == "REVIEW_FOR_PURCHASE"
     assert execute[1]["advisory_only"] is True
     assert queue["groups"]["MONITOR"][0]["action"] == "ACOMPANHAR"
@@ -126,5 +128,7 @@ def test_snapshot_decision_queue_writes_one_file_per_run(tmp_path: Path) -> None
     assert output == history_dir / "decision_queue_2026-07-22T15-00-00.json"
     assert not output.with_suffix(".json.tmp").exists()
     payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload == queue.to_dict()
+    # O snapshot é a serialização JSON da fila (tuples viram listas); compara
+    # contra a mesma forma normalizada por JSON, não contra o dict em memória.
+    assert payload == json.loads(json.dumps(queue.to_dict()))
     assert payload["contract_version"] == "1.1"

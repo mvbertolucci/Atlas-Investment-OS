@@ -36,6 +36,15 @@ read-only contract.
 When a portfolio scenario is available, the cockpit also summarizes released
 cash, post-trade cash weight and turnover. It does not add replacement buys.
 
+Each queue item carries `missing_evidence` (the union of
+`missing_required_features` and `risk_evidence_missing`, minus the "Nenhum"
+placeholder; additive to contract v1.1). A card whose `decision_confidence` or
+`data_coverage` is below the confidence floor (60) renders a short explanation:
+which fields are missing (e.g. BRK-B → the annual Piotroski F-Score), the
+effect on the decision (the engine keeps it under review instead of acting) and
+how to refresh the evidence (recollect the ticker via the `atualizar-ticker`
+skill).
+
 Queue items carry a deterministic `decision_id` (hash of symbol, action and
 engine — stable across runs since contract v1.1, ADR-040) used by the
 append-only Decision Journal. The cockpit shows only aggregate

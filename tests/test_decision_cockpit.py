@@ -221,6 +221,72 @@ def test_cockpit_script_and_notice_present() -> None:
     assert "http://127.0.0.1:8000/cockpit" in html
 
 
+def test_low_confidence_explanation_brk_b() -> None:
+    # Caso de aceitação: BRK-B tem confiança/cobertura baixas e falta o
+    # F-Score anual; o card deve dizer o que falta, o efeito e como atualizar.
+    queue = build_decision_queue(
+        priority={
+            "sell": {
+                "items": [
+                    {"symbol": "BRK-B", "action": "REVISAR", "reason": "revisar",
+                     "priority": 20}
+                ]
+            }
+        },
+        company_context={
+            "BRK-B": {
+                "company_name": "Berkshire Hathaway",
+                "decision_confidence": 53.2,
+                "data_coverage": 58.0,
+                "missing_evidence": ("f_score_annual",),
+            }
+        },
+        generated_at="2026-07-22T10:00:00",
+    )
+    html = render_decision_cockpit(queue)
+    assert "Confiança baixa." in html
+    assert "F-Score Piotroski (anual)" in html
+    assert "o motor trata a decisão como menos confiável" in html
+    assert "atualizar-ticker" in html
+
+
+def test_no_low_confidence_block_when_confidence_ok() -> None:
+    queue = build_decision_queue(
+        priority={
+            "sell": {
+                "items": [
+                    {"symbol": "AAA", "action": "SELL", "reason": "x", "priority": 0}
+                ]
+            }
+        },
+        company_context={
+            "AAA": {"decision_confidence": 75.0, "data_coverage": 72.0},
+        },
+        generated_at="2026-07-22T10:00:00",
+    )
+    html = render_decision_cockpit(queue)
+    assert "Confiança baixa." not in html
+
+
+def test_low_confidence_without_named_fields_still_explains() -> None:
+    queue = build_decision_queue(
+        priority={
+            "sell": {
+                "items": [
+                    {"symbol": "BBB", "action": "SELL", "reason": "x", "priority": 0}
+                ]
+            }
+        },
+        company_context={
+            "BBB": {"decision_confidence": 40.0, "data_coverage": 55.0},
+        },
+        generated_at="2026-07-22T10:00:00",
+    )
+    html = render_decision_cockpit(queue)
+    assert "Confiança baixa." in html
+    assert "Cobertura de dados abaixo do usual" in html
+
+
 def test_monitor_items_go_into_collapsed_section() -> None:
     # KGC (promotion_ready -> EXECUTE) e itens MONITOR; o card MONITOR fica
     # dentro do <details> de Acompanhar, não no topo.
