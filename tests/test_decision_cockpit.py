@@ -200,6 +200,27 @@ def test_renders_portfolio_health_and_outcomes() -> None:
     assert "Hit rate direcional: 60.0% (6/10)." in html
 
 
+def test_renders_status_chip_and_review_buttons() -> None:
+    queue = _queue()
+    fmc_id = queue.items[0]["decision_id"]
+    html = render_decision_cockpit(queue, statuses={fmc_id: "decidido"})
+    assert f'data-decision-id="{fmc_id}"' in html
+    assert 'class="status status-decidido"' in html
+    assert "Decidido" in html
+    assert 'data-status="ACCEPTED"' in html
+    assert 'data-status="REJECTED"' in html
+    assert 'data-status="DEFERRED"' in html
+    # itens sem status registrado caem em "Novo"
+    assert "status-novo" in html
+
+
+def test_cockpit_script_and_notice_present() -> None:
+    html = render_decision_cockpit(_queue())
+    assert "fetch(\"/journal\"" in html
+    assert 'id="notice"' in html
+    assert "http://127.0.0.1:8000/cockpit" in html
+
+
 def test_monitor_items_go_into_collapsed_section() -> None:
     # KGC (promotion_ready -> EXECUTE) e itens MONITOR; o card MONITOR fica
     # dentro do <details> de Acompanhar, não no topo.

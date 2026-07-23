@@ -4,6 +4,7 @@ from html import escape
 from pathlib import Path
 
 from decision.queue import DecisionQueue
+from decision.status import STATUS_LABELS, STATUS_NEW, status_for
 from portfolio.scenario import PortfolioScenario
 from storage.atomic_write import replace_with_retry
 
@@ -14,6 +15,64 @@ GROUP_LABELS = {
     "WAIT": "Aguardar",
     "MONITOR": "Monitorar",
 }
+
+# Interação mínima: só funciona quando a página é servida por api.server
+# (mesma origem que POST /journal). Aberta via file://, os botões ficam
+# desativados e um aviso explica como habilitar. Sem dependências externas.
+_COCKPIT_SCRIPT = """<script>
+(function () {
+  var MAP = {
+    ACCEPTED: { slug: "decidido", label: "Decidido" },
+    DEFERRED: { slug: "em_analise", label: "Em análise" },
+    REJECTED: { slug: "descartado", label: "Descartado" }
+  };
+  var live = location.protocol === "http:" || location.protocol === "https:";
+  if (!live) {
+    var notice = document.getElementById("notice");
+    if (notice) notice.style.display = "block";
+    document.querySelectorAll(".review button").forEach(function (b) {
+      b.disabled = true;
+      b.title = "Abra via http://127.0.0.1:8000/cockpit para registrar.";
+    });
+    return;
+  }
+  document.querySelectorAll(".review").forEach(function (row) {
+    var id = row.getAttribute("data-decision-id");
+    row.querySelectorAll("button[data-status]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var status = button.getAttribute("data-status");
+        var reason = window.prompt("Motivo da revisão (" + status + "):");
+        if (reason === null) return;
+        reason = reason.trim();
+        if (!reason) { window.alert("Motivo é obrigatório."); return; }
+        row.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+        fetch("/journal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ decision_id: id, status: status, reason: reason })
+        }).then(function (resp) {
+          return resp.json().then(function (data) { return { ok: resp.ok, data: data }; });
+        }).then(function (result) {
+          if (!result.ok) {
+            window.alert("Erro: " + (result.data.error || "falha ao registrar."));
+            row.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
+            return;
+          }
+          var chip = row.querySelector(".status");
+          var mapped = MAP[status];
+          if (chip && mapped) {
+            chip.className = "status status-" + mapped.slug;
+            chip.textContent = mapped.label;
+          }
+        }).catch(function () {
+          window.alert("Falha de rede ao registrar a revisão.");
+          row.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
+        });
+      });
+    });
+  });
+})();
+</script>"""
 
 DELTA_FIELD_LABELS = {
     "group": "Fila",
@@ -128,7 +187,22 @@ def _delta_section(delta: dict[str, object] | None) -> str:
     return f'<section class="delta"><h2>Mudou desde a última execução</h2>{body}</section>'
 
 
-def _item_card(item: dict[str, object]) -> str:
+def _review_controls(item: dict[str, object], statuses: dict[str, str]) -> str:
+    decision_id = str(item.get("decision_id", ""))
+    if not decision_id:
+        return ""
+    status = status_for(statuses, decision_id)
+    return (
+        f'<div class="review" data-decision-id="{_e(decision_id)}">'
+        f'<span class="status status-{_e(status)}">{_e(STATUS_LABELS.get(status, status))}</span>'
+        '<button type="button" data-status="ACCEPTED">Aceitar</button>'
+        '<button type="button" data-status="DEFERRED">Adiar</button>'
+        '<button type="button" data-status="REJECTED">Rejeitar</button>'
+        "</div>"
+    )
+
+
+def _item_card(item: dict[str, object], statuses: dict[str, str] | None = None) -> str:
     metadata = []
     for key, label in (
         ("investment_score", "Score"),
@@ -160,6 +234,7 @@ def _item_card(item: dict[str, object]) -> str:
         f'{thesis_html}'
         f'<div class="metadata">{"".join(metadata)}</div>'
         f'<small>{_e(item.get("engine"))} · consultivo</small>'
+        f'{_review_controls(item, statuses or {})}'
         "</article>"
     )
 
@@ -223,6 +298,7 @@ def render_decision_cockpit(
     queue: DecisionQueue,
     *,
     delta: dict[str, object] | None = None,
+    statuses: dict[str, str] | None = None,
     opportunities: tuple[dict[str, object], ...] = (),
     portfolio_health: dict[str, object] | None = None,
     outcomes_line: str | None = None,
@@ -231,6 +307,7 @@ def render_decision_cockpit(
     execution_summary: dict[str, object] | None = None,
     reconciliation_summary: dict[str, object] | None = None,
 ) -> str:
+    statuses = statuses or {}
     if not isinstance(queue, DecisionQueue):
         raise TypeError("queue deve ser DecisionQueue.")
     payload = queue.to_dict()
@@ -295,7 +372,7 @@ def render_decision_cockpit(
 
     def _group_block(name: str) -> str:
         items = groups[name]
-        body = "".join(_item_card(item) for item in items) or (
+        body = "".join(_item_card(item, statuses) for item in items) or (
             '<p class="empty">Nenhum item nesta fila.</p>'
         )
         return (
@@ -315,7 +392,7 @@ def render_decision_cockpit(
     # de entrada aguardando (watchlist waiting_trigger).
     opportunity_cards = "".join(_opportunity_card(item) for item in opportunities)
     wait_items = groups["WAIT"]
-    wait_cards = "".join(_item_card(item) for item in wait_items)
+    wait_cards = "".join(_item_card(item, statuses) for item in wait_items)
     opportunity_body = opportunity_cards + wait_cards or (
         '<p class="empty">Nenhuma oportunidade qualificada nesta execução.</p>'
     )
@@ -328,7 +405,7 @@ def render_decision_cockpit(
 
     # Tier 3 — MONITORAMENTO: sem ação; colapsado para não competir com o topo.
     monitor_items = groups["MONITOR"]
-    monitor_cards = "".join(_item_card(item) for item in monitor_items) or (
+    monitor_cards = "".join(_item_card(item, statuses) for item in monitor_items) or (
         '<p class="empty">Nenhum item em monitoramento.</p>'
     )
     monitor_html = (
@@ -381,14 +458,26 @@ border-radius:10px;padding:16px 20px}}.delta h2{{margin-bottom:6px}}.delta-block
 .tier-monitor summary{{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}}
 .tier-monitor summary h2{{margin:0}}.tier-monitor summary em{{color:var(--muted);font-style:normal;font-size:13px}}
 .tier-monitor summary::-webkit-details-marker{{display:none}}
+.review{{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;
+border-top:1px solid var(--line);padding-top:10px}}.review button{{font:inherit;font-size:12px;
+border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:6px;
+padding:3px 9px;cursor:pointer}}.review button:hover{{border-color:var(--muted)}}
+.status{{font-size:12px;font-weight:700;border-radius:999px;padding:3px 9px;margin-right:auto}}
+.status-novo{{background:#eef2f6;color:var(--muted)}}.status-em_analise{{background:#fff4e5;color:#b54708}}
+.status-decidido{{background:#e7f0ff;color:#175cd3}}.status-executado{{background:#e6f4ea;color:#12805c}}
+.status-descartado{{background:#fdeceb;color:#b42318}}
+.notice{{background:#fff4e5;color:#7a4d00;border:1px solid #f0c98a;border-radius:8px;
+padding:10px 14px;margin-bottom:18px;font-size:14px;display:none}}
 @media(max-width:800px){{main{{padding:16px}}header{{display:block}}.summary-grid{{grid-template-columns:repeat(2,1fr)}}
 .cards{{grid-template-columns:1fr}}}}@media(prefers-color-scheme:dark){{:root{{--bg:#101828;--surface:#1d2939;
---text:#f2f4f7;--muted:#98a2b3;--line:#344054}}.decision-card p,.delta li{{color:#d0d5dd}}.action,.tier-head span,.section-head span,summary span{{background:#344054}}}}
+--text:#f2f4f7;--muted:#98a2b3;--line:#344054}}.decision-card p,.delta li{{color:#d0d5dd}}.action,.tier-head span,.section-head span,summary span{{background:#344054}}
+.status-novo{{background:#344054;color:#d0d5dd}}}}
 </style></head><body><main><header><div><h1>Atlas — Hoje</h1>
 <p class="meta">Mesa de decisão consolidada · agir agora, oportunidades e acompanhamento · somente consultiva</p></div>
 <p class="meta">Gerado em {_e(payload["generated_at"])}</p></header>
+<div id="notice" class="notice">Para registrar revisões (Aceitar/Adiar/Rejeitar), abra esta página via <b>http://127.0.0.1:8000/cockpit</b> (servidor local <code>python -m api.server</code>). No modo arquivo os botões ficam desativados.</div>
 <div class="summary-grid">{summary_cards}</div>{delta_html}{action_html}{opportunity_html}{scenario_html}{journal_html}{execution_html}{reconciliation_html}{monitor_html}{health_html}{outcomes_html}
-</main></body></html>"""
+</main>{_COCKPIT_SCRIPT}</body></html>"""
 
 
 def write_decision_cockpit(
@@ -396,6 +485,7 @@ def write_decision_cockpit(
     path: str | Path,
     *,
     delta: dict[str, object] | None = None,
+    statuses: dict[str, str] | None = None,
     opportunities: tuple[dict[str, object], ...] = (),
     portfolio_health: dict[str, object] | None = None,
     outcomes_line: str | None = None,
@@ -409,7 +499,7 @@ def write_decision_cockpit(
     temporary = output.with_suffix(output.suffix + ".tmp")
     temporary.write_text(
         render_decision_cockpit(
-            queue, delta=delta, opportunities=opportunities,
+            queue, delta=delta, statuses=statuses, opportunities=opportunities,
             portfolio_health=portfolio_health, outcomes_line=outcomes_line,
             scenario=scenario, journal_summary=journal_summary,
             execution_summary=execution_summary,

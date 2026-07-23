@@ -101,9 +101,18 @@ uma nova decisão. Dashboard atualizado deliberadamente para contrato v1.3.
 
 `decision/journal.py` registra eventos humanos explícitos (`ACCEPTED`,
 `REJECTED`, `DEFERRED`) por `decision_id`, sempre com justificativa e sem apagar
-histórico. Não existe endpoint web de escrita nem execução de trade. O cockpit
-mostra apenas contagens agregadas. Dashboard atualizado deliberadamente para
-contrato v1.4. Ver `docs/DECISION_JOURNAL.md`.
+histórico. Desde 2026-07-22 (PR-D, ADR-041) o cockpit registra revisões
+interativamente: botões Aceitar/Adiar/Rejeitar fazem `POST /journal` na API
+local (`api.server`), **único** caminho de escrita da API antes read-only.
+Endurecido para ferramenta local pessoal: bind só em `127.0.0.1`, exige
+`Content-Type: application/json` (mitiga CSRF simples), corpo limitado, POST só
+em `/journal`, append-only e consultivo (nunca envia ordem). O cockpit é servido
+pela própria API em `/cockpit` para os botões serem same-origin; aberto via
+`file://` os botões ficam desativados com aviso. `decision/status.py` deriva o
+status por decisão (`novo`/`em análise`/`decidido`/`executado`/`descartado`) de
+journal+ledger a cada render, sem persistir (evita segunda fonte de verdade); o
+cockpit mostra o chip por card e contagens agregadas. Dashboard contrato v1.4.
+Ver `docs/DECISION_JOURNAL.md`.
 
 `decision/execution.py` registra fills reais informados explicitamente, somente
 para `SELL`/`TRIM` cujo último estado humano seja `ACCEPTED`. Quantidade, preço,

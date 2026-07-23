@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from api.resources import dispatch, load_dashboard, route
+from api.resources import dispatch, load_dashboard, route, write_journal_event
 
 
 def _contract() -> dict:
@@ -121,11 +121,18 @@ def test_unknown_resource_is_404() -> None:
     assert payload["path"] == "/nope"
 
 
-def test_dispatch_rejects_non_get(tmp_path: Path) -> None:
+def test_dispatch_rejects_put_and_delete(tmp_path: Path) -> None:
     path = _write(tmp_path)
-    for method in ("POST", "PUT", "DELETE"):
+    for method in ("PUT", "DELETE"):
         status, _ = dispatch(method, "/dashboard", dashboard_path=path)
         assert status == 405
+
+
+def test_dispatch_post_only_on_journal(tmp_path: Path) -> None:
+    path = _write(tmp_path)
+    status, payload = dispatch("POST", "/dashboard", dashboard_path=path, body={})
+    assert status == 404
+    assert payload["path"] == "/dashboard"
 
 
 def test_dispatch_reads_from_file(tmp_path: Path) -> None:
@@ -149,3 +156,75 @@ def test_load_dashboard_missing_raises(tmp_path: Path) -> None:
     with pytest.raises(ResourceError) as exc:
         load_dashboard(tmp_path / "absent.json")
     assert exc.value.status == 503
+
+
+def _queue_file(tmp_path: Path) -> Path:
+    path = tmp_path / "decision_queue.json"
+    path.write_text(
+        json.dumps(
+            {
+                "contract_version": "1.1",
+                "generated_at": "2026-07-22T10:00:00",
+                "items": [
+                    {
+                        "decision_id": "d1",
+                        "symbol": "FMC",
+                        "action": "SELL",
+                        "engine": "portfolio.sell_rules",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_write_journal_event_records_decision(tmp_path: Path) -> None:
+    journal = tmp_path / "journal.json"
+    status, payload = write_journal_event(
+        {"decision_id": "d1", "status": "ACCEPTED", "reason": "Evidência confirmada"},
+        queue_path=_queue_file(tmp_path),
+        journal_path=journal,
+    )
+    assert status == 201
+    assert payload["symbol"] == "FMC"
+    assert payload["status"] == "ACCEPTED"
+    stored = json.loads(journal.read_text(encoding="utf-8"))
+    assert len(stored["events"]) == 1
+
+
+def test_write_journal_event_validates_body(tmp_path: Path) -> None:
+    queue = _queue_file(tmp_path)
+    journal = tmp_path / "journal.json"
+    assert write_journal_event("nope", queue_path=queue, journal_path=journal)[0] == 400
+    assert write_journal_event(
+        {"decision_id": "", "status": "ACCEPTED", "reason": "x"},
+        queue_path=queue, journal_path=journal,
+    )[0] == 400
+    assert write_journal_event(
+        {"decision_id": "d1", "status": "MAYBE", "reason": "x"},
+        queue_path=queue, journal_path=journal,
+    )[0] == 400
+    assert write_journal_event(
+        {"decision_id": "d1", "status": "ACCEPTED", "reason": "  "},
+        queue_path=queue, journal_path=journal,
+    )[0] == 400
+
+
+def test_write_journal_event_unknown_decision_is_404(tmp_path: Path) -> None:
+    status, _ = write_journal_event(
+        {"decision_id": "zz", "status": "ACCEPTED", "reason": "x"},
+        queue_path=_queue_file(tmp_path),
+        journal_path=tmp_path / "journal.json",
+    )
+    assert status == 404
+
+
+def test_write_journal_event_missing_queue_is_503(tmp_path: Path) -> None:
+    status, _ = write_journal_event(
+        {"decision_id": "d1", "status": "ACCEPTED", "reason": "x"},
+        queue_path=tmp_path / "absent.json",
+        journal_path=tmp_path / "journal.json",
+    )
+    assert status == 503

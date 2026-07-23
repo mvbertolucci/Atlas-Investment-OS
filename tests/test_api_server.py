@@ -42,6 +42,32 @@ def base_url(tmp_path: Path, monkeypatch) -> Iterator[str]:
     )
     monkeypatch.setattr(resources, "DEFAULT_DASHBOARD_PATH", artifact)
 
+    queue = tmp_path / "decision_queue.json"
+    queue.write_text(
+        json.dumps(
+            {
+                "contract_version": "1.1",
+                "generated_at": "2026-07-22T10:00:00",
+                "items": [
+                    {
+                        "decision_id": "d1",
+                        "symbol": "FMC",
+                        "action": "SELL",
+                        "engine": "portfolio.sell_rules",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(resources, "DEFAULT_QUEUE_PATH", queue)
+    monkeypatch.setattr(resources, "DEFAULT_JOURNAL_PATH", tmp_path / "journal.json")
+
+    cockpit = tmp_path / "decision_cockpit.html"
+    cockpit.write_text("<!doctype html><title>cockpit</title>", encoding="utf-8")
+    import api.server as server_module
+    monkeypatch.setattr(server_module, "COCKPIT_PATH", cockpit)
+
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -56,6 +82,17 @@ def base_url(tmp_path: Path, monkeypatch) -> Iterator[str]:
 def _get(url: str) -> tuple[int, dict]:
     try:
         with urllib.request.urlopen(url, timeout=5) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        return exc.code, json.loads(exc.read().decode("utf-8"))
+
+
+def _post(url: str, body: bytes, content_type: str = "application/json") -> tuple[int, dict]:
+    request = urllib.request.Request(url, method="POST", data=body)
+    if content_type is not None:
+        request.add_header("Content-Type", content_type)
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
             return response.status, json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         return exc.code, json.loads(exc.read().decode("utf-8"))
@@ -79,9 +116,9 @@ def test_unknown_path_is_404_over_http(base_url: str) -> None:
     assert status == 404
 
 
-def test_post_is_rejected_over_http(base_url: str) -> None:
+def test_put_is_rejected_over_http(base_url: str) -> None:
     request = urllib.request.Request(
-        f"{base_url}/dashboard", method="POST", data=b"{}"
+        f"{base_url}/dashboard", method="PUT", data=b"{}"
     )
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
@@ -89,3 +126,40 @@ def test_post_is_rejected_over_http(base_url: str) -> None:
     except urllib.error.HTTPError as exc:
         status = exc.code
     assert status == 405
+
+
+def test_post_journal_records_over_http(base_url: str) -> None:
+    body = json.dumps(
+        {"decision_id": "d1", "status": "ACCEPTED", "reason": "confirmado"}
+    ).encode("utf-8")
+    status, payload = _post(f"{base_url}/journal", body)
+    assert status == 201
+    assert payload["symbol"] == "FMC"
+    assert payload["status"] == "ACCEPTED"
+
+
+def test_post_journal_requires_json_content_type(base_url: str) -> None:
+    body = json.dumps(
+        {"decision_id": "d1", "status": "ACCEPTED", "reason": "x"}
+    ).encode("utf-8")
+    status, _ = _post(
+        f"{base_url}/journal", body, content_type="application/x-www-form-urlencoded"
+    )
+    assert status == 415
+
+
+def test_post_to_non_journal_path_is_404(base_url: str) -> None:
+    status, _ = _post(f"{base_url}/dashboard", b"{}")
+    assert status == 404
+
+
+def test_post_journal_rejects_bad_body(base_url: str) -> None:
+    status, _ = _post(f"{base_url}/journal", b"not json")
+    assert status == 400
+
+
+def test_serves_cockpit_html_over_http(base_url: str) -> None:
+    with urllib.request.urlopen(f"{base_url}/cockpit", timeout=5) as response:
+        assert response.status == 200
+        assert response.headers.get("Content-Type").startswith("text/html")
+        assert "cockpit" in response.read().decode("utf-8")

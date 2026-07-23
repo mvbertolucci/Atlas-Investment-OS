@@ -26,6 +26,7 @@ from decision.queue import (
 from decision.cockpit import write_decision_cockpit
 from decision.journal import journal_summary, load_journal
 from decision.execution import execution_summary, load_execution_ledger
+from decision.status import derive_decision_statuses
 from decision.reconciliation import (
     load_reconciliation_summary,
     reconcile_executions,
@@ -307,11 +308,15 @@ class ReportingApplicationService:
         )
         cockpit_health = _build_cockpit_health(portfolio_report)
         cockpit_outcomes_line = _build_cockpit_outcomes_line(outcome_report)
+        decision_statuses = derive_decision_statuses(
+            load_journal(journal_path), ledger_payload
+        )
         cockpit_path = self.output_reports / "decision_cockpit.html"
         write_decision_cockpit(
             decision_queue,
             cockpit_path,
             delta=decision_delta.to_dict(),
+            statuses=decision_statuses,
             opportunities=cockpit_opportunities,
             portfolio_health=cockpit_health,
             outcomes_line=cockpit_outcomes_line,
