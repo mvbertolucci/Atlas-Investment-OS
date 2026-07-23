@@ -252,10 +252,10 @@ class CollectionApplicationService:
                 settings.get(
                     "provider_critical_fields",
                     (
-                        # market_cap/enterprise_value/short_float are
-                        # deliberately absent (ADR-038) -- see
-                        # providers/yahoo.py::DEFAULT_CRITICAL_FIELDS
-                        "total_debt",
+                        # market_cap/enterprise_value/short_float absent
+                        # (ADR-038); total_debt absent (ADR-042) -- see
+                        # providers/yahoo.py::DEFAULT_CRITICAL_FIELDS. The
+                        # authoritative list is config/settings.json.
                         "total_cash",
                         "ebitda",
                         "free_cashflow",

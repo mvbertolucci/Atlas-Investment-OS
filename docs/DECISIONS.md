@@ -45,6 +45,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-039 | ACOMPANHAR status separates a relative_decay-only signal from an actionable REVISAR | Accepted 2026-07-22 |
 | ADR-040 | Stable decision identity (symbol\|action\|engine, no timestamp) plus per-run decision-queue snapshots | Accepted 2026-07-22 |
 | ADR-041 | Local `POST /journal` write endpoint (hardened, loopback-only) plus derived decision status in the cockpit | Accepted 2026-07-22 |
+| ADR-042 | Remove `total_debt` from cross-vendor critical agreement (flaky SEC debt sum was nulling correct Yahoo values on ~48% of holdings) | Accepted 2026-07-22 |
 
 ## Recording a new decision
 

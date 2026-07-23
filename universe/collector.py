@@ -248,7 +248,8 @@ def collect_constituent_batch(
     critical_fields: Iterable[str] = (
         "market_cap",
         "enterprise_value",
-        "total_debt",
+        # total_debt removed (ADR-042): flaky SEC debt sum nulled correct
+        # Yahoo values on ~48% of holdings; see providers/yahoo.py.
         "total_cash",
         "ebitda",
         "free_cashflow",

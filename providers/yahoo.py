@@ -33,7 +33,17 @@ DEFAULT_CRITICAL_FIELDS = (
     # should not be able to corrupt a US-market short-interest reading via a
     # secondary vendor's differently-scoped float estimate. Other critical
     # fields are unaffected.
-    "total_debt",
+    #
+    # total_debt is also deliberately absent (ADR-042): the SEC secondary
+    # sums long_term_debt + long_term_debt_current + short_term_debt for the
+    # single latest period any one component appears
+    # (sec_companyfacts.py), so a period-misaligned or partially-tagged
+    # filing yields an incomplete total. Measured live, COP came out as
+    # $1.07B vs Yahoo's correct $23.3B; 26 of the real portfolio's holdings
+    # (MSFT, META, GOOGL, CVX, ...) had their correct Yahoo total_debt nulled
+    # by a >5% disagreement with the flaky SEC sum, silently dropping
+    # net_debt_ebitda for ~48% of the book. Yahoo's totalDebt is a clean,
+    # internally-consistent aggregate; it no longer needs SEC agreement.
     "total_cash",
     "ebitda",
     "free_cashflow",

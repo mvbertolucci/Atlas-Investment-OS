@@ -9,7 +9,7 @@
   "provider_max_retries": 2,
   "provider_backoff_seconds": 0.5,
   "provider_rate_limit_per_second": 2,
-  "provider_critical_fields": ["total_debt", "total_cash", "ebitda", "free_cashflow", "current_ratio", "roe"],
+  "provider_critical_fields": ["total_cash", "ebitda", "free_cashflow", "current_ratio", "roe"],
   "raw_snapshot_path": "data/raw_snapshots",
   "sec_secondary_enabled": true,
   "sec_public_float_alignment_days": 45,
