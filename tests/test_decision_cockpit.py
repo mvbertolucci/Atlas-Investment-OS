@@ -112,3 +112,39 @@ def test_renders_reconciliation_summary() -> None:
     assert "Reconciliação de custódia" in html
     assert "Confirmadas:</b> 2" in html
     assert "Divergências:</b> 1" in html
+
+
+def test_renders_delta_section_with_transition_and_change() -> None:
+    delta = {
+        "baseline_generated_at": "2026-07-21T15:00:00",
+        "summary": {"entered": 1, "exited": 0, "changed": 1,
+                    "action_transitions": 1, "unchanged": 40},
+        "action_transitions": [
+            {"symbol": "FMC", "company_name": "FMC Corporation", "action": "SELL",
+             "group": "EXECUTE", "from_action": "REVISAR", "from_group": "INVESTIGATE"}
+        ],
+        "changed": [
+            {"symbol": "KGC", "company_name": "Kinross", "action": "REVIEW",
+             "changes": [{"field": "opportunity_score", "from": 50.0, "to": 42.0, "delta": -8.0}]}
+        ],
+        "entered": [
+            {"symbol": "MU", "company_name": "Micron", "action": "WAIT_TRIGGER", "group": "WAIT"}
+        ],
+        "exited": [],
+    }
+    html = render_decision_cockpit(_queue(), delta=delta)
+    assert "Mudou desde a última execução" in html
+    assert "Mudança de ação (1)" in html
+    assert "REVISAR" in html and "SELL" in html
+    assert "Opportunity 50.0→42.0 (-8.0)" in html
+    assert "40 itens sem mudança" in html
+
+
+def test_delta_section_first_run_has_no_baseline() -> None:
+    html = render_decision_cockpit(_queue(), delta={"baseline_generated_at": None})
+    assert "sem base de comparação" in html
+
+
+def test_omits_delta_section_when_absent() -> None:
+    html = render_decision_cockpit(_queue())
+    assert "Mudou desde a última execução" not in html

@@ -70,8 +70,16 @@ Desde 2026-07-22 (contrato v1.1, ADR-040): `decision_id` é estável entre
 execuções (hash de símbolo|ação|motor, sem timestamp), permitindo que journal
 e ledger acompanhem a mesma decisão ao longo de dias; cada execução também
 grava snapshot imutável da fila em
-`output/dados/history/decision_queue/` — base do futuro diff "o que mudou
-desde a última execução".
+`output/dados/history/decision_queue/` — base do diff "o que mudou desde a
+última execução".
+
+`decision/delta.py` compara a fila atual com o snapshot anterior e escreve
+`output/dados/decision_delta.json` (contrato v1.0), renderizado no topo do
+cockpit como "Mudou desde a última execução". Escalação de ação
+(REVISAR→SELL no mesmo papel) é pareada por (símbolo, motor) e reportada como
+transição, não como saída+entrada; scores movem acima de limiar (5.0),
+evidência que aparece/some é sempre material, `current_weight` é ignorado
+(ruído de preço). Itens sem mudança são contados, não listados.
 
 `decision/cockpit.py` renderiza a mesma fila, sem nova consulta a motores, em
 `output/relatorios/decision_cockpit.html`. A página é responsiva, consultiva e

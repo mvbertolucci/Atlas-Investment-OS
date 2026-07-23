@@ -13,6 +13,11 @@ from analytics.performance_validation import (
     write_performance_validation_report,
 )
 from dashboard import build_dashboard_view, write_dashboard_view
+from decision.delta import (
+    build_decision_delta,
+    find_previous_snapshot,
+    write_decision_delta,
+)
 from decision.queue import (
     build_decision_queue,
     snapshot_decision_queue,
@@ -156,10 +161,19 @@ class ReportingApplicationService:
         write_decision_queue(
             decision_queue, self.dashboard_report_file.parent / "decision_queue.json"
         )
-        snapshot_decision_queue(
-            decision_queue,
-            self.dashboard_report_file.parent / "history" / "decision_queue",
+        history_dir = self.dashboard_report_file.parent / "history" / "decision_queue"
+        # Diff contra a execução anterior antes de gravar o snapshot novo (que
+        # tem generated_at posterior e por isso não é selecionado como base).
+        previous_snapshot = find_previous_snapshot(
+            history_dir, before_generated_at=decision_queue.generated_at
         )
+        decision_delta = build_decision_delta(
+            decision_queue.to_dict(), previous_snapshot
+        )
+        write_decision_delta(
+            decision_delta, self.dashboard_report_file.parent / "decision_delta.json"
+        )
+        snapshot_decision_queue(decision_queue, history_dir)
         portfolio_scenario = None
         if portfolio_report is not None:
             portfolio_payload = portfolio_report.to_dict()
@@ -204,6 +218,7 @@ class ReportingApplicationService:
         write_decision_cockpit(
             decision_queue,
             cockpit_path,
+            delta=decision_delta.to_dict(),
             scenario=portfolio_scenario,
             journal_summary=decision_journal,
             execution_summary=execution_ledger,

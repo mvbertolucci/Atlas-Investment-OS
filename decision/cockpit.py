@@ -15,9 +15,117 @@ GROUP_LABELS = {
     "MONITOR": "Monitorar",
 }
 
+DELTA_FIELD_LABELS = {
+    "group": "Fila",
+    "investment_score": "Score",
+    "opportunity_score": "Opportunity",
+    "conviction_score": "Convicção",
+    "decision_confidence": "Confiança",
+    "data_coverage": "Cobertura",
+    "risk_penalty": "Risco",
+    "investment_thesis": "Tese",
+}
+
 
 def _e(value: object) -> str:
     return escape(str(value or ""))
+
+
+def _delta_label(item: dict[str, object]) -> str:
+    name = str(item.get("company_name") or item.get("symbol") or "")
+    return f"{name} <small>({_e(item.get('symbol'))})</small>"
+
+
+def _change_phrase(change: dict[str, object]) -> str:
+    field = str(change.get("field", ""))
+    label = DELTA_FIELD_LABELS.get(field, field)
+    if field == "investment_thesis":
+        return f"{_e(label)} revista"
+    origin = change.get("from")
+    target = change.get("to")
+    if origin is None:
+        return f"{_e(label)}: nova evidência ({_e(target)})"
+    if target is None:
+        return f"{_e(label)}: evidência perdida"
+    if "delta" in change:
+        signal = "+" if float(change["delta"]) >= 0 else ""
+        return f"{_e(label)} {_e(origin)}→{_e(target)} ({signal}{_e(change['delta'])})"
+    return f"{_e(label)} {_e(origin)}→{_e(target)}"
+
+
+def _delta_section(delta: dict[str, object] | None) -> str:
+    if delta is None:
+        return ""
+    baseline = delta.get("baseline_generated_at")
+    if not baseline:
+        return (
+            '<section class="delta"><h2>Mudou desde a última execução</h2>'
+            '<p class="meta">Primeira execução registrada — sem base de comparação.</p>'
+            "</section>"
+        )
+    summary = delta.get("summary", {})
+    blocks: list[str] = []
+
+    transitions = delta.get("action_transitions", ())
+    if transitions:
+        rows = "".join(
+            f'<li><b>{_delta_label(item)}</b>: '
+            f'{_e(item.get("from_action"))} → <b>{_e(item.get("action"))}</b> '
+            f'({_e(item.get("from_group"))} → {_e(item.get("group"))})</li>'
+            for item in transitions
+        )
+        blocks.append(
+            f'<div class="delta-block"><h3>Mudança de ação ({len(transitions)})</h3>'
+            f"<ul>{rows}</ul></div>"
+        )
+
+    changed = delta.get("changed", ())
+    if changed:
+        rows = "".join(
+            f'<li><b>{_delta_label(item)}</b> ({_e(item.get("action"))}): '
+            + "; ".join(_change_phrase(change) for change in item.get("changes", ()))
+            + "</li>"
+            for item in changed
+        )
+        blocks.append(
+            f'<div class="delta-block"><h3>Evidência/fila alterada ({len(changed)})</h3>'
+            f"<ul>{rows}</ul></div>"
+        )
+
+    entered = delta.get("entered", ())
+    if entered:
+        rows = "".join(
+            f'<li><b>{_delta_label(item)}</b> — {_e(item.get("action"))} '
+            f'({GROUP_LABELS.get(str(item.get("group")), _e(item.get("group")))})</li>'
+            for item in entered
+        )
+        blocks.append(
+            f'<div class="delta-block"><h3>Entrou na fila ({len(entered)})</h3>'
+            f"<ul>{rows}</ul></div>"
+        )
+
+    exited = delta.get("exited", ())
+    if exited:
+        rows = "".join(
+            f'<li><b>{_delta_label(item)}</b> — saiu de {_e(item.get("action"))}</li>'
+            for item in exited
+        )
+        blocks.append(
+            f'<div class="delta-block"><h3>Saiu da fila ({len(exited)})</h3>'
+            f"<ul>{rows}</ul></div>"
+        )
+
+    if not blocks:
+        body = (
+            '<p class="meta">Nenhuma mudança material desde '
+            f'{_e(baseline)} · {_e(summary.get("unchanged", 0))} itens estáveis.</p>'
+        )
+    else:
+        body = "".join(blocks) + (
+            f'<p class="meta">{_e(summary.get("unchanged", 0))} itens sem mudança '
+            f"material (ocultos) · base {_e(baseline)}.</p>"
+        )
+    return f'<section class="delta"><h2>Mudou desde a última execução</h2>{body}</section>'
 
 
 def _item_card(item: dict[str, object]) -> str:
@@ -59,6 +167,7 @@ def _item_card(item: dict[str, object]) -> str:
 def render_decision_cockpit(
     queue: DecisionQueue,
     *,
+    delta: dict[str, object] | None = None,
     scenario: PortfolioScenario | None = None,
     journal_summary: dict[str, object] | None = None,
     execution_summary: dict[str, object] | None = None,
@@ -124,6 +233,7 @@ def render_decision_cockpit(
             f'<span><b>Não verificáveis:</b> {_e(reconciliation_summary.get("unverifiable", 0))}</span>'
             '</div></section>'
         )
+    delta_html = _delta_section(delta)
     sections = []
     for name in ("EXECUTE", "INVESTIGATE", "WAIT", "MONITOR"):
         items = groups[name]
@@ -159,13 +269,17 @@ border-radius:10px;padding:15px}}.card-head{{display:flex;justify-content:space-
 .action{{font-size:12px;font-weight:700;background:#eef2f6;border-radius:999px;padding:4px 8px}}
 .decision-card p{{margin:10px 0;color:#344054}}.metadata{{display:flex;flex-wrap:wrap;gap:8px 16px;
 font-size:13px;margin-bottom:8px}}small,.empty{{color:var(--muted)}}
+.delta{{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--wait);
+border-radius:10px;padding:16px 20px}}.delta h2{{margin-bottom:6px}}.delta-block{{margin:12px 0}}
+.delta-block h3{{margin:0 0 6px;font-size:14px}}.delta ul{{margin:0;padding-left:18px}}
+.delta li{{margin:4px 0;color:#344054}}
 @media(max-width:800px){{main{{padding:16px}}header{{display:block}}.summary-grid{{grid-template-columns:repeat(2,1fr)}}
 .cards{{grid-template-columns:1fr}}}}@media(prefers-color-scheme:dark){{:root{{--bg:#101828;--surface:#1d2939;
---text:#f2f4f7;--muted:#98a2b3;--line:#344054}}.decision-card p{{color:#d0d5dd}}.action,.section-head span{{background:#344054}}}}
+--text:#f2f4f7;--muted:#98a2b3;--line:#344054}}.decision-card p,.delta li{{color:#d0d5dd}}.action,.section-head span{{background:#344054}}}}
 </style></head><body><main><header><div><h1>Atlas Decision Cockpit</h1>
 <p class="meta">Fila decisória consolidada · tese e evidências por item · somente consultiva</p></div>
 <p class="meta">Gerado em {_e(payload["generated_at"])}</p></header>
-<div class="summary-grid">{summary_cards}</div>{scenario_html}{journal_html}{execution_html}{reconciliation_html}{''.join(sections)}
+<div class="summary-grid">{summary_cards}</div>{delta_html}{scenario_html}{journal_html}{execution_html}{reconciliation_html}{''.join(sections)}
 </main></body></html>"""
 
 
@@ -173,6 +287,7 @@ def write_decision_cockpit(
     queue: DecisionQueue,
     path: str | Path,
     *,
+    delta: dict[str, object] | None = None,
     scenario: PortfolioScenario | None = None,
     journal_summary: dict[str, object] | None = None,
     execution_summary: dict[str, object] | None = None,
@@ -183,7 +298,7 @@ def write_decision_cockpit(
     temporary = output.with_suffix(output.suffix + ".tmp")
     temporary.write_text(
         render_decision_cockpit(
-            queue, scenario=scenario, journal_summary=journal_summary,
+            queue, delta=delta, scenario=scenario, journal_summary=journal_summary,
             execution_summary=execution_summary,
             reconciliation_summary=reconciliation_summary,
         ),

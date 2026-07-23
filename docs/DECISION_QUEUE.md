@@ -39,3 +39,23 @@ Each run also writes an immutable snapshot of the full queue contract to
 `output/dados/history/decision_queue/decision_queue_<generated_at>.json`,
 the raw material for run-over-run comparison ("what changed since the last
 run"). Snapshots are runtime artifacts and are not versioned in Git.
+
+## Run-over-run delta
+
+`decision/delta.py` diffs the current queue against the most recent earlier
+snapshot and writes `output/dados/decision_delta.json` (contract v1.0). The
+cockpit renders it as the top "Mudou desde a última execução" section, so the
+first thing a human sees is the change, not the whole portfolio repeated.
+
+Because the `decision_id` identity is `symbol|action|engine`, an action
+escalation (e.g. REVISAR → SELL on the same holding) would naively look like
+one item leaving and another entering. `build_decision_delta` pairs those by
+`(symbol, engine)` and reports them as an **action transition** — the single
+most decision-relevant signal — instead of an exit plus an entry. It also
+reports items that entered, items that exited, and same-decision changes:
+group moves, score moves above a threshold (default 5.0 points; appearing or
+disappearing evidence is always material regardless of threshold) and thesis
+revisions. `current_weight` is deliberately excluded — it drifts with price
+every run and would be permanent noise. Items with no material change are
+counted, not listed, so the section stays focused. The first run has no
+baseline and says so.
