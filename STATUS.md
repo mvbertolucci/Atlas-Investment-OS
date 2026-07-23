@@ -66,6 +66,13 @@ venda e os estados da Watchlist ativa em `EXECUTE`, `INVESTIGATE`, `WAIT` e
 `REVIEW_FOR_PURCHASE`, nunca uma compra automática. Ver
 `docs/DECISION_QUEUE.md`.
 
+Desde 2026-07-22 (contrato v1.1, ADR-040): `decision_id` é estável entre
+execuções (hash de símbolo|ação|motor, sem timestamp), permitindo que journal
+e ledger acompanhem a mesma decisão ao longo de dias; cada execução também
+grava snapshot imutável da fila em
+`output/dados/history/decision_queue/` — base do futuro diff "o que mudou
+desde a última execução".
+
 `decision/cockpit.py` renderiza a mesma fila, sem nova consulta a motores, em
 `output/relatorios/decision_cockpit.html`. A página é responsiva, consultiva e
 organizada pelas quatro filas; não possui controles de mutação ou execução.

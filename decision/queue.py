@@ -9,7 +9,10 @@ from typing import Any, Mapping
 from storage.atomic_write import atomic_write_json
 
 
-DECISION_QUEUE_VERSION = "1.0"
+# 1.1: decision_id passou a ser estável entre execuções (symbol|action|engine,
+# sem generated_at) para o journal/ledger acompanharem uma decisão ao longo
+# de dias; generated_at continua no payload como atributo de ocorrência.
+DECISION_QUEUE_VERSION = "1.1"
 
 
 @dataclass(frozen=True)
@@ -129,16 +132,23 @@ def build_decision_queue(
         ))
     items.sort(key=lambda item: (int(item["priority"]), str(item["symbol"])))
     queue_generated_at = generated_at or datetime.now().isoformat(timespec="seconds")
+    seen_ids: dict[str, str] = {}
     for item in items:
         identity = "|".join(
             (
-                queue_generated_at,
                 str(item["symbol"]),
                 str(item["action"]),
                 str(item["engine"]),
             )
         )
-        item["decision_id"] = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+        decision_id = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+        if decision_id in seen_ids:
+            raise ValueError(
+                "decision_id duplicado para "
+                f"{identity!r} (colide com {seen_ids[decision_id]!r})."
+            )
+        seen_ids[decision_id] = identity
+        item["decision_id"] = decision_id
     return DecisionQueue(
         items=tuple(items),
         generated_at=queue_generated_at,
@@ -149,3 +159,16 @@ def write_decision_queue(queue: DecisionQueue, path: str | Path) -> Path:
     if not isinstance(queue, DecisionQueue):
         raise TypeError("queue deve ser DecisionQueue.")
     return atomic_write_json(path, queue.to_dict(), ensure_ascii=False, indent=2)
+
+
+def snapshot_decision_queue(queue: DecisionQueue, history_dir: str | Path) -> Path:
+    """Grava uma cópia imutável da fila por execução, para diff run-over-run."""
+    if not isinstance(queue, DecisionQueue):
+        raise TypeError("queue deve ser DecisionQueue.")
+    stamp = queue.generated_at.replace(":", "-")
+    return atomic_write_json(
+        Path(history_dir) / f"decision_queue_{stamp}.json",
+        queue.to_dict(),
+        ensure_ascii=False,
+        indent=2,
+    )

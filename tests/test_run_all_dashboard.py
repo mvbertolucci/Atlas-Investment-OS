@@ -45,6 +45,8 @@ def test_generate_dashboard_writes_contract(
     )
 
     assert path == output
+    snapshots = list((tmp_path / "history" / "decision_queue").glob("decision_queue_*.json"))
+    assert len(snapshots) == 1
     data = json.loads(output.read_text(encoding="utf-8"))
     assert data["contract_version"]
     assert [c["symbol"] for c in data["companies"]] == ["AAA", "BBB"]

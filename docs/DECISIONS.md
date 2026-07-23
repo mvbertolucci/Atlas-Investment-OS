@@ -43,6 +43,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-037 | PE/ROE absence from a loss-making or negative-equity company is structural (not_applicable), not a fetch gap; EV/EBITDA weight raised as the natural substitute | Accepted 2026-07-21 |
 | ADR-038 | General FX/vendor-reconciliation protocol for market_cap/enterprise_value/short_float/total_cash on ADRs and foreign issuers | Accepted 2026-07-22 |
 | ADR-039 | ACOMPANHAR status separates a relative_decay-only signal from an actionable REVISAR | Accepted 2026-07-22 |
+| ADR-040 | Stable decision identity (symbol\|action\|engine, no timestamp) plus per-run decision-queue snapshots | Accepted 2026-07-22 |
 
 ## Recording a new decision
 

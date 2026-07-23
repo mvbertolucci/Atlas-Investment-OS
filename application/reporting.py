@@ -13,7 +13,11 @@ from analytics.performance_validation import (
     write_performance_validation_report,
 )
 from dashboard import build_dashboard_view, write_dashboard_view
-from decision.queue import build_decision_queue, write_decision_queue
+from decision.queue import (
+    build_decision_queue,
+    snapshot_decision_queue,
+    write_decision_queue,
+)
 from decision.cockpit import write_decision_cockpit
 from decision.journal import journal_summary, load_journal
 from decision.execution import execution_summary, load_execution_ledger
@@ -151,6 +155,10 @@ class ReportingApplicationService:
         )
         write_decision_queue(
             decision_queue, self.dashboard_report_file.parent / "decision_queue.json"
+        )
+        snapshot_decision_queue(
+            decision_queue,
+            self.dashboard_report_file.parent / "history" / "decision_queue",
         )
         portfolio_scenario = None
         if portfolio_report is not None:

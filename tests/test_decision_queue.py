@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from decision.queue import build_decision_queue, write_decision_queue
+from decision.queue import (
+    build_decision_queue,
+    snapshot_decision_queue,
+    write_decision_queue,
+)
 
 
 def test_consolidates_portfolio_and_watchlist_without_redeciding() -> None:
@@ -76,3 +80,51 @@ def test_write_decision_queue_is_atomic(tmp_path: Path) -> None:
     assert output.exists()
     assert not output.with_suffix(".json.tmp").exists()
     assert json.loads(output.read_text(encoding="utf-8"))["items"] == []
+
+
+def test_decision_id_is_stable_across_runs() -> None:
+    priority = {
+        "sell": {
+            "items": [
+                {"symbol": "FMC", "action": "SELL", "reason": "distress", "priority": 0},
+            ]
+        }
+    }
+    first = build_decision_queue(priority=priority, generated_at="2026-07-22T00:00:00")
+    second = build_decision_queue(priority=priority, generated_at="2026-07-23T00:00:00")
+
+    assert first.items[0]["decision_id"] == second.items[0]["decision_id"]
+    assert first.generated_at != second.generated_at
+
+    trim = build_decision_queue(
+        priority={
+            "sell": {
+                "items": [
+                    {"symbol": "FMC", "action": "TRIM", "reason": "peso", "priority": 0},
+                ]
+            }
+        },
+        generated_at="2026-07-22T00:00:00",
+    )
+    assert trim.items[0]["decision_id"] != first.items[0]["decision_id"]
+
+
+def test_snapshot_decision_queue_writes_one_file_per_run(tmp_path: Path) -> None:
+    queue = build_decision_queue(
+        priority={
+            "sell": {
+                "items": [
+                    {"symbol": "FMC", "action": "SELL", "reason": "distress", "priority": 0},
+                ]
+            }
+        },
+        generated_at="2026-07-22T15:00:00",
+    )
+    history_dir = tmp_path / "history" / "decision_queue"
+    output = snapshot_decision_queue(queue, history_dir)
+
+    assert output == history_dir / "decision_queue_2026-07-22T15-00-00.json"
+    assert not output.with_suffix(".json.tmp").exists()
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload == queue.to_dict()
+    assert payload["contract_version"] == "1.1"

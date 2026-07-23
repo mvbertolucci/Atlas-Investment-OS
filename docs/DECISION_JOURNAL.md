@@ -3,8 +3,11 @@
 `output/dados/decision_journal.json` is the append-only audit log of explicit
 human reviews over a specific versioned Decision Queue item.
 
-Each queue item has a deterministic `decision_id` derived from queue generation
-time, symbol, action and engine. A journal event records `ACCEPTED`, `REJECTED`
+Each queue item has a deterministic `decision_id` derived from symbol, action
+and engine — stable across runs (ADR-040), so a review recorded today still
+refers to the same decision when tomorrow's queue is generated; the queue
+generation time is stored on the event as `queue_generated_at`, an occurrence
+attribute, not part of the identity. A journal event records `ACCEPTED`, `REJECTED`
 or `DEFERRED`, requires a non-empty reason, preserves the original symbol,
 action, engine and queue timestamp, and has its own deterministic event ID.
 Exact duplicate events are rejected; a later event may supersede the latest

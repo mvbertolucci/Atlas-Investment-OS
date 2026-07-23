@@ -30,6 +30,12 @@ purpose is immediate visual triage over the versioned read-only contract.
 When a portfolio scenario is available, the cockpit also summarizes released
 cash, post-trade cash weight and turnover. It does not add replacement buys.
 
-Queue items carry a deterministic `decision_id` used by the append-only
-Decision Journal. The cockpit shows only aggregate accepted/rejected/deferred
-counts and remains read-only.
+Queue items carry a deterministic `decision_id` (hash of symbol, action and
+engine — stable across runs since contract v1.1, ADR-040) used by the
+append-only Decision Journal. The cockpit shows only aggregate
+accepted/rejected/deferred counts and remains read-only.
+
+Each run also writes an immutable snapshot of the full queue contract to
+`output/dados/history/decision_queue/decision_queue_<generated_at>.json`,
+the raw material for run-over-run comparison ("what changed since the last
+run"). Snapshots are runtime artifacts and are not versioned in Git.
