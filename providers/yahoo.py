@@ -46,6 +46,19 @@ DEFAULT_CRITICAL_FIELDS = (
     # by a >5% disagreement with the flaky SEC sum, silently dropping
     # net_debt_ebitda for ~48% of the book. Yahoo's totalDebt is a clean,
     # internally-consistent aggregate; it no longer needs SEC agreement.
+    #
+    # roe is deliberately absent too (ADR-048). It was never in this tuple but
+    # was in `config/settings.json`, which overrides it. The ADR-047 freshness
+    # fix exposed why that was wrong: while roe sat permanently `stale` it was
+    # never reconciled at all (`reconcile_critical_fields` skips unusable
+    # primaries), so the disagreement stayed invisible. Once dated correctly
+    # the field became `present`, got cross-checked, and was nulled --
+    # measured live: ASML Yahoo 0.5394 vs Finnhub 0.4468 (17% apart), CLF
+    # -0.1386 vs -0.2091 (34%). Neither vendor is wrong: Yahoo's roe is TTM
+    # net income over equity, Finnhub's uses a different period/equity base.
+    # A definitional mismatch is not a data error, and 5% agreement between
+    # two different definitions is unachievable by construction -- the same
+    # reasoning as total_debt above and ADR-038's market_cap/short_float.
     "total_cash",
     "ebitda",
     "free_cashflow",

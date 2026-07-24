@@ -255,3 +255,38 @@ def test_missing_cadence_falls_back_to_the_quarterly_default() -> None:
     apply_sector_applicability(record, FRESHNESS_POLICY)
 
     assert field_status(record, "ebitda") == DataValueStatus.PRESENT
+
+
+def test_definitional_disagreement_no_longer_nulls_roe() -> None:
+    """ADR-048: `roe` saiu da concordância crítica entre fontes.
+
+    Yahoo calcula ROE em base TTM; o secundário usa outra base de período/
+    patrimônio. Medido ao vivo em 2026-07-24: ASML 0.5394 vs 0.4468 (17%),
+    CLF -0.1386 vs -0.2091 (34%) -- longe da tolerância de 5%, sem que
+    nenhum dos dois esteja errado. Enquanto `roe` vivia permanentemente
+    `stale` a divergência ficava invisível (reconcile pula primário
+    inutilizável); ao ser datado corretamente pela ADR-047, passou a anular
+    o campo e travou ASML/CLF em confiança 59, suprimindo o SELL do CLF.
+    """
+    primary = _record("Yahoo Finance", roe=0.53942, ebitda=1_000.0)
+    secondary = _record("Finnhub", roe=0.4468, ebitda=1_000.0)
+
+    reconciled = reconcile_critical_fields(
+        primary, secondary, ("total_cash", "ebitda", "free_cashflow", "current_ratio")
+    )
+
+    assert reconciled["roe"] == 0.53942
+    assert field_status(reconciled, "roe") != DataValueStatus.INVALID
+
+
+def test_roe_would_still_be_nulled_if_declared_critical() -> None:
+    """Guarda do mecanismo: a mudança é de política (que campos são
+    críticos), não do reconciliador. Se alguém redeclarar `roe` crítico, a
+    anulação por divergência volta -- este teste falha junto, apontando a
+    causa."""
+    primary = _record("Yahoo Finance", roe=0.53942)
+    secondary = _record("Finnhub", roe=0.4468)
+
+    reconciled = reconcile_critical_fields(primary, secondary, ("roe",))
+
+    assert field_status(reconciled, "roe") == DataValueStatus.INVALID

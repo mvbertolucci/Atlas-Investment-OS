@@ -51,6 +51,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-045 | Persist the analysis row's scalar values (`analysis_values_json`, additive column) so the company page can show in-memory derived metrics — RSI, momentum, EV/EBITDA, moving averages — that lived nowhere after a run ended | Accepted 2026-07-24 |
 | ADR-046 | Parallelize collection with a `ThreadPoolExecutor` sharing one rate-limited `ProviderClient` (`provider_max_workers: 4`), so the 2 req/s budget is actually used instead of network latency dominating | Accepted 2026-07-24 |
 | ADR-047 | Freshness anchors on the issuer's own reporting cadence, and TTM flow metrics are dated by the latest quarter instead of the annual statement (MSFT flow fields were a full year mis-dated; 324 stale fields → 0 across the book) | Accepted 2026-07-24 |
+| ADR-048 | Remove `roe` from critical cross-vendor agreement — Yahoo's TTM ROE and the secondary's differently-based ROE can't meet a 5% bar by construction; ADR-047 unmasked the latent disagreement, which was nulling the field and suppressing CLF's SELL | Accepted 2026-07-24 |
 
 ## Recording a new decision
 
