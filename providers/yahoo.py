@@ -427,8 +427,6 @@ def fetch_symbol(
     quarterly_balance_sheet = _safe_statement(t, "quarterly_balance_sheet")
     income_statement = _safe_statement(t, "financials")
     cashflow = _safe_statement(t, "cashflow")
-    quarterly_income_statement = _safe_statement(t, "quarterly_financials")
-    quarterly_cashflow = _safe_statement(t, "quarterly_cashflow")
 
     retrieved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     record = {
@@ -574,16 +572,17 @@ def fetch_symbol(
     # motor de frescor então os marcava como defasados sem que houvesse nada
     # mais recente a coletar. O fim de período correto de um TTM é o último
     # trimestre fechado.
-    ttm_period_end = (
-        _statement_date(quarterly_income_statement)
-        or balance_date
-        or _statement_date(income_statement)
-    )
-    ttm_cashflow_period_end = (
-        _statement_date(quarterly_cashflow)
-        or balance_date
-        or _statement_date(cashflow)
-    )
+    # `balance_date` já é `mostRecentQuarter`, que vem dentro de `info` -- não
+    # custa requisição nova. Medido contra `quarterly_financials` em 4
+    # emissores: idêntico em MSFT/AVAV, 2 dias de diferença em JNJ (calendário
+    # 52/53 semanas), e mais robusto em BTI, onde o quadro trimestral de
+    # resultado voltou vazio. Dois dias são ruído para uma regra medida em
+    # meses, e buscar os quadros trimestrais de resultado/caixa custaria +2
+    # requisições por símbolo -- 33% a mais sobre as 6 que a ADR-046 usou para
+    # dimensionar a paralelização, com a coleta ampla já limitada pelo teto de
+    # 2 req/s.
+    ttm_period_end = balance_date or _statement_date(income_statement)
+    ttm_cashflow_period_end = balance_date or _statement_date(cashflow)
     observed_at_by_field = {
         field_name: observed_at
         for observed_at, fields in (
@@ -618,9 +617,10 @@ def fetch_symbol(
     # Cadência de divulgação do próprio emissor, para a política de frescor
     # decidir quando o período seguinte já deveria ter saído. Prefixo `_`
     # mantém o campo fora de `field_evidence` (não é um dado observado).
-    reporting_period_days = _reporting_period_days(
-        quarterly_income_statement, quarterly_balance_sheet, quarterly_cashflow
-    )
+    # `quarterly_balance_sheet` já era buscado antes desta mudança, e sozinho
+    # mede a cadência tão bem quanto os três quadros juntos (verificado:
+    # BTI 182d, MSFT 91d, AVAV 92d, JNJ 91d -- idêntico nos dois caminhos).
+    reporting_period_days = _reporting_period_days(quarterly_balance_sheet)
     if reporting_period_days:
         record["_reporting_period_days"] = reporting_period_days
     short_interest_date = _unix_date(info.get("dateShortInterest"))

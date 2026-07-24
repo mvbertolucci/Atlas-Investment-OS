@@ -77,14 +77,29 @@ confiança.
 
 ### 1. Datar o TTM pelo trimestre (`providers/yahoo.py`)
 
-Passa a buscar `quarterly_financials` e `quarterly_cashflow` (simétrico ao
-`quarterly_balance_sheet`, que já era buscado) e usa o fim de período deles
-para datar os campos de fluxo — `roe`, `roa`, margens, `ebitda`,
-`free_cashflow`, `operating_cashflow`. Fallback em cascata: trimestral →
-`mostRecentQuarter` → anual.
+Os campos de fluxo — `roe`, `roa`, margens, `ebitda`, `free_cashflow`,
+`operating_cashflow` — passam a ser datados por `mostRecentQuarter` (fallback:
+quadro anual), em vez do fim do exercício.
 
 **Nenhum valor muda**: os números já eram TTM, que é a base escolhida. Muda só
 a data atribuída a eles.
+
+**Sem custo de requisição.** A primeira versão desta mudança buscava
+`quarterly_financials` e `quarterly_cashflow`, o que levaria `fetch_symbol` de
+6 para 8 chamadas HTTP por símbolo — 33% a mais sobre a base com que a ADR-046
+dimensionou a paralelização, e a coleta ampla já opera no teto de 2 req/s.
+Medido em 4 emissores, os dois quadros extras não acrescentavam nada:
+
+| | BTI | MSFT | AVAV | JNJ |
+|---|---|---|---|---|
+| Cadência via `quarterly_balance_sheet` (já buscado) | 182 | 91 | 92 | 91 |
+| Cadência via os 3 quadros trimestrais | 182 | 91 | 92 | 91 |
+| `mostRecentQuarter` (grátis, vem no `info`) | 2025-12-31 | 2026-03-31 | 2026-04-30 | 2026-06-28 |
+| `_statement_date(quarterly_financials)` | **None** | 2026-03-31 | 2026-04-30 | 2026-06-30 |
+
+Idênticos, exceto por 2 dias no JNJ (calendário 52/53 semanas — e a data
+gratuita é a do trimestre fiscal real), e o caminho gratuito ainda é mais
+robusto: no BTI o quadro trimestral de resultado voltou vazio.
 
 ### 2. Frescor por cadência do emissor (`providers/evidence.py`)
 
@@ -94,8 +109,9 @@ Para as categorias em `freshness.period_cadence_categories` (hoje
 período *seguinte* já deveria ter sido publicado.
 
 `reporting_period_days` é medido pelo provider a partir do espaçamento mediano
-entre períodos consecutivos do **próprio emissor** (`_reporting_period_days`,
-prefixo `_` para ficar fora de `field_evidence`). Isso cobre trimestral (~91d)
+entre períodos consecutivos do **próprio emissor**, lidos do
+`quarterly_balance_sheet` que já era buscado (`_reporting_period_days`, prefixo
+`_` para ficar fora de `field_evidence`). Isso cobre trimestral (~91d)
 e semestral (~182d) **sem configuração por ticker** — e, por ancorar no período
 fiscal de cada um, cobre também ano fiscal em abril (AVAV), em junho (MSFT) e
 calendário 52/53 semanas (JNJ).
@@ -129,7 +145,7 @@ Verificado ao vivo (chamada direta ao provider, sem escrita em histórico):
 | AVAV | 92 d | 2026-04-30 → 2026-04-30 | 20 → **0** |
 | MSFT | 91 d | **2025-06-30 → 2026-03-31** | 20 → **0** |
 | BTI | **182 d** | 2025-12-31 → 2025-12-31 | 20 → **0** |
-| JNJ | 91 d | 2025-12-31 → 2026-06-30 | 8 → **0** |
+| JNJ | 91 d | 2025-12-31 → 2026-06-28 | 8 → **0** |
 
 - Confiança e Data Coverage deixam de oscilar com o calendário de divulgação;
   o gate `min_confidence_score: 70` volta a significar dado genuinamente
