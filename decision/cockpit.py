@@ -334,14 +334,22 @@ def _confidence_explanation(item: dict[str, object]) -> str:
     any_source_divergence = any(
         "divergem" in r or "rejeitado" in r for r in reason_by_field.values()
     )
+    # Materialidade por campo (ADR-050): responde "isso muda alguma coisa?"
+    # junto do "por que falta", para o leitor não refazer esse julgamento a
+    # cada leitura.
+    materiality_by_field = {
+        str(d.get("field")): str(d.get("materiality") or "") for d in detail_rows
+    }
     if missing:
         lines = []
         for field in missing:
             reason = reason_by_field.get(str(field))
-            if reason:
-                lines.append(f"<li>{_e(reason)}</li>")
-            else:
-                lines.append(f"<li>{_e(_humanize_evidence(str(field)))}: não coletado.</li>")
+            text = reason or f"{_humanize_evidence(str(field))}: não coletado."
+            note = materiality_by_field.get(str(field))
+            suffix = (
+                f' <span class="materiality">— {_e(note)}</span>' if note else ""
+            )
+            lines.append(f"<li>{_e(text)}{suffix}</li>")
         body = f"<b>Por que a confiança está baixa:</b><ul>{''.join(lines)}</ul>"
     else:
         body = (
@@ -777,6 +785,7 @@ padding:10px 14px;margin-bottom:18px;font-size:14px;display:none}}
 padding:8px 11px;margin:8px 0;font-size:13px;color:#7a4d00}}
 .lowconf ul{{margin:4px 0;padding-left:18px}}.lowconf li{{margin:2px 0}}
 .lowconf p{{margin:5px 0 0}}.lowconf .lowconf-effect{{opacity:.9}}
+.lowconf .materiality{{opacity:.72;font-size:.92em}}
 .lowconf code{{background:rgba(0,0,0,.06);padding:1px 4px;border-radius:4px}}
 @media(max-width:800px){{main{{padding:16px}}header{{display:block}}.summary-grid{{grid-template-columns:repeat(2,1fr)}}
 .cards{{grid-template-columns:1fr}}}}@media(prefers-color-scheme:dark){{:root{{--bg:#101828;--surface:#1d2939;

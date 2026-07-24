@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from analytics.mapper import DERIVED_DEPENDENCIES
+from reports.field_materiality import materiality_note
 
 
 # Rótulos legíveis por campo. Chaves em snake_case como o pipeline emite.
@@ -123,16 +124,29 @@ def reason_for_field(
 def build_missing_reasons(
     fields: Sequence[str],
     field_evidence: Mapping[str, Any] | None,
+    *,
+    values: Mapping[str, Any] | None = None,
+    sector: Any = None,
 ) -> tuple[dict[str, str], ...]:
-    """Lista {field, label, reason} para cada campo ausente informado."""
+    """Lista {field, label, reason, materiality} para cada campo ausente.
+
+    `materiality` responde "isso muda alguma coisa?" a partir da
+    configuração governada (ADR-050), para o leitor não precisar refazer
+    esse julgamento a cada leitura. Campo novo e opcional: chamadores
+    antigos seguem funcionando e simplesmente recebem string vazia.
+    """
     out: list[dict[str, str]] = []
     for field in fields:
         reason = reason_for_field(field, field_evidence)
+        note = materiality_note(
+            field, (values or {}).get(str(field)), sector=sector
+        )
         out.append(
             {
                 "field": str(field),
                 "label": humanize_field(field),
                 "reason": reason or "",
+                "materiality": note or "",
             }
         )
     return tuple(out)

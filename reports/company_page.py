@@ -27,6 +27,8 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from reports.field_materiality import materiality_note
+
 from reports.statement_layout import TOTAL_LINES, order_statement
 
 STATEMENTS = (
@@ -249,11 +251,31 @@ def _evidence_rows(data: CompanyData, category: str) -> str:
             value_html = '<span class="unstored">não persistido</span>'
         else:
             value_html = "—"
+        # Materialidade (ADR-050) só onde há lacuna: num campo `present` a
+        # pergunta "isso muda alguma coisa?" não se coloca, e a anotação
+        # viraria ruído em ~60 das 83 linhas.
+        materiality_html = ""
+        if status in ("stale", "missing", "unavailable", "invalid"):
+            # O limiar do deal breaker é expresso em pontos percentuais
+            # (`short_float_max: 20` = 20%), enquanto o valor persistido aqui
+            # é fração -- `analytics/mapper.py` só multiplica por 100 dentro
+            # do pipeline, não no que a página lê. Comparar sem converter
+            # errava por 100x: o short_float do BRK-B saía como "precisaria
+            # crescer 2083x" em vez de 20,8x.
+            comparable = value
+            if name in PERCENT_FIELDS and isinstance(value, (int, float)):
+                comparable = float(value) * 100
+            note = materiality_note(
+                name, comparable, sector=data.snapshot.get("sector")
+            )
+            if note:
+                materiality_html = f'<div class="materiality">{_e(note)}</div>'
         rows.append(
             "<tr>"
             f'<td><b>{_e(label)}</b><div class="code">{_e(name)}</div></td>'
             f'<td class="num">{value_html}</td>'
-            f"<td>{_status_pill(status)}{detail_html}{confirmed_html}</td>"
+            f"<td>{_status_pill(status)}{detail_html}{confirmed_html}"
+            f"{materiality_html}</td>"
             f"<td>{_e(meta.get('source') or '—')}</td>"
             f"<td class=\"when\">{_e(_fmt_dt(meta.get('observed_at') or meta.get('retrieved_at')))}</td>"
             "</tr>"
@@ -536,6 +558,7 @@ background:var(--surface-2)}}
 td.when{{white-space:nowrap;color:var(--ink-2);font-variant-numeric:tabular-nums}}
 .code{{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--ink-3);word-break:break-all}}
 .detail{{font-size:11.5px;color:var(--ink-3);margin-top:3px}}
+.materiality{{font-size:11.5px;color:var(--ink-3);margin-top:3px;font-style:italic}}
 .unstored{{font-size:11.5px;color:var(--ink-3);font-style:italic}}
 .pill{{display:inline-block;font-size:11px;font-weight:650;padding:2px 8px;border-radius:999px;white-space:nowrap}}
 .pill.ok{{background:var(--ok-soft);color:var(--ok)}}.pill.warn{{background:var(--warn-soft);color:var(--warn)}}
