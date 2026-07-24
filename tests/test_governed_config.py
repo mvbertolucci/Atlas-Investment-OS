@@ -65,6 +65,13 @@ def test_data_quality_policy_is_pinned() -> None:
             "fresh_score": 100,
             "acceptable_score": 70,
             "stale_score": 0,
+            # Fundamentos envelhecem pelo calendário de divulgação do emissor,
+            # não pelo relógio: a janela acima é inatingível para um trimestre
+            # (~91d) e mais ainda para um semestral (~182d).
+            "period_cadence_categories": ["fundamentals"],
+            "default_reporting_period_days": 91,
+            "filing_lag_days": 45,
+            "max_reporting_period_days": 400,
         },
         "not_applicable_by_sector": {
             "Financial Services": [
