@@ -4,9 +4,17 @@ Página inicial humana do Atlas -- a "porta única" (Fase 1 de usabilidade).
 `render_home` monta um HTML self-contido (CSS inline, sem dependência externa,
 tema claro/escuro) que lista os pontos de entrada que o usuário de fato abre --
 o cockpit "Hoje", o relatório completo -- junto com o frescor da última execução
-e um lembrete de como atualizar. É estritamente read-only: só olha o que os
-motores já produziram em `output/relatorios/` e `output/dados/`; nunca dispara
-uma run nem toca em config.
+e a atualização dos dados.
+
+A leitura do estado continua read-only: só olha o que os motores já produziram
+em `output/relatorios/` e `output/dados/`, e nunca toca em config. O que mudou
+é que atualizar deixou de ser um comando para copiar e colar: com
+`allow_run=True` a página oferece os dois modos que o menu do `Atlas.bat` já
+tinha (carteira e completo), disparados por `POST /run` e acompanhados por
+`GET /run/status`. Quem executa é `api.runner`; esta página só pede.
+
+Com `allow_run=False` a seção volta a ser o lembrete textual de antes -- é o
+caso do visor hospedado da Fase 2, onde não há motor para disparar.
 
 O servidor (`api/server.py`) serve este HTML em `/` apenas quando o cliente
 pede `text/html` (navegador); `urllib`/scripts continuam recebendo o índice
@@ -73,8 +81,37 @@ def _mtime(path: Path) -> float | None:
         return None
 
 
-def render_home(root: Path) -> str:
-    """Retorna o HTML da página inicial, refletindo o estado atual em disco."""
+def _update_section(allow_run: bool) -> str:
+    """Bloco "Atualizar os dados": botões quando há motor, texto quando não."""
+    if not allow_run:
+        return """  <div class="update">
+    <div class="k">Atualizar os dados</div>
+    <p><b>Rápido (carteira):</b> <code>python atlas.py hoje</code></p>
+    <p><b>Completo (com screener):</b> <code>python atlas.py full</code></p>
+    <p><b>Um ticker:</b> <code>python atlas.py ticker MSFT</code> — ou use o menu do <code>Atlas.bat</code>.</p>
+  </div>"""
+    return """  <div class="update">
+    <div class="k">Atualizar os dados</div>
+    <p>Roda aqui mesmo. Uma execução por vez.</p>
+    <div class="runs">
+      <button class="run" id="run-portfolio" data-mode="portfolio">
+        Atualizar carteira <span class="hint">rápido · carteira e watchlist</span>
+      </button>
+      <button class="run ghost" id="run-full" data-mode="full">
+        Atualização completa <span class="hint">lento · com screener do universo</span>
+      </button>
+    </div>
+    <div class="runstate" id="runstate" hidden></div>
+    <p class="fine">Um ticker isolado: <code>python atlas.py ticker MSFT</code>.</p>
+  </div>"""
+
+
+def render_home(root: Path, *, allow_run: bool = True) -> str:
+    """Retorna o HTML da página inicial, refletindo o estado atual em disco.
+
+    `allow_run` liga os botões de execução; o servidor só o passa verdadeiro
+    para cliente de loopback com as rotas de run habilitadas.
+    """
     reports = _reports_dir(root)
     cockpit = reports / "decision_cockpit.html"
     report = reports / "atlas_report_latest.html"
@@ -164,6 +201,28 @@ border-radius:14px;padding:22px 22px 20px;box-shadow:var(--shadow);transition:tr
 .update{{margin-top:28px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:16px 18px}}
 .update .k{{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--ink-3);font-weight:600;margin-bottom:10px}}
 .update p{{margin:0 0 6px;font-size:14px;color:var(--ink-2)}}
+.update p.fine{{margin-top:12px;font-size:13px;color:var(--ink-3)}}
+.runs{{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 0}}
+.run{{flex:1 1 220px;text-align:left;background:var(--accent);color:#fff;border:1px solid transparent;
+border-radius:10px;padding:11px 15px;font-size:14.5px;font-weight:600;cursor:pointer;font-family:inherit;
+line-height:1.35;transition:filter .12s ease}}
+.run:hover:not(:disabled){{filter:brightness(1.08)}}
+.run.ghost{{background:var(--surface);color:var(--ink);border-color:var(--line)}}
+.run.ghost:hover:not(:disabled){{border-color:var(--accent)}}
+.run .hint{{display:block;font-size:11.5px;font-weight:500;opacity:.85;margin-top:2px}}
+.run:disabled{{opacity:.5;cursor:not-allowed}}
+.run:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
+.runstate{{margin-top:12px;font-size:13.5px;border:1px solid var(--line);border-radius:10px;
+padding:11px 14px;background:var(--surface);color:var(--ink-2)}}
+.runstate.busy{{border-color:var(--accent)}}
+.runstate.err{{background:var(--warn-soft);color:var(--ink)}}
+.runstate b{{color:var(--ink)}}
+.runstate button{{margin-top:9px;background:var(--accent);color:#fff;border:0;border-radius:8px;
+padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}}
+.spin{{display:inline-block;width:11px;height:11px;margin-right:7px;border-radius:50%;
+border:2px solid var(--accent);border-top-color:transparent;animation:sp .8s linear infinite;vertical-align:-1px}}
+@keyframes sp{{to{{transform:rotate(360deg)}}}}
+@media (prefers-reduced-motion:reduce){{.spin{{animation:none}}}}
 code{{font-family:ui-monospace,Consolas,monospace;font-size:.88em;background:var(--surface);border:1px solid var(--line);
 padding:.12em .42em;border-radius:5px;color:var(--ink)}}
 .toggle{{position:fixed;top:14px;right:16px;background:var(--surface);border:1px solid var(--line);color:var(--ink-2);
@@ -184,13 +243,8 @@ a:focus-visible,.toggle:focus-visible{{outline:2px solid var(--accent);outline-o
     {card("/report", report.exists(), "Aprofundar", "Relatório completo", "Scores, fórmulas, teses e detalhe por ativo.")}
   </div>
   {aux_html}
-  <div class="update">
-    <div class="k">Atualizar os dados</div>
-    <p><b>Rápido (carteira):</b> <code>python atlas.py hoje</code></p>
-    <p><b>Completo (com screener):</b> <code>python atlas.py full</code></p>
-    <p><b>Um ticker:</b> <code>python atlas.py ticker MSFT</code> — ou use o menu do <code>Atlas.bat</code>.</p>
-  </div>
-  <footer>Servido localmente em 127.0.0.1 · read-only · o Atlas não executa ordens.</footer>
+{_update_section(allow_run)}
+  <footer>Servido localmente em 127.0.0.1 · o Atlas não executa ordens.</footer>
 </div>
 <script>
 document.getElementById('t').addEventListener('click',function(){{
@@ -198,5 +252,73 @@ document.getElementById('t').addEventListener('click',function(){{
   if(!c)c=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
   r.setAttribute('data-theme',c==='dark'?'light':'dark');
 }});
+
+// Execução: dispara e acompanha. A página NÃO se recarrega sozinha ao fim --
+// se você estiver lendo o cockpit quando a run terminar, o tapete não é
+// puxado; o aviso traz o botão de ver o resultado.
+(function(){{
+  var box=document.getElementById('runstate');
+  var buttons=[].slice.call(document.querySelectorAll('button.run'));
+  if(!box||!buttons.length)return;
+  var timer=null;
+
+  function busy(on){{buttons.forEach(function(b){{b.disabled=on;}});}}
+
+  function show(cls,html){{box.hidden=false;box.className='runstate'+(cls?' '+cls:'');box.innerHTML=html;}}
+
+  function reloadButton(){{
+    var b=document.createElement('button');
+    b.textContent='Ver o resultado';
+    b.addEventListener('click',function(){{location.reload();}});
+    box.appendChild(b);
+  }}
+
+  function render(s){{
+    if(s.state==='running'){{
+      busy(true);
+      show('busy','<span class="spin"></span>Rodando <b>'+(s.label||s.mode)+'</b> — iniciado às '+
+        (s.started_at||'').replace('T',' ')+'. Pode fechar esta aba; a execução continua.');
+      timer=setTimeout(function(){{poll();}},2000);
+      return;
+    }}
+    busy(false);
+    if(s.state==='done'){{
+      show('','<b>Pronto.</b> '+(s.label||s.mode)+' terminou às '+(s.finished_at||'').replace('T',' ')+'.');
+      reloadButton();
+    }} else if(s.state==='failed'){{
+      show('err','<b>A execução falhou.</b> '+(s.error||'causa não informada'));
+    }}
+  }}
+
+  function poll(){{
+    fetch('/run/status',{{headers:{{'Accept':'application/json'}}}})
+      .then(function(r){{return r.json();}}).then(render)
+      .catch(function(){{
+        busy(false);
+        show('err','<b>Sem contato com o servidor local.</b> Ele ainda está rodando?');
+      }});
+  }}
+
+  buttons.forEach(function(button){{
+    button.addEventListener('click',function(){{
+      var mode=button.getAttribute('data-mode');
+      if(mode==='full'&&!confirm('A atualização completa roda o screener do universo e leva minutos. Continuar?'))return;
+      busy(true);
+      if(timer)clearTimeout(timer);
+      show('busy','<span class="spin"></span>Iniciando…');
+      fetch('/run',{{method:'POST',headers:{{'Content-Type':'application/json'}},
+        body:JSON.stringify({{mode:mode}})}})
+        .then(function(r){{return r.json().then(function(d){{return {{ok:r.ok,data:d}};}});}})
+        .then(function(res){{
+          if(!res.ok){{busy(false);show('err','<b>Não deu para iniciar.</b> '+(res.data.error||''));return;}}
+          render(res.data);
+        }})
+        .catch(function(){{busy(false);show('err','<b>Não deu para iniciar.</b> Sem contato com o servidor local.');}});
+    }});
+  }});
+
+  // Reabrir a aba no meio de uma run precisa reencontrar o estado.
+  poll();
+}})();
 </script>
 </body></html>"""

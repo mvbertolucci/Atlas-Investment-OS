@@ -27,6 +27,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from analytics.mapper import COLUMN_MAP
 from reports.field_materiality import materiality_note
 
 from reports.statement_layout import TOTAL_LINES, order_statement
@@ -46,6 +47,43 @@ CATEGORY_LABELS = {
 }
 CATEGORY_ORDER = ("identity", "market", "fundamentals", "analyst", "ownership")
 
+def _alias_groups(column_map: dict[str, str]) -> dict[str, tuple[str, ...]]:
+    """Nomes que designam o MESMO número, agrupados a partir do `COLUMN_MAP`.
+
+    O pipeline renomeia colunas do provedor para o nome interno do Atlas
+    (`current_ratio` -> `current_liquidity`) e `analytics/mapper.py` copia a
+    evidência para os dois nomes -- mas o valor só é persistido sob um deles.
+    Sem esta tabela, a página mostra "presente" ao lado de "não persistido",
+    o que aconteceu em 110 dos 117 papéis do último run.
+
+    O fecho é transitivo: `ev_to_ebitda` e `enterprise_to_ebitda` apontam
+    ambos para `ev_ebitda`, logo os três são o mesmo campo.
+    """
+    groups: list[set[str]] = []
+    for source, target in column_map.items():
+        merged = {source, target}
+        for existing in [group for group in groups if group & merged]:
+            groups.remove(existing)
+            merged |= existing
+        groups.append(merged)
+    return {
+        name: tuple(sorted(group - {name})) for group in groups for name in group
+    }
+
+
+FIELD_ALIASES = _alias_groups(COLUMN_MAP)
+
+# Procedência do snapshot, não fundamento da empresa: já aparece na seção
+# "Procedência" com caminho e hash. Listar de novo entre os indicadores
+# poluía a tabela e, no caso de `secondary_raw_snapshots` (uma lista, nunca
+# persistida sob esse nome), produzia uma linha permanentemente vazia em
+# 100% dos papéis.
+METADATA_FIELDS = frozenset({
+    "raw_snapshot_hash", "raw_snapshot_path", "raw_snapshots",
+    "secondary_raw_snapshot_hash", "secondary_raw_snapshot_path",
+    "secondary_raw_snapshots",
+})
+
 STATUS_LABELS = {
     "present": ("presente", "ok"),
     "stale": ("desatualizado", "warn"),
@@ -62,9 +100,11 @@ PERCENT_FIELDS = frozenset({
     "shareholder_yield", "short_float", "insider_own", "inst_own", "buyback",
 })
 # Campos já expressos em pontos percentuais pelo provedor.
+# `current_liquidity` NÃO entra aqui: é o mesmo número de `current_ratio`
+# (um múltiplo, 6,67x), e formatá-lo como "6,67%" contradiria a linha gêmea.
 POINT_FIELDS = frozenset({
     "change_pct", "target_upside", "momentum_3m", "momentum_6m", "momentum_12m",
-    "distance_52w_high", "distance_52w_low", "current_liquidity",
+    "distance_52w_high", "distance_52w_low",
 })
 
 FIELD_LABELS = {
@@ -95,6 +135,13 @@ FIELD_LABELS = {
     "sector": "Setor", "industry": "Indústria", "country": "País", "currency": "Moeda",
     "financial_currency": "Moeda do balanço", "exchange": "Bolsa", "name": "Nome",
     "symbol": "Símbolo", "quote_type": "Tipo", "origin": "Origem",
+    # Nomes internos do Atlas para um campo que o provedor entrega com outro
+    # nome (`COLUMN_MAP`). Aparecem porque são eles que o score e os deal
+    # breakers referenciam; o rótulo diz de qual número se trata em vez de
+    # cair no fallback "Net debt total equity".
+    "current_liquidity": "Liquidez corrente", "net_debt_total_equity": "Dívida/Patrimônio",
+    "operating_margin_proxy": "Margem EBITDA", "ev_to_ebitda": "EV/EBITDA",
+    "enterprise_to_ebitda": "EV/EBITDA",
 }
 
 
@@ -210,35 +257,63 @@ def _status_pill(status: str) -> str:
     return f'<span class="pill {tone}">{_e(label)}</span>'
 
 
-def _value_for(data: CompanyData, name: str) -> tuple[object, bool]:
-    """Valor do campo e se ele está de fato persistido.
+def _value_for(
+    data: CompanyData, name: str, *, allow_alias: bool = True
+) -> tuple[object, bool, str | None]:
+    """Valor do campo, se está de fato persistido e sob que nome.
 
     Procura, nesta ordem, no snapshot bruto do provedor, no contrato do
     dashboard e nas colunas do histórico (onde vivem os derivados que o Atlas
-    calcula, como Altman Z e ROIC). Métrica derivada que o pipeline não grava
-    volta como não persistida -- a página diz isso em vez de mostrar um traço
+    calcula, como Altman Z e ROIC). Não achando, tenta os apelidos do mesmo
+    número (`FIELD_ALIASES`) e devolve o nome de onde veio, para a página
+    poder dizê-lo. Métrica derivada que o pipeline realmente não grava volta
+    como não persistida -- a página diz isso em vez de mostrar um traço
     ambíguo ou, pior, inventar um número.
     """
     for source in (data.raw, data.analysis, data.company, data.snapshot):
         if name in source and source[name] is not None:
-            return source[name], True
-    return None, False
+            return source[name], True, None
+    if allow_alias:
+        for twin in FIELD_ALIASES.get(name, ()):
+            value, persisted, _ = _value_for(data, twin, allow_alias=False)
+            if persisted:
+                return value, True, twin
+    return None, False, None
+
+
+def displayable_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
+    """Evidência menos os campos de procedência do snapshot."""
+    return {
+        name: meta
+        for name, meta in (evidence or {}).items()
+        if name not in METADATA_FIELDS
+    }
 
 
 def _evidence_rows(data: CompanyData, category: str) -> str:
     names = sorted(
         name
-        for name, meta in data.evidence.items()
+        for name, meta in displayable_evidence(data.evidence).items()
         if (meta or {}).get("category") == category
     )
     rows = []
     for name in names:
         meta = data.evidence.get(name) or {}
         status = str(meta.get("status") or "")
-        value, persisted = _value_for(data, name)
+        # O apelido só resolve a contradição "presente sem valor": num campo
+        # que o motor declarou ausente, pegar o número do gêmeo seria afirmar
+        # coleta que não houve.
+        value, persisted, alias = _value_for(
+            data, name, allow_alias=status in ("present", "stale")
+        )
         label = FIELD_LABELS.get(name, name.replace("_", " ").capitalize())
         detail = meta.get("detail")
         detail_html = f'<div class="detail">{_e(detail)}</div>' if detail else ""
+        if alias:
+            detail_html += (
+                f'<div class="detail">mesmo número persistido em '
+                f'<span class="code">{_e(alias)}</span></div>'
+            )
         confirmed = meta.get("confirmed_by")
         confirmed_html = (
             f'<div class="detail">confirmado por {_e(confirmed)}</div>'
@@ -435,13 +510,14 @@ def render_company_page(symbol: str, root: Path) -> str | None:
         if v
     )
 
+    shown_evidence = displayable_evidence(data.evidence)
     evidence_sections = "".join(
         _evidence_rows(data, category) for category in CATEGORY_ORDER
     )
     extra = sorted(
         {
             str((meta or {}).get("category"))
-            for meta in data.evidence.values()
+            for meta in shown_evidence.values()
             if (meta or {}).get("category") not in CATEGORY_ORDER
         }
         - {"None", ""}
@@ -463,7 +539,7 @@ def render_company_page(symbol: str, root: Path) -> str | None:
     thesis_html = f'<div class="thesis">{_e(thesis)}</div>' if thesis else ""
 
     counts = {}
-    for meta in data.evidence.values():
+    for meta in shown_evidence.values():
         status = str((meta or {}).get("status") or "?")
         counts[status] = counts.get(status, 0) + 1
     coverage_chips = "".join(
@@ -482,6 +558,22 @@ def render_company_page(symbol: str, root: Path) -> str | None:
         else ""
     )
 
+    # A fonte de confirmação (SEC EDGAR) não tem coluna própria no histórico:
+    # caminho e hash dela vivem no `analysis_values_json`, então a busca é a
+    # mesma dos demais campos, não um `snapshot.get` direto.
+    secondary_path, has_secondary, _ = _value_for(data, "secondary_raw_snapshot_path")
+    secondary_hash, _, _ = _value_for(data, "secondary_raw_snapshot_hash")
+    secondary = (
+        (
+            f'<tr><td>Snapshot de confirmação (SHA-256)</td><td class="code">'
+            f"{_e(secondary_hash)}</td></tr>"
+            f'<tr><td>Arquivo do snapshot de confirmação</td><td class="code">'
+            f"{_e(secondary_path)}</td></tr>"
+        )
+        if has_secondary
+        else ""
+    )
+
     provenance = (
         '<section><h2>Procedência</h2><div class="tbl"><table><tbody>'
         f'<tr><td>Universo de referência</td><td>{_e(data.snapshot.get("reference_universe"))} '
@@ -490,6 +582,7 @@ def render_company_page(symbol: str, root: Path) -> str | None:
         f'<tr><td>Versão do modelo</td><td>{_e(data.snapshot.get("model_version"))}</td></tr>'
         f'<tr><td>Snapshot bruto (SHA-256)</td><td class="code">{_e(data.snapshot.get("raw_snapshot_hash"))}</td></tr>'
         f'<tr><td>Arquivo do snapshot</td><td class="code">{_e(data.snapshot.get("raw_snapshot_path"))}</td></tr>'
+        f"{secondary}"
         f'<tr><td>Capturado em</td><td>{_e(_fmt_dt(data.snapshot.get("snapshot_date")))}</td></tr>'
         "</tbody></table></div></section>"
     )
@@ -610,7 +703,7 @@ a:focus-visible,.toggle:focus-visible{{outline:2px solid var(--accent);outline-o
 
 <section>
   <h2>Todos os dados coletados</h2>
-  <p class="muted">{len(data.evidence)} campos, com situação, fonte e data de cada um.</p>
+  <p class="muted">{len(shown_evidence)} campos, com situação, fonte e data de cada um.</p>
   <div class="chips">{coverage_chips}</div>
   {evidence_sections or '<p class="muted">Nenhuma evidência por campo neste snapshot.</p>'}
 </section>

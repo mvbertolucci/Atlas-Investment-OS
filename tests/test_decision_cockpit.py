@@ -325,6 +325,44 @@ def test_low_confidence_without_named_fields_still_explains() -> None:
     assert "Cobertura de dados abaixo do usual" in html
 
 
+def test_low_decision_confidence_with_healthy_coverage_is_not_a_data_story() -> None:
+    """Caso real AVAV (2026-07-24, pós ADR-047): cobertura 98,3 e confiança
+    55,6 = 61,4*0,5 + 98,3*0,3 + 14,6*0,2 - 15*0,5. Nada falta; a nota é puxada
+    por convicção/oportunidade e pela penalidade de risco."""
+    queue = build_decision_queue(
+        priority={
+            "sell": {
+                "items": [
+                    {"symbol": "AVAV", "action": "SELL", "reason": "distress",
+                     "priority": 0}
+                ]
+            }
+        },
+        company_context={
+            "AVAV": {
+                "company_name": "AeroVironment",
+                "decision_confidence": 55.6,
+                "data_coverage": 98.3,
+                "conviction_score": 61.4,
+                "opportunity_score": 14.6,
+                "risk_penalty": 15.0,
+                "missing_evidence": (),
+            }
+        },
+        generated_at="2026-07-24T15:18:00",
+    )
+    html = render_decision_cockpit(queue)
+
+    assert "não é falta de dado" in html
+    assert "A cobertura de dados está em 98" in html
+    # os dois maiores déficits: convicção (19,3) e oportunidade (17,1)
+    assert "convicção em 61" in html
+    assert "oportunidade em 15" in html
+    # nada de mandar recoletar nem de alegar cobertura abaixo do usual
+    assert "Cobertura de dados abaixo do usual" not in html
+    assert "atualizar-ticker" not in html
+
+
 def test_monitor_items_go_into_collapsed_section() -> None:
     # KGC (promotion_ready -> EXECUTE) e itens MONITOR; o card MONITOR fica
     # dentro do <details> de Acompanhar, não no topo.
@@ -336,8 +374,8 @@ def test_monitor_items_go_into_collapsed_section() -> None:
 
 def test_low_coverage_without_missing_field_does_not_assert_recollection() -> None:
     """Caso real AVAV (2026-07-24): confiança baixa, nenhum campo obrigatório
-    faltando. Mandar recoletar era orientar uma ação inútil -- não havia gap de
-    coleta, a cobertura era puxada por campos secundários."""
+    faltando e cobertura acima do piso. Mandar recoletar era orientar uma ação
+    inútil -- e alegar cobertura baixa, uma caça a dado que não falta."""
     queue = build_decision_queue(
         priority={
             "sell": {
@@ -359,7 +397,7 @@ def test_low_coverage_without_missing_field_does_not_assert_recollection() -> No
     )
     html = render_decision_cockpit(queue)
 
-    assert "Nenhum campo obrigatório está faltando" in html
-    assert "Recoletar só ajuda se algum deles falhou na coleta" in html
+    assert "não é falta de dado" in html
+    assert "Recoletar não muda isso" in html
     assert "atualizar-ticker" not in html
     assert 'href="/company/AVAV"' in html

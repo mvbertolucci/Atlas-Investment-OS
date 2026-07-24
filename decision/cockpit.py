@@ -318,6 +318,66 @@ def _is_low(value: object) -> bool:
     )
 
 
+# Pesos de `decision/engine.py::_decision_confidence`, repetidos aqui só para
+# DECOMPOR a nota exibida (a fórmula continua morando no motor). O termo de 30%
+# é a `Confidence Score`; a fila carrega `data_coverage`, que é o mesmo número
+# enquanto nenhuma feature obrigatória falta -- e quando falta, o ramo de
+# cobertura baixa é que responde.
+_CONFIDENCE_TERMS = (
+    ("conviction_score", "convicção", 0.50),
+    ("data_coverage", "cobertura", 0.30),
+    ("opportunity_score", "oportunidade", 0.20),
+)
+
+
+def _number(value: object) -> float | None:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    return None
+
+
+def _composite_confidence_explanation(item: dict[str, object]) -> str:
+    """Confiança baixa com cobertura sadia: a nota é composta, não um gate de
+    dados. Falar de "cobertura abaixo do usual" aqui mandava o leitor caçar um
+    dado faltando que não existe (relatado ao vivo em AVAV: cobertura 98,3 e
+    confiança 55,6, puxada por oportunidade 14,6 e penalidade de risco 15)."""
+    symbol = str(item.get("symbol", ""))
+    coverage = _number(item.get("data_coverage"))
+    # Déficit de cada termo: quanto ele custa na nota final ante um valor cheio.
+    # A cobertura fica fora da lista -- este ramo só existe porque ela está
+    # acima do piso, então nomeá-la como culpada seria o mesmo engano de antes.
+    shortfalls: list[tuple[float, str]] = []
+    for key, label, weight in _CONFIDENCE_TERMS:
+        value = _number(item.get(key))
+        if value is None or key == "data_coverage":
+            continue
+        shortfalls.append(((100.0 - value) * weight, f"{label} em {value:.0f}"))
+    risk = _number(item.get("risk_penalty"))
+    if risk:
+        shortfalls.append((risk * 0.50, f"penalidade de risco de {risk:.0f}"))
+    shortfalls.sort(reverse=True)
+    drivers = " e ".join(text for _, text in shortfalls[:2]) or "os componentes da nota"
+    coverage_text = (
+        f"A cobertura de dados está em {coverage:.0f} — o dado está lá."
+        if coverage is not None
+        else "Nenhum campo obrigatório está faltando."
+    )
+    return (
+        '<div class="lowconf">'
+        f"<b>Confiança da decisão baixa — não é falta de dado.</b> {_e(coverage_text)} "
+        "A nota combina convicção (50%), cobertura (30%) e oportunidade (20%), "
+        "menos metade da penalidade de risco; aqui ela é puxada por "
+        f"{_e(drivers)}."
+        '<p class="lowconf-effect">Efeito: essa nota pesa no sinal de qualidade '
+        "da carteira, mas não é gate de evidência — não segura a ação sugerida "
+        "neste card nem indica dado ausente.</p>"
+        '<p class="refresh">Recoletar não muda isso: a nota só sobe se a tese '
+        "melhorar (oportunidade/convicção) ou a penalidade de risco cair. Os "
+        f'componentes estão em <a href="/company/{_e(symbol)}">{_e(symbol)}</a>.'
+        "</p></div>"
+    )
+
+
 def _confidence_explanation(item: dict[str, object]) -> str:
     confidence = item.get("decision_confidence")
     coverage = item.get("data_coverage")
@@ -325,6 +385,12 @@ def _confidence_explanation(item: dict[str, object]) -> str:
         return ""
     symbol = str(item.get("symbol", ""))
     missing = tuple(item.get("missing_evidence") or ())
+    # Sem campo ausente E com cobertura acima do piso, não há história de dado
+    # para contar: `Decision Confidence` mistura convicção, oportunidade e
+    # risco, e cai de propósito em empresa mal avaliada. Falar de "cobertura
+    # abaixo do usual" aqui mandava o leitor caçar um dado que não falta.
+    if not missing and not _is_low(coverage) and coverage is not None:
+        return _composite_confidence_explanation(item)
     detail_rows = tuple(item.get("missing_evidence_detail") or ())
     # Explicação por campo: prefere a razão real do field_evidence (por que o
     # campo não veio); cai no rótulo simples quando não há evidência registrada.
