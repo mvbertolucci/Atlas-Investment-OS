@@ -94,6 +94,16 @@ fonte retornou o dado"). A ação sugerida depende da causa: divergência/rejei�
 de fonte diz que **recoletar não resolve** (verificar fonte/reconciliação);
 gap de coleta ou dado velho sugere recoletar via skill `atualizar-ticker`.
 
+Nem toda confiança baixa é história de dado (ADR-052, 2026-07-24):
+`Decision Confidence` é composta — convicção 50%, cobertura 30%, oportunidade
+20%, menos metade da penalidade de risco (`decision/engine.py`) — e cai por
+construção em empresa mal avaliada. Sem campo ausente **e** com
+`data_coverage` acima do piso, o bloco decompõe a nota e nomeia os dois maiores
+déficits em vez de alegar cobertura baixa (AVAV 2026-07-24: cobertura 98,3,
+confiança 55,6, puxada por convicção 61,4 e oportunidade 14,6). Essa nota pesa
+no sinal de qualidade da carteira (`portfolio/quality.py`, 0,15) e **não é
+gate** — não segura a ação sugerida no card.
+
 `decision/cockpit.py` renderiza a mesma fila, sem nova consulta a motores, em
 `output/relatorios/decision_cockpit.html` — a **página humana única** ("Atlas —
 Hoje"). Desde 2026-07-22 (PR-C) é organizada por hierarquia rígida de três
@@ -116,10 +126,13 @@ uma nova decisão. Dashboard atualizado deliberadamente para contrato v1.3.
 `REJECTED`, `DEFERRED`) por `decision_id`, sempre com justificativa e sem apagar
 histórico. Desde 2026-07-22 (PR-D, ADR-041) o cockpit registra revisões
 interativamente: botões Aceitar/Adiar/Rejeitar fazem `POST /journal` na API
-local (`api.server`), **único** caminho de escrita da API antes read-only.
-Endurecido para ferramenta local pessoal: bind só em `127.0.0.1`, exige
-`Content-Type: application/json` (mitiga CSRF simples), corpo limitado, POST só
-em `/journal`, append-only e consultivo (nunca envia ordem). O cockpit é servido
+local (`api.server`). Endurecido para ferramenta local pessoal: bind só em
+`127.0.0.1`, exige `Content-Type: application/json` (mitiga CSRF simples),
+corpo limitado, escrita só em `/journal` (append-only, consultivo, nunca envia
+ordem) e em `/run` (2026-07-24: a home dispara `--portfolio`/`--full` via
+`api/runner.py` — allowlist de modos, trava de uma execução por vez,
+`GET /run/status` para acompanhamento; só de loopback e removível com
+`serve(allow_run=False)`, que é como o visor hospedado da Fase 2 deve subir). O cockpit é servido
 pela própria API em `/cockpit` para os botões serem same-origin; aberto via
 `file://` os botões ficam desativados com aviso. `decision/status.py` deriva o
 status por decisão (`novo`/`em análise`/`decidido`/`executado`/`descartado`) de
@@ -286,6 +299,10 @@ silenciosamente ao mover o Excel para `output/relatorios/`. Agora recebe
 - **Flake conhecido: `test_post_journal_requires_json_content_type` (2026-07-24, NÃO resolvido, NÃO atribuído)**. Falha com `ConnectionAbortedError: [WinError 10053]` em `socket.py` (caminho de leitura do cliente), **1 vez em 19 execuções da suite completa**; 0 falhas em 25 execuções do arquivo isolado. Não é asserção falhando — é a conexão caindo antes da resposta. **Duas hipóteses investigadas e REFUTADAS, não repetir**: (1) corrida no encerramento do servidor — a fixture já faz `shutdown()` + `server_close()` + `thread.join(timeout=5)`, por teste, está correta; (2) resposta antes de drenar o corpo — `api/server.py::do_POST` de fato responde 415 e retorna sem ler `self.rfile`, o que é o padrão clássico de RST no Windows, mas teste direto mostrou 415 limpo mesmo com corpo de **2 MB**: o `BaseHTTPRequestHandler` lida com isso, não há bug de drenagem. Hipótese restante é **ambiental**, fora do repositório: `WinError 10053` é literalmente "software no computador anfitrião anulou uma ligação estabelecida", e em loopback no Windows a causa usual é antivírus/software de segurança interpondo-se — o que explicaria só aparecer sob a suite completa (mais conexões) e não reproduzir sob demanda. **Ação se recorrer**: capturar o traceback completo no momento (é o dado que falta); NÃO reinvestigar as duas hipóteses acima. Correção candidata, quando houver evidência: retry único escopado a `ConnectionAbortedError` — não mascara, porque a asserção do 415 é exercitada na segunda tentativa e um problema determinístico falharia nas duas. Não implementado agora por não haver como validar sem reproduzir.
 
 - **Lacuna de risco provadamente inócua não paga penalidade (2026-07-24, ADR-051)**: auditando a execução da carteira, CVX aparecia sem `net_debt_ebitda`/`net_debt`/`total_cash`. Causa raiz é a de sempre — **divergência definicional**: `total_cash` do CVX vinha 5,323 bi (Yahoo) contra 6,316 bi (SEC), 18,7% contra tolerância de 5%, mesmo padrão de ADR-042/ADR-048; a cascata derruba `net_debt` e `net_debt_ebitda`, que é insumo de deal breaker. **O motor NÃO fica cego** (verificado: registra `risk_evidence_missing` e cobra `risk_uncertainty_penalty: 3.0`) — quem é cega é a penalidade. Como `net_debt = total_debt − total_cash` e caixa nunca é negativo, `net_debt ≤ total_debt`; com `ebitda > 0` a razão tem teto `total_debt/ebitda`. Para o CVX o teto é **1,198** contra limiar de **4,0**: nenhum valor de caixa aciona o deal breaker, e a penalidade era por incerteza inexistente. Medido no universo coletado, dos 4 casos de `net_debt_ebitda` ausente, **3 eram provadamente inócuos** (CALM teto 0,000; HIG 0,783; CVX 1,198) e 1 indeterminado (AMP, sem insumo). Novo `_gap_cannot_breach_ceiling` em `scoring/investment.py`, conservador por construção: devolve False (penaliza) sem insumo, com denominador ≤ 0 (onde a divisão inverte a desigualdade e o teto deixa de valer) e com teto **igual** ao limiar. Aplica-se hoje só a `net_debt_ebitda` — `f_score_annual` é discreto e um ausente pode estar abaixo de 4, `altman_z` é composto sem insumos individuais, `short_float` não tem o que limitar. Validado com recoleta real: CVX de `risk_evidence_missing: net_debt_ebitda`/penalidade 3,0/Investment 41,5 para `Nenhum`/0,0/**44,5**, único símbolo alterado; **nenhuma decisão mudou** (SELL AVAV/CLF/FMC/SGML, REVISAR IBRX/JNJ/YPF). 1234 testes verdes, 7 novos. **LIMITAÇÃO ABERTA, deliberadamente fora do ADR**: a assimetria maior segue — campo de risco desconhecido custa 3,0 pontos, conhecido-e-ruim custa 15 **+ `AVOID` forçado**. Não saber é estruturalmente mais barato que saber a má notícia e escapa do portão de AVOID. Este ADR reduz falso positivo de penalidade, NÃO fecha o falso negativo; corrigir exigiria encarecer a lacuna indeterminada, o que muda decisão para cima e pede medição própria.
+
+- **Página da empresa deixa de dizer "presente" sem mostrar número (2026-07-24, refina ADR-045)**: o `_value_for` procurava o valor só pelo nome do campo, mas o Atlas persiste vários deles sob o nome gêmeo do `COLUMN_MAP` (`current_ratio`/`current_liquidity`, `ev_to_ebitda`/`ev_ebitda`/`enterprise_to_ebitda`). A linha aparecia com situação `present` e valor vazio — contradição visível que o próprio ADR-045 registrava como pendente. Novo `FIELD_ALIASES` (grupos transitivos derivados do `COLUMN_MAP`, não lista paralela) faz a busca cobrir os gêmeos, e `displayable_evidence` tira os campos de procedência (`raw_snapshot_path`, `secondary_raw_snapshots`) das tabelas de indicadores — eles são metadado de auditoria, não métrica, e inflavam a contagem de campos. O apelido **não resgata** campo que o motor declarou ausente: se a evidência diz `missing`, a linha continua dizendo isso (travado em teste). 8 testes novos, incluindo um parametrizado sobre todo o `COLUMN_MAP` para que um gêmeo novo não escape da formatação.
+
+- **Executar o pipeline pelo visor (2026-07-24, ADR-053)**: a Fase 1 fechou a porta de entrada mas a costura seguia aberta na ação mais frequente — atualizar dados exigia sair do visor, achar um terminal e colar o comando que a home apenas imprimia. `POST /run` dispara os MESMOS dois modos do menu (`--portfolio`/`--full`) via `api/runner.py`, com três invariantes: **uma execução por vez** (trava; segundo clique recebe 409 e nunca é enfileirado, porque enfileirar esconderia que o clique não fez o esperado — duas runs simultâneas corromperiam `atlas_history.db`); **modo por allowlist** (o cliente manda uma chave, o argv é montado no servidor — não é validação de entrada, é ausência de caminho); e **local por construção** (bind em 127.0.0.1, mais checagem explícita de origem como defesa em camada, para um bind acidental em `0.0.0.0` não virar execução remota de processo). `serve(allow_run=False)` remove as rotas — é como o visor hospedado da Fase 2 sobe —, respondendo **404, não 403**, porque "proibido" revelaria um recurso que aquele modo não tem. `SystemExit` do Health Check lê como falha com causa nos logs, não como shutdown do visor; a trava é liberada em `finally` inclusive em `BaseException`. 13 testes.
 
 ---
 

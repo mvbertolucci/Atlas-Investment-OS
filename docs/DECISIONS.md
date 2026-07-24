@@ -55,6 +55,8 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-049 | Derive `roe` and `operating_cashflow` from statements when the vendor omits the key (JNJ: 173 info keys, no returnOnEquity) — only formulas measured against Yahoo's own values were kept; free_cashflow/quick_ratio/current_ratio deliberately rejected | Accepted 2026-07-24 |
 | ADR-050 | Annotate what a data gap can actually change, derived from governed config — 37 of 77 fields only cost Data Freshness, 2 are threshold-only, and a scored field's ceiling is factor_weight x feature_weight x 100; never claims the decision is unaffected | Accepted 2026-07-24 |
 | ADR-051 | A provably harmless risk gap stops paying the uncertainty penalty — `net_debt <= total_debt` gives a ceiling, so CVX's unknown cash could never breach the 4.0 bar (ceiling 1.198); reduces false penalty only, and does not close the opposite asymmetry | Accepted 2026-07-24 |
+| ADR-052 | Low `Decision Confidence` is not a data story — the score blends conviction 50% / coverage 30% / opportunity 20% minus half the risk penalty, so it falls by design on a poorly rated name; with no missing field and coverage above the floor the cockpit decomposes the score instead of claiming low coverage (AVAV: coverage 98.3, confidence 55.6) | Accepted 2026-07-24 |
+| ADR-053 | `POST /run` triggers the pipeline from the local viewer — mode comes from an allowlist so no HTTP input reaches run_all's argv, one run at a time (409, never queued), loopback-checked as defence in depth, and removable with `serve(allow_run=False)` for the hosted Phase 2 viewer | Accepted 2026-07-24 |
 
 ## Recording a new decision
 
