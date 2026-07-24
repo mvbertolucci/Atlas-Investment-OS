@@ -411,3 +411,63 @@ def test_cash_and_equivalents_prefers_quarterly_over_stale_annual() -> None:
     assert yahoo._cash_and_equivalents(None, annual) == pytest.approx(
         51_877_000_000.0
     )
+
+
+# --- Derivação de campos que o fornecedor omite (ADR-049) --------------------
+
+def _quarterly(rows: dict[str, list[float]], periods: list[str]) -> pd.DataFrame:
+    return pd.DataFrame(rows, index=pd.to_datetime(periods)).T
+
+
+def test_roe_derivation_uses_average_equity_like_the_vendor() -> None:
+    """Patrimônio final subestima o ROE em 5-12% de forma sistemática; o
+    Yahoo usa a média com o trimestre de um ano antes. Derivar com a régua
+    errada distorceria o percentil da seção cruzada."""
+    balance = _quarterly(
+        {"Stockholders Equity": [120.0, 115.0, 110.0, 105.0, 80.0]},
+        ["2026-03-31", "2025-12-31", "2025-09-30", "2025-06-30", "2025-03-31"],
+    )
+    info = {"profitMargins": 0.2, "totalRevenue": 100.0}
+
+    derived = yahoo._derive_roe(info, balance)
+
+    # lucro TTM 20.0 sobre média (120 + 80)/2 = 100 -> 0.20,
+    # e não 20/120 = 0.167 do patrimônio final.
+    assert derived == pytest.approx(0.20)
+
+
+def test_roe_derivation_declines_without_enough_history() -> None:
+    balance = _quarterly({"Stockholders Equity": [120.0]}, ["2026-03-31"])
+    assert yahoo._derive_roe({"profitMargins": 0.2, "totalRevenue": 100.0}, balance) is None
+
+
+def test_current_ratio_derivation_returns_none_without_segregated_current() -> None:
+    """Banco/seguradora não segrega circulante (BRK-B). Melhor ausente que
+    inventado."""
+    balance = _quarterly({"Stockholders Equity": [1.0, 1.0]}, ["2026-03-31", "2025-03-31"])
+    assert yahoo._derive_current_ratio(balance) is None
+
+
+def test_current_ratio_derivation_divides_current_assets_by_liabilities() -> None:
+    balance = _quarterly(
+        {"Current Assets": [200.0], "Current Liabilities": [100.0]},
+        ["2026-03-31"],
+    )
+    assert yahoo._derive_current_ratio(balance) == pytest.approx(2.0)
+
+
+def test_operating_cashflow_derivation_sums_exactly_four_quarters() -> None:
+    cashflow = _quarterly(
+        {"Operating Cash Flow": [10.0, 20.0, 30.0, 40.0, 999.0]},
+        ["2026-03-31", "2025-12-31", "2025-09-30", "2025-06-30", "2025-03-31"],
+    )
+    # o 5o trimestre não entra: TTM são 4
+    assert yahoo._derive_operating_cashflow(cashflow) == pytest.approx(100.0)
+
+
+def test_operating_cashflow_derivation_declines_with_partial_year() -> None:
+    cashflow = _quarterly(
+        {"Operating Cash Flow": [10.0, 20.0, 30.0]},
+        ["2026-03-31", "2025-12-31", "2025-09-30"],
+    )
+    assert yahoo._derive_operating_cashflow(cashflow) is None
