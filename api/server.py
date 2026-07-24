@@ -8,6 +8,7 @@ from pathlib import Path
 
 from api.home import render_home
 from api.resources import ROOT, dispatch
+from api.runner import RUNNER
 from reports.company_page import render_company_page
 
 
@@ -22,14 +23,40 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
     """
     Adaptador fino de HTTP sobre `api.resources.dispatch`.
 
-    GET serve o contrato read-only e o cockpit HTML. POST /journal é o único
-    caminho de escrita (revisão humana consultiva, append-only) e exige
-    `Content-Type: application/json` -- um formulário cross-site não consegue
-    definir esse cabeçalho sem preflight CORS (que não respondemos), o que
-    mitiga CSRF simples. O servidor liga apenas em 127.0.0.1.
+    GET serve o contrato read-only e o cockpit HTML. Há dois caminhos de
+    escrita, ambos exigindo `Content-Type: application/json` -- um formulário
+    cross-site não consegue definir esse cabeçalho sem preflight CORS (que não
+    respondemos), o que mitiga CSRF simples:
+
+    - `POST /journal`: revisão humana consultiva, append-only;
+    - `POST /run`: dispara o pipeline (`api.runner`), uma execução por vez,
+      só de loopback e só com `run_enabled`.
+
+    O servidor liga apenas em 127.0.0.1.
     """
 
     server_version = "AtlasDashboardAPI/2.0"
+
+    # Execução a partir do visor: ligada no uso local, desligada no modo
+    # hospedado (Fase 2), onde não há motor do outro lado. É atributo de
+    # classe para `serve(allow_run=False)` decidir uma vez, não por request.
+    run_enabled = True
+
+    # Loopback: quem pode disparar uma run. Um cliente fora daqui não fala com
+    # este servidor por desenho (ele liga só em 127.0.0.1), mas a checagem é
+    # explícita para que um bind acidental em 0.0.0.0 não vire execução remota.
+    LOOPBACK = frozenset({"127.0.0.1", "::1", "::ffff:127.0.0.1"})
+
+    def _is_local(self) -> bool:
+        return str(self.client_address[0]) in self.LOOPBACK
+
+    def _run_allowed(self) -> tuple[int, dict[str, str]] | None:
+        """None se a rota pode ser servida; senão, o par (status, erro)."""
+        if not self.run_enabled:
+            return 404, {"error": "recurso não encontrado", "path": "/run"}
+        if not self._is_local():
+            return 403, {"error": "execução só é permitida a partir da máquina local."}
+        return None
 
     def _send_json(self, status: int, payload: object) -> None:
         body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
@@ -111,8 +138,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         if clean.startswith("/company/"):
             self._serve_company(clean.rsplit("/", 1)[-1])
             return
+        if clean in ("/run/status", "/run"):
+            denial = self._run_allowed()
+            self._send_json(*(denial or (200, RUNNER.status())))
+            return
         if clean in ("/", "/home") and self._wants_html():
-            self._send_html(render_home(ROOT).encode("utf-8"))
+            self._send_html(
+                render_home(
+                    ROOT, allow_run=self.run_enabled and self._is_local()
+                ).encode("utf-8")
+            )
             return
         status, payload = dispatch("GET", self.path)
         self._send_json(status, payload)
@@ -141,6 +176,17 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         except (UnicodeDecodeError, json.JSONDecodeError):
             self._send_json(400, {"error": "corpo não é JSON válido."})
             return
+        clean = self.path.split("?", 1)[0].rstrip("/") or "/"
+        if clean == "/run":
+            denial = self._run_allowed()
+            if denial is not None:
+                self._send_json(*denial)
+                return
+            if not isinstance(body, dict):
+                self._send_json(400, {"error": "corpo deve ser um objeto JSON."})
+                return
+            self._send_json(*RUNNER.start(body.get("mode")))
+            return
         status, payload = dispatch("POST", self.path, body=body)
         self._send_json(status, payload)
 
@@ -161,13 +207,19 @@ def serve(
     *,
     open_browser: bool = False,
     open_path: str = "/",
+    allow_run: bool = True,
 ) -> None:
     """Sobe o servidor local (bloqueante). Ctrl+C para encerrar.
 
-    GET é read-only; a única escrita é POST /journal (revisão humana
-    consultiva). Liga só em loopback por padrão -- não exponha em rede.
+    GET é read-only sobre os artefatos; as escritas são POST /journal (revisão
+    humana consultiva) e POST /run (dispara o pipeline, uma execução por vez).
+    Liga só em loopback por padrão -- não exponha em rede.
+
+    `allow_run=False` remove as rotas de execução: é assim que o visor
+    hospedado da Fase 2 deve subir, já que lá não há motor para disparar.
     Com `open_browser=True`, abre o navegador em `open_path` logo após ligar.
     """
+    DashboardRequestHandler.run_enabled = allow_run
     httpd = ThreadingHTTPServer((host, port), DashboardRequestHandler)
     url = f"http://{host}:{port}{open_path}"
     print(
