@@ -137,3 +137,38 @@ def test_company_page_converts_fraction_to_points_before_comparing() -> None:
     assert "2083" not in html
     if "short_float" in html and "crescer" in html:
         assert "crescer 20.8x" in html
+
+
+def test_build_missing_reasons_accepts_a_pandas_series() -> None:
+    """Produção passa uma linha do frame (`pandas.Series`), não um dict.
+
+    `values or {}` levantava "The truth value of a Series is ambiguous" e
+    derrubou a geração do dashboard na primeira execução real depois da
+    ADR-050. Todos os testes existentes passavam dict, então nenhum pegou.
+    """
+    import pandas as pd
+
+    from reports.evidence_reasons import build_missing_reasons
+
+    row = pd.Series({"short_float": 0.96, "sector": "Industrials"})
+    evidence = {"short_float": {"status": "stale", "category": "ownership"}}
+
+    rows = build_missing_reasons(
+        ("short_float",), evidence, values=row, sector=row.get("sector")
+    )
+
+    assert rows[0]["materiality"]
+    assert "20.8x" in rows[0]["materiality"]
+
+
+def test_build_missing_reasons_still_accepts_a_plain_dict() -> None:
+    from reports.evidence_reasons import build_missing_reasons
+
+    rows = build_missing_reasons(
+        ("short_float",),
+        {"short_float": {"status": "stale"}},
+        values={"short_float": 0.96},
+        sector="Industrials",
+    )
+
+    assert "20.8x" in rows[0]["materiality"]
