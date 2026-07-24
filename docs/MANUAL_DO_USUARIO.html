@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual do Usuário — Atlas Investment OS</title>
+<style>
+:root{
+  --bg:#f7f8fa;
+  --surface:#ffffff;
+  --surface-2:#f0f2f6;
+  --ink:#141922;
+  --ink-2:#48505e;
+  --ink-3:#79808d;
+  --line:#e2e6ec;
+  --line-2:#d3d9e2;
+  --accent:#1f6f6b;         /* teal — bússola/atlas */
+  --accent-ink:#0e4744;
+  --accent-soft:#e2f0ee;
+  --good:#1f8f5f;   --good-soft:#e3f4ec;
+  --warn:#b6791f;   --warn-soft:#f8efdd;
+  --crit:#c14545;   --crit-soft:#f8e5e5;
+  --neutral:#5b6472; --neutral-soft:#eceff3;
+  --code-bg:#f2f4f8;
+  --shadow:0 1px 2px rgba(16,24,40,.04),0 4px 16px rgba(16,24,40,.06);
+  --maxw:1180px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0d1016; --surface:#151a22; --surface-2:#1b212b;
+    --ink:#e7ebf1; --ink-2:#aab3c0; --ink-3:#78808d;
+    --line:#242c38; --line-2:#2e3846;
+    --accent:#4dc3ba; --accent-ink:#8fe0d8; --accent-soft:#12312e;
+    --good:#4bbd85; --good-soft:#12301f;
+    --warn:#e0af58; --warn-soft:#33280f;
+    --crit:#e07b7b; --crit-soft:#361c1c;
+    --neutral:#93a0b0; --neutral-soft:#1e2530;
+    --code-bg:#10151d;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f7f8fa; --surface:#fff; --surface-2:#f0f2f6;
+  --ink:#141922; --ink-2:#48505e; --ink-3:#79808d;
+  --line:#e2e6ec; --line-2:#d3d9e2;
+  --accent:#1f6f6b; --accent-ink:#0e4744; --accent-soft:#e2f0ee;
+  --good:#1f8f5f; --good-soft:#e3f4ec;
+  --warn:#b6791f; --warn-soft:#f8efdd;
+  --crit:#c14545; --crit-soft:#f8e5e5;
+  --neutral:#5b6472; --neutral-soft:#eceff3;
+  --code-bg:#f2f4f8;
+}
+:root[data-theme="dark"]{
+  --bg:#0d1016; --surface:#151a22; --surface-2:#1b212b;
+  --ink:#e7ebf1; --ink-2:#aab3c0; --ink-3:#78808d;
+  --line:#242c38; --line-2:#2e3846;
+  --accent:#4dc3ba; --accent-ink:#8fe0d8; --accent-soft:#12312e;
+  --good:#4bbd85; --good-soft:#12301f;
+  --warn:#e0af58; --warn-soft:#33280f;
+  --crit:#e07b7b; --crit-soft:#361c1c;
+  --neutral:#93a0b0; --neutral-soft:#1e2530;
+  --code-bg:#10151d;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;
+}
+.mono{font-family:ui-monospace,"SF Mono","Cascadia Code","Segoe UI Mono",Consolas,monospace}
+
+/* ---- shell ---- */
+.wrap{max-width:var(--maxw);margin:0 auto;display:grid;grid-template-columns:264px 1fr;gap:0}
+nav.toc{
+  position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+  border-right:1px solid var(--line);padding:26px 20px 40px;
+  background:linear-gradient(180deg,var(--surface),var(--bg));
+}
+main{padding:0 clamp(20px,4vw,56px) 96px;min-width:0}
+
+/* ---- toc ---- */
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.brand .mark{
+  width:30px;height:30px;border-radius:8px;flex:none;
+  background:radial-gradient(circle at 30% 30%,var(--accent),var(--accent-ink));
+  display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;
+  box-shadow:var(--shadow);
+}
+.brand b{font-size:15px;letter-spacing:.2px}
+.brand small{display:block;color:var(--ink-3);font-size:11px;font-weight:500}
+.toc-title{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--ink-3);margin:24px 0 8px;font-weight:600}
+.toc ol{list-style:none;margin:0;padding:0;counter-reset:sec}
+.toc li{counter-increment:sec}
+.toc a{
+  display:flex;gap:9px;align-items:baseline;text-decoration:none;color:var(--ink-2);
+  font-size:13.5px;padding:6px 9px;border-radius:7px;line-height:1.35;
+}
+.toc a::before{content:counter(sec);color:var(--ink-3);font-size:11px;font-variant-numeric:tabular-nums;min-width:14px;text-align:right;font-weight:600}
+.toc a:hover{background:var(--surface-2);color:var(--ink)}
+.toc a.active{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.toc a.active::before{color:var(--accent)}
+
+/* ---- hero ---- */
+header.hero{padding:52px 0 30px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:5px 11px;border-radius:999px}
+h1{font-size:clamp(28px,4.4vw,44px);line-height:1.08;margin:18px 0 12px;letter-spacing:-.02em;text-wrap:balance;font-weight:700}
+.lede{font-size:clamp(16px,2vw,18.5px);color:var(--ink-2);max-width:62ch;margin:0}
+.meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.tag{font-size:12.5px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);padding:5px 11px;border-radius:999px}
+.tag b{color:var(--ink);font-weight:600}
+
+/* ---- sections ---- */
+section{padding:38px 0;border-bottom:1px solid var(--line);scroll-margin-top:20px}
+section:last-of-type{border-bottom:0}
+h2{font-size:clamp(21px,2.6vw,27px);margin:0 0 16px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:12px;font-weight:700;text-wrap:balance}
+h2 .n{font-size:14px;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:700;border:1.5px solid var(--accent-soft);background:var(--accent-soft);border-radius:7px;padding:2px 9px;flex:none}
+h3{font-size:16.5px;margin:26px 0 8px;font-weight:650;color:var(--ink)}
+p{margin:0 0 14px;max-width:70ch}
+a{color:var(--accent-ink)}
+strong{font-weight:650}
+ul,ol.steps{max-width:70ch;padding-left:22px;margin:0 0 14px}
+li{margin:5px 0}
+
+/* callouts */
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);color:var(--ink);padding:13px 16px;border-radius:0 10px 10px 0;margin:18px 0;font-size:14.5px;max-width:72ch}
+.note.warn{border-color:var(--warn);background:var(--warn-soft)}
+.note b{color:var(--accent-ink)}
+.note.warn b{color:var(--warn)}
+.note p:last-child{margin:0}
+
+/* code */
+code{font-family:ui-monospace,Consolas,monospace;font-size:.9em;background:var(--code-bg);border:1px solid var(--line);padding:.1em .38em;border-radius:5px}
+pre{background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:0 0 16px;box-shadow:var(--shadow)}
+pre code{background:none;border:0;padding:0;font-size:13.5px;line-height:1.7;color:var(--ink)}
+.cmt{color:var(--ink-3)}
+
+/* tables */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin:8px 0 20px;box-shadow:var(--shadow);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface-2);font-weight:600;font-size:12.5px;letter-spacing:.2px;color:var(--ink-2);position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+
+/* pills */
+.pill{display:inline-block;font-size:12px;font-weight:650;padding:2px 9px;border-radius:999px;letter-spacing:.2px;white-space:nowrap}
+.p-good{background:var(--good-soft);color:var(--good)}
+.p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-crit{background:var(--crit-soft);color:var(--crit)}
+.p-neu{background:var(--neutral-soft);color:var(--neutral)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:8px 0 20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 17px;box-shadow:var(--shadow)}
+.card h4{margin:0 0 4px;font-size:14.5px}
+.card p{font-size:13.5px;color:var(--ink-2);margin:0}
+.card .k{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);font-weight:600;margin-bottom:9px}
+
+footer{color:var(--ink-3);font-size:13px;padding:30px 0 0}
+
+/* theme toggle */
+.toggle{position:fixed;top:14px;right:16px;z-index:20;background:var(--surface);border:1px solid var(--line-2);color:var(--ink-2);
+  border-radius:999px;padding:7px 13px;font-size:12.5px;cursor:pointer;box-shadow:var(--shadow);font-family:inherit;display:flex;gap:6px;align-items:center}
+.toggle:hover{color:var(--ink);border-color:var(--accent)}
+
+@media (max-width:880px){
+  .wrap{grid-template-columns:1fr}
+  nav.toc{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);background:var(--surface)}
+  .toc ol{columns:2;column-gap:10px}
+  main{padding:0 20px 72px}
+}
+a:focus-visible,.toggle:focus-visible,.toc a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<button class="toggle" id="themeBtn" aria-label="Alternar tema">◐ Tema</button>
+<div class="wrap">
+
+<nav class="toc" aria-label="Índice">
+  <div class="brand">
+    <div class="mark">A</div>
+    <div><b>Atlas Investment OS</b><small>Manual do Usuário · v1.2.0</small></div>
+  </div>
+  <div class="toc-title">Índice</div>
+  <ol>
+    <li><a href="#s1">O que o Atlas entrega</a></li>
+    <li><a href="#s2">Primeira configuração</a></li>
+    <li><a href="#s3">Suas duas listas de entrada</a></li>
+    <li><a href="#s4">Rodando — os três modos</a></li>
+    <li><a href="#s5">Lendo os resultados</a></li>
+    <li><a href="#s6">Registrando decisões</a></li>
+    <li><a href="#s7">Onde ficam os arquivos</a></li>
+    <li><a href="#s8">Rotina sugerida</a></li>
+    <li><a href="#s9">Limites importantes</a></li>
+    <li><a href="#s10">Solução de problemas</a></li>
+    <li><a href="#s11">Para aprofundar</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <span class="eyebrow">● Plataforma consultiva de decisão</span>
+  <h1>Manual do Usuário do Atlas</h1>
+  <p class="lede">O Atlas transforma dados de mercado e fundamentos em scores transparentes, decisões, teses e relatórios. Ele <strong>não executa ordens</strong> — organiza a evidência; a decisão é sua.</p>
+  <div class="meta-row">
+    <span class="tag"><b>Versão</b> v1.2.0</span>
+    <span class="tag"><b>Uso</b> local, repositório privado</span>
+    <span class="tag"><b>Referência técnica</b> STATUS.md</span>
+  </div>
+</header>
+
+<section id="s1">
+  <h2><span class="n">1</span> O que o Atlas entrega</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Saída</th><th>Para quê</th><th>Onde abrir</th></tr></thead>
+    <tbody>
+      <tr><td><b>Cockpit "Atlas — Hoje"</b></td><td>Página única de decisão do dia (Agir agora / Oportunidades / Acompanhar)</td><td><code>output/relatorios/decision_cockpit.html</code></td></tr>
+      <tr><td><b>Relatório HTML</b></td><td>Relatório completo com detalhe por ativo, scores e teses</td><td><code>output/relatorios/atlas_report_latest.html</code></td></tr>
+      <tr><td><b>One-pager por ticker</b></td><td>Análise de um símbolo só</td><td><code>output/relatorios/atlas_report_{SYMBOL}_*.html</code></td></tr>
+      <tr><td><b>Excel</b></td><td>Ranking, decisões, explicabilidade, histórico</td><td><code>output/relatorios/latest.xlsx</code></td></tr>
+      <tr><td><b>Morning Brief</b></td><td>Resumo curto em Markdown</td><td><code>output/relatorios/morning_brief.md</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn"><p><b>Atenção:</b> os arquivos em <code>output/dados/*.json</code> são <b>contrato interno</b> entre motor e relatório (chegam a vários MB) — não são feitos para abrir direto. Abra só o que está em <code>output/relatorios/</code>.</p></div>
+</section>
+
+<section id="s2">
+  <h2><span class="n">2</span> Primeira configuração <span style="font-size:14px;color:var(--ink-3);font-weight:500">(uma vez)</span></h2>
+  <pre><code>.venv\Scripts\activate
+pip install -r requirements.txt</code></pre>
+  <p>Crie o arquivo de segredos a partir do exemplo (fica <strong>fora do Git</strong>):</p>
+  <pre><code>config/provider_secrets.json   <span class="cmt">← copie de config/provider_secrets.example.json</span></code></pre>
+  <p>Preencha: <strong>SEC User-Agent</strong>, <strong>chave FMP</strong> e <strong>chave Massive</strong>. Se você habilitar uma fonte secundária sem a chave correspondente, o Atlas emite um <em>warning</em> explícito — nunca falha em silêncio.</p>
+  <p>Confirme que está tudo verde antes de rodar de verdade:</p>
+  <pre><code>pytest</code></pre>
+</section>
+
+<section id="s3">
+  <h2><span class="n">3</span> Suas duas listas de entrada</h2>
+  <p>O Atlas trabalha sobre dois arquivos CSV que <strong>você edita à mão</strong>.</p>
+  <h3>Carteira real — <code>config/portfolio.csv</code></h3>
+  <p>Colunas obrigatórias: <code>symbol,quantity,average_price</code>. Opcionais: <code>currency,sector,country,notes</code>.</p>
+  <pre><code>symbol,quantity,average_price,currency,sector,country,notes
+MSFT,10,410.50,USD,Technology,USA,Core holding
+BUD,20,58.10,USD,Consumer Defensive,Belgium,</code></pre>
+  <p>Regras: <code>quantity &gt; 0</code>, <code>average_price ≥ 0</code>, símbolos duplicados são somados, linhas inválidas são reportadas.</p>
+  <h3>Watchlist — <code>config/watchlist.csv</code></h3>
+  <p>Lista curada de candidatas a acompanhar. Você edita à mão (<code>source=manual</code>). Com a curadoria automática, o Atlas <strong>também</strong> pode incluir/remover entradas <code>source=auto</code> durante um run — mas <strong>nunca</strong> remove um holding real nem uma entrada manual sua.</p>
+</section>
+
+<section id="s4">
+  <h2><span class="n">4</span> Rodando o Atlas — os três modos</h2>
+  <p>Sempre com o ambiente ativado (<code>.venv\Scripts\activate</code>).</p>
+  <div class="cards">
+    <div class="card"><div class="k">Padrão · mais lento</div><h4>Completo</h4><p>Universo + funil de oportunidades + carteira + watchlist.</p><pre style="margin-top:10px"><code>python run_all.py</code></pre></div>
+    <div class="card"><div class="k">Diário · rápido</div><h4>Só carteira</h4><p>Pula o funil de screener. Foco nas suas posições.</p><pre style="margin-top:10px"><code>python run_all.py --portfolio</code></pre></div>
+    <div class="card"><div class="k">Pontual</div><h4>Um ticker</h4><p>Analisa um símbolo e gera o one-pager.</p><pre style="margin-top:10px"><code>python run_all.py --ticker MSFT</code></pre></div>
+  </div>
+  <div class="note"><p><b>Leitura vs. escrita:</b> <code>--full</code> e <code>--portfolio</code> <b>gravam</b> (curadoria automática da watchlist, snapshots de histórico, ledger). <code>--ticker</code> é a opção mais contida quando você só quer olhar um nome.</p></div>
+</section>
+
+<section id="s5">
+  <h2><span class="n">5</span> Lendo os resultados</h2>
+  <h3>Comece pelo Cockpit — "Atlas — Hoje"</h3>
+  <p><code>output/relatorios/decision_cockpit.html</code> é a <strong>página humana única</strong>, organizada em três níveis de prioridade:</p>
+  <ol class="steps">
+    <li><strong>Agir agora</strong> — vendas/ajustes a executar (EXECUTE) e o que precisa de investigação (INVESTIGATE).</li>
+    <li><strong>Oportunidades</strong> — candidatas de compra fora da carteira e gatilhos aguardando. Um gatilho disparado vira <strong>"revisar para compra"</strong>, nunca compra automática.</li>
+    <li><strong>Acompanhar</strong> — monitoramento, colapsado para não competir com decisões reais.</li>
+  </ol>
+  <p>No topo: <strong>"Mudou desde a última execução"</strong> (o que escalou, entrou ou saiu desde o run anterior) e um resumo do <strong>cenário</strong> (caixa / turnover / concentração se você executasse as vendas sugeridas).</p>
+  <p>Cards com confiança ou cobertura abaixo de 60 explicam <strong>por que</strong> o dado falta e <strong>se recoletar resolve</strong>: divergência/rejeição de fonte → recoletar <strong>não</strong> resolve; gap de coleta ou dado velho → recoletar via skill <code>atualizar-ticker</code>.</p>
+
+  <h3>As decisões que o Atlas dá</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Voz</th><th>O que significa</th><th>Escopo</th></tr></thead>
+    <tbody>
+      <tr><td><b>Decision</b> <span class="mono" style="font-size:12px;color:var(--ink-3)">STRONG_BUY…AVOID</span></td><td>A <b>única</b> voz de compra. Pondera Opportunity + Conviction + risco + deal breakers</td><td>Qualquer ação analisada</td></tr>
+      <tr><td><b>Score Band</b></td><td>Rótulo <b>descritivo</b> do Investment Score (Elite/Alto/Bom/Médio/Baixo) — sem verbo de compra</td><td>Qualquer ação</td></tr>
+      <tr><td><b>Ação de venda</b></td><td>Só para <b>holdings reais</b> da carteira</td><td><code>config/portfolio.csv</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>O que cada estado de venda pede de você:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Estado</th><th>Ação sua</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill p-crit">SELL</span> <span class="pill p-warn">TRIM</span></td><td>Saída / redução sugerida (2+ famílias de evidência independentes)</td></tr>
+      <tr><td><span class="pill p-good">HOLD</span></td><td>Manter</td></tr>
+      <tr><td><span class="pill p-warn">REVISAR</span></td><td>Gate de confiança bloqueado ou distress preliminar — <b>confirme o dado</b> antes de decidir</td></tr>
+      <tr><td><span class="pill p-neu">ACOMPANHAR</span></td><td>Sinal informativo/comparativo só — não pede decisão; fica em "Sinais informativos"</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Detalhe por ativo (relatório HTML)</h3>
+  <p><code>atlas_report_latest.html</code> traz, por símbolo: decomposição do score, fórmula e inputs brutos por métrica, status de cada regra de venda, sparkline com histórico e a tese da posição (com idade e alerta se <code>fundamental_decay</code> disparou). Os símbolos nas tabelas linkam para a âncora do ativo.</p>
+</section>
+
+<section id="s6">
+  <h2><span class="n">6</span> Registrando suas decisões <span style="font-size:14px;color:var(--ink-3);font-weight:500">(opcional, recomendado)</span></h2>
+  <p>O cockpit registra o que você decidiu, com os botões <strong>Aceitar / Adiar / Rejeitar</strong> por card. Isso alimenta o <em>journal</em> (histórico consultivo, append-only) e acompanha cada decisão ao longo dos dias.</p>
+  <p>Os botões só funcionam quando o cockpit é servido pela API local (same-origin). Suba o servidor:</p>
+  <pre><code>python -m api.server</code></pre>
+  <p>Depois abra <strong>http://127.0.0.1:8000/cockpit</strong>. O servidor liga só em <code>127.0.0.1</code> (loopback) — não exponha em rede. <code>GET</code> é read-only; a única escrita é <code>POST /journal</code>. Abrindo o HTML por <code>file://</code> os botões ficam desativados, com aviso.</p>
+  <div class="note"><p>Depois de executar uma venda de verdade na corretora, você pode registrar o <b>fill</b> real (quantidade, preço, taxas) no ledger de execução — o Atlas reconcilia com os snapshots de custódia, mas <b>nunca</b> envia ordem nem altera sua carteira. Ver <code>docs/EXECUTION_LEDGER.md</code> e <code>docs/EXECUTION_RECONCILIATION.md</code>.</p></div>
+</section>
+
+<section id="s7">
+  <h2><span class="n">7</span> Onde ficam os arquivos</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Caminho</th><th>Conteúdo</th></tr></thead>
+    <tbody>
+      <tr><td><code>output/relatorios/</code></td><td><b>Para você abrir</b> — HTML, Excel, Morning Brief</td></tr>
+      <tr><td><code>output/dados/</code></td><td>Contrato interno JSON (não abrir direto)</td></tr>
+      <tr><td><code>logs/atlas.log</code></td><td>Log de execução</td></tr>
+      <tr><td><code>logs/execution_metrics.csv</code></td><td>Métricas de cada run</td></tr>
+      <tr><td><code>data/atlas_history.db</code></td><td>Histórico (SQLite) — base dos sparklines e outcomes</td></tr>
+    </tbody>
+  </table></div>
+  <p>Esses artefatos são <strong>locais</strong> e não vão para o Git. Os <em>raw snapshots</em> imutáveis nesta estação ficam em <code>C:\Users\marcu\AppData\Local\Atlas_Investment_OS\raw_snapshots</code> — não são sincronizados; faça backup próprio antes de trocar de disco ou reinstalar o Windows.</p>
+</section>
+
+<section id="s8">
+  <h2><span class="n">8</span> Rotina sugerida</h2>
+  <div class="cards">
+    <div class="card"><div class="k">Diária · rápida</div><h4>Foco na carteira</h4><pre style="margin:8px 0 0"><code>.venv\Scripts\activate
+python run_all.py --portfolio</code></pre><p style="margin-top:9px">Abra o cockpit, resolva "Agir agora", registre decisões.</p></div>
+    <div class="card"><div class="k">Semanal / quinzenal</div><h4>Completa</h4><pre style="margin:8px 0 0"><code>python run_all.py</code></pre><p style="margin-top:9px">Revê funil de oportunidades e curadoria da watchlist.</p></div>
+    <div class="card"><div class="k">Pontual</div><h4>Um nome</h4><pre style="margin:8px 0 0"><code>python run_all.py --ticker XYZ</code></pre><p style="margin-top:9px">Para atualizar métricas de fontes públicas, use a skill <code>atualizar-ticker</code>.</p></div>
+  </div>
+</section>
+
+<section id="s9">
+  <h2><span class="n">9</span> Limites importantes <span style="font-size:14px;color:var(--ink-3);font-weight:500">(leia antes de confiar)</span></h2>
+  <ul>
+    <li><strong>O Atlas não dá ordem e não é conselho de investimento personalizado.</strong> É uma ferramenta de organização de evidência; a decisão é sua.</li>
+    <li><strong>REVISAR quando duas fontes discordam é o resultado correto</strong>, não uma falha a contornar. ADRs em moeda estrangeira frequentemente têm market cap / enterprise value divergentes entre vendors — o Atlas rejeita o campo de propósito em vez de confiar cego numa fonte.</li>
+    <li><strong>Backtest ainda não publica performance.</strong> A cobertura histórica é incompleta; o Atlas não afirma retorno realizado de estratégia.</li>
+    <li><strong>A referência de scoring está congelada no snapshot de 2026-07-13.</strong> Percentis oficiais envelhecem; renovar exige rodar a coleta ampla conscientemente.</li>
+  </ul>
+</section>
+
+<section id="s10">
+  <h2><span class="n">10</span> Solução de problemas</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Sintoma</th><th>Provável causa</th><th>O quê fazer</th></tr></thead>
+    <tbody>
+      <tr><td>Warning de fonte secundária</td><td>Flag habilitada sem chave em <code>provider_secrets.json</code></td><td>Preencher a chave ou desabilitar a flag</td></tr>
+      <tr><td>Muitas posições em <span class="pill p-warn">REVISAR</span></td><td>Dados <code>stale</code> ou fontes divergentes (ADRs)</td><td>Ver o bloco de explicação no card; recoletar só resolve se a causa for gap/dado velho</td></tr>
+      <tr><td>Botões do cockpit desativados</td><td>Aberto via <code>file://</code></td><td>Suba <code>python -m api.server</code> e abra <code>/cockpit</code></td></tr>
+      <tr><td>Cobertura de EV baixa em nomes amplos</td><td>Cota gratuita do FMP atingida</td><td>Limite de plano, não bug — reexecutar depois</td></tr>
+      <tr><td>Execução interrompida pelo Health Check</td><td>Pré-condição de dados não satisfeita</td><td>Ver <code>logs/atlas.log</code> para a causa</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="s11">
+  <h2><span class="n">11</span> Para aprofundar</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Documento</th><th>O que cobre</th></tr></thead>
+    <tbody>
+      <tr><td><code>STATUS.md</code></td><td>O que o código faz <b>hoje</b>, com citação de arquivo/função</td></tr>
+      <tr><td><code>docs/SCORING_MODEL.md</code></td><td>Como os scores são calculados</td></tr>
+      <tr><td><code>docs/DECISION_QUEUE.md</code> · <code>DECISION_JOURNAL.md</code></td><td>Fila e registro de decisão</td></tr>
+      <tr><td><code>docs/ACTIVE_WATCHLIST.md</code></td><td>Watchlist como fila ativa</td></tr>
+      <tr><td><code>docs/OUTCOME_ANALYTICS.md</code></td><td>Acompanhamento de resultado das decisões</td></tr>
+      <tr><td><code>docs/adr/</code></td><td>Decisões de arquitetura (o "porquê")</td></tr>
+    </tbody>
+  </table></div>
+  <footer>Atlas Investment OS · Manual do Usuário v1.2.0 · Plataforma consultiva — não executa ordens.</footer>
+</section>
+</main>
+</div>
+
+<script>
+(function(){
+  // theme toggle
+  var btn=document.getElementById('themeBtn');
+  var root=document.documentElement;
+  btn.addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme');
+    if(!cur){cur=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+    root.setAttribute('data-theme',cur==='dark'?'light':'dark');
+  });
+  // scrollspy
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  var map={};links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        links.forEach(function(l){l.classList.remove('active');});
+        var a=map[e.target.id];if(a)a.classList.add('active');
+      }
+    });
+  },{rootMargin:'-10% 0px -75% 0px',threshold:0});
+  document.querySelectorAll('section[id]').forEach(function(s){obs.observe(s);});
+})();
+</script>
+</body>
+</html>

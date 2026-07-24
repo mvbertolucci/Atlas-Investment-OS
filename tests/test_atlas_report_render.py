@@ -302,11 +302,26 @@ def test_ticker_detail_section_rendered_and_anchored() -> None:
     assert 'id="ticker-AAA"' in html
     assert 'id="ticker-BBB"' in html
     # AAA é HOLD sem mudança de estado -- colapsada no resumo da tabela de
-    # carteira (comportamento existente), então só BBB (SELL) tem link
-    # âncora na tabela; o anchor id de AAA continua existindo na seção de
-    # detalhe (verificado acima), só não referenciado por essa tabela.
-    assert 'href="#ticker-BBB"' in html
+    # carteira (comportamento existente), então só BBB (SELL) aparece linkada
+    # na tabela; o anchor id de AAA continua existindo na seção de detalhe
+    # (verificado acima), só não referenciado por essa tabela.
+    #
+    # O símbolo passou a apontar para a página completa da empresa
+    # (`/company/SYM`, servida por api.server). A âncora interna sobrevive em
+    # `data-anchor`: é para ela que o script cai quando o relatório é aberto
+    # via file://, onde não existe servidor.
+    assert 'href="/company/BBB"' in html
+    assert 'data-anchor="ticker-BBB"' in html
     assert "Tese de longo prazo em software." in html
+
+
+def test_symbol_links_fall_back_to_the_internal_anchor_offline() -> None:
+    """Aberto via file:// o relatório precisa continuar navegável sozinho."""
+    html = render_report(_full_context_with_ticker_details())
+    assert 'location.protocol !== "file:"' in html
+    assert 'a.setAttribute("href", "#" + anchor)' in html
+    # O link "ver página completa" não vira auto-link offline: some.
+    assert 'a.style.display = "none"' in html
 
 
 def test_ticker_detail_no_external_resources_even_with_real_content() -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from html import escape
 from pathlib import Path
 
@@ -26,6 +27,7 @@ _COCKPIT_SCRIPT = """<script>
     DEFERRED: { slug: "em_analise", label: "Em análise" },
     REJECTED: { slug: "descartado", label: "Descartado" }
   };
+  var OTHER = "Outro (escrever)";
   var live = location.protocol === "http:" || location.protocol === "https:";
   if (!live) {
     var notice = document.getElementById("notice");
@@ -34,40 +36,137 @@ _COCKPIT_SCRIPT = """<script>
       b.disabled = true;
       b.title = "Abra via http://127.0.0.1:8000/cockpit para registrar.";
     });
+    // Sem servidor, /company/SYM não resolve: aponta para o relatório local,
+    // que fica na mesma pasta do cockpit.
+    document.querySelectorAll("a.company-link").forEach(function (a) {
+      var sym = a.getAttribute("data-symbol") || "";
+      a.setAttribute("href", "atlas_report_latest.html#ticker-" + sym);
+    });
     return;
   }
   document.querySelectorAll(".review").forEach(function (row) {
     var id = row.getAttribute("data-decision-id");
-    row.querySelectorAll("button[data-status]").forEach(function (button) {
+    var reasons = {};
+    try { reasons = JSON.parse(row.getAttribute("data-reasons") || "{}"); } catch (e) {}
+    var buttons = row.querySelectorAll("button[data-status]");
+
+    function setBusy(state) {
+      buttons.forEach(function (b) { b.disabled = state; });
+    }
+
+    function closePanel() {
+      var open = row.querySelector(".review-panel");
+      if (open) open.remove();
+      buttons.forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+    }
+
+    function submit(reason, panel) {
+      setBusy(true);
+      fetch("/journal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision_id: id, status: panel.status, reason: reason })
+      }).then(function (resp) {
+        return resp.json().then(function (data) { return { ok: resp.ok, data: data }; });
+      }).then(function (result) {
+        if (!result.ok) {
+          panel.error.textContent = result.data.error || "Falha ao registrar.";
+          setBusy(false);
+          return;
+        }
+        var chip = row.querySelector(".status");
+        var mapped = MAP[panel.status];
+        if (chip && mapped) {
+          chip.className = "status status-" + mapped.slug;
+          chip.textContent = mapped.label;
+        }
+        closePanel();
+        setBusy(false);
+      }).catch(function () {
+        panel.error.textContent = "Falha de rede ao registrar.";
+        setBusy(false);
+      });
+    }
+
+    function openPanel(status) {
+      closePanel();
+      var list = reasons[status] || [OTHER];
+      var panel = document.createElement("div");
+      panel.className = "review-panel";
+
+      var select = document.createElement("select");
+      select.setAttribute("aria-label", "Motivo da revisão");
+      list.forEach(function (text) {
+        var option = document.createElement("option");
+        option.value = text;
+        option.textContent = text;
+        select.appendChild(option);
+      });
+
+      var free = document.createElement("input");
+      free.type = "text";
+      free.placeholder = "Escreva o motivo";
+      free.className = "review-free";
+      free.style.display = "none";
+
+      var detail = document.createElement("input");
+      detail.type = "text";
+      detail.placeholder = "Detalhe (opcional)";
+      detail.className = "review-free";
+
+      select.addEventListener("change", function () {
+        var isOther = select.value === OTHER;
+        free.style.display = isOther ? "" : "none";
+        detail.style.display = isOther ? "none" : "";
+        if (isOther) free.focus();
+      });
+
+      var confirm = document.createElement("button");
+      confirm.type = "button";
+      confirm.className = "primary";
+      confirm.textContent = "Registrar";
+
+      var cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = "Cancelar";
+
+      var error = document.createElement("span");
+      error.className = "review-error";
+
+      confirm.addEventListener("click", function () {
+        var reason = select.value === OTHER
+          ? free.value.trim()
+          : (select.value + (detail.value.trim() ? " — " + detail.value.trim() : ""));
+        if (!reason) {
+          error.textContent = "Escreva o motivo.";
+          free.focus();
+          return;
+        }
+        error.textContent = "";
+        submit(reason, { status: status, error: error });
+      });
+      cancel.addEventListener("click", closePanel);
+
+      panel.appendChild(select);
+      panel.appendChild(free);
+      panel.appendChild(detail);
+      panel.appendChild(confirm);
+      panel.appendChild(cancel);
+      panel.appendChild(error);
+      row.appendChild(panel);
+      select.focus();
+    }
+
+    buttons.forEach(function (button) {
+      button.setAttribute("aria-expanded", "false");
       button.addEventListener("click", function () {
         var status = button.getAttribute("data-status");
-        var reason = window.prompt("Motivo da revisão (" + status + "):");
-        if (reason === null) return;
-        reason = reason.trim();
-        if (!reason) { window.alert("Motivo é obrigatório."); return; }
-        row.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
-        fetch("/journal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ decision_id: id, status: status, reason: reason })
-        }).then(function (resp) {
-          return resp.json().then(function (data) { return { ok: resp.ok, data: data }; });
-        }).then(function (result) {
-          if (!result.ok) {
-            window.alert("Erro: " + (result.data.error || "falha ao registrar."));
-            row.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
-            return;
-          }
-          var chip = row.querySelector(".status");
-          var mapped = MAP[status];
-          if (chip && mapped) {
-            chip.className = "status status-" + mapped.slug;
-            chip.textContent = mapped.label;
-          }
-        }).catch(function () {
-          window.alert("Falha de rede ao registrar a revisão.");
-          row.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
-        });
+        var open = row.querySelector(".review-panel");
+        if (open && open.dataset.status === status) { closePanel(); return; }
+        openPanel(status);
+        var created = row.querySelector(".review-panel");
+        if (created) created.dataset.status = status;
+        button.setAttribute("aria-expanded", "true");
       });
     });
   });
@@ -270,18 +369,121 @@ def _confidence_explanation(item: dict[str, object]) -> str:
     )
 
 
+# Palavras que o motor de venda usa na `reason` para nomear cada família de
+# evidência. Mapear texto->regra permite oferecer motivos ESPECÍFICOS daquele
+# card sem inventar dado: a opção só aparece se o motor de fato citou o sinal.
+_RULE_MARKERS = (
+    ("distress", ("distress", "solvência", "solvencia", "altman", "liquidez", "alavancagem")),
+    ("valuation", ("valuation", "alvo", "upside", "múltiplo", "multiplo", "preço", "preco")),
+    ("fundamental", ("fundamental", "f-score", "fscore", "roic", "margem")),
+    ("relative", ("relative", "relativa", "percentil", "comparativ")),
+    ("confidence", ("confiança", "confianca", "cobertura", "gate")),
+)
+
+# Motivo específico por (regra, status). Frase o raciocínio, não a ação.
+_SPECIFIC_REASONS = {
+    ("distress", "ACCEPTED"): "Concordo: sinais de solvência/estresse financeiro confirmados",
+    ("distress", "REJECTED"): "Discordo: o setor torna esse indicador de solvência enganoso",
+    ("valuation", "ACCEPTED"): "Concordo: preço acima do alvo, sem margem de segurança",
+    ("valuation", "REJECTED"): "Discordo: o múltiplo se justifica pela tese de crescimento",
+    ("fundamental", "ACCEPTED"): "Concordo: deterioração real de fundamentos (F-Score/ROIC)",
+    ("fundamental", "REJECTED"): "Discordo: a queda é efeito não recorrente (one-off)",
+    ("relative", "ACCEPTED"): "Concordo: perdeu posição relativa e não recupero a tese",
+    ("relative", "REJECTED"): "Discordo: sinal comparativo não muda a tese de fundo",
+    ("confidence", "ACCEPTED"): "Concordo: evidência insuficiente para manter a posição",
+    ("confidence", "REJECTED"): "Discordo: os dados que faltam não são decisivos aqui",
+    ("confidence", "DEFERRED"): "Aguardando a cobertura de dados melhorar",
+}
+
+_GENERIC_REASONS = {
+    "ACCEPTED": (
+        "Concordo com a evidência apresentada pelo motor",
+        "Confirmei os números na fonte primária",
+        "Ajuste de risco/concentração da carteira",
+    ),
+    "REJECTED": (
+        "Tenho informação que o motor não tem",
+        "O dado de entrada está errado",
+        "Meu horizonte de investimento é diferente do modelo",
+    ),
+    "DEFERRED": (
+        "Aguardando o próximo resultado trimestral",
+        "Aguardando confirmação de dado divergente entre fontes",
+        "Sem caixa/liquidez para agir agora",
+        "Revisar na próxima execução",
+    ),
+}
+
+_OTHER_REASON = "Outro (escrever)"
+
+
+def _detected_rules(item: dict[str, object]) -> list[str]:
+    haystack = " ".join(
+        str(item.get(key) or "") for key in ("reason", "action", "engine")
+    ).lower()
+    return [rule for rule, markers in _RULE_MARKERS if any(m in haystack for m in markers)]
+
+
+def _reason_options(item: dict[str, object]) -> dict[str, list[str]]:
+    """Motivos oferecidos por status: específicos do card primeiro, depois genéricos.
+
+    Read-only sobre o item da fila -- não recalcula nada e não inventa evidência:
+    uma opção específica só entra se o próprio motor citou aquele sinal na razão.
+    """
+    rules = _detected_rules(item)
+    options: dict[str, list[str]] = {}
+    for status in ("ACCEPTED", "DEFERRED", "REJECTED"):
+        specific = [
+            _SPECIFIC_REASONS[(rule, status)]
+            for rule in rules
+            if (rule, status) in _SPECIFIC_REASONS
+        ]
+        if status == "DEFERRED":
+            for field in list(item.get("missing_evidence") or ())[:3]:
+                specific.append(f"Aguardando confirmar o dado: {field}")
+        seen: set[str] = set()
+        merged: list[str] = []
+        for reason in (*specific, *_GENERIC_REASONS[status], _OTHER_REASON):
+            if reason not in seen:
+                seen.add(reason)
+                merged.append(reason)
+        options[status] = merged
+    return options
+
+
 def _review_controls(item: dict[str, object], statuses: dict[str, str]) -> str:
     decision_id = str(item.get("decision_id", ""))
     if not decision_id:
         return ""
     status = status_for(statuses, decision_id)
+    reasons = escape(json.dumps(_reason_options(item), ensure_ascii=False), quote=True)
     return (
-        f'<div class="review" data-decision-id="{_e(decision_id)}">'
+        f'<div class="review" data-decision-id="{_e(decision_id)}" data-reasons="{reasons}">'
         f'<span class="status status-{_e(status)}">{_e(STATUS_LABELS.get(status, status))}</span>'
         '<button type="button" data-status="ACCEPTED">Aceitar</button>'
         '<button type="button" data-status="DEFERRED">Adiar</button>'
         '<button type="button" data-status="REJECTED">Rejeitar</button>'
         "</div>"
+    )
+
+
+def _company_link(item: dict[str, object]) -> str:
+    """Cabeçalho do card: nome + símbolo linkando para a página da empresa.
+
+    Aponta para `/company/SYM`, que `api.server` resolve para o one-pager do
+    símbolo (se existir) ou para a âncora do ativo no relatório completo -- onde
+    ficam todos os números já coletados, organizados. Aberto via `file://`, o
+    script reescreve o href para o relatório local na mesma pasta.
+    """
+    symbol = str(item.get("symbol") or "").strip().upper()
+    name = _e(item.get("company_name")) or _e(symbol)
+    if not symbol:
+        return f"<strong>{name}</strong>"
+    return (
+        f'<strong><a class="company-link" data-symbol="{_e(symbol)}" '
+        f'href="/company/{_e(symbol)}" '
+        f'title="Ver todos os números coletados de {_e(symbol)}">'
+        f"{name} <small>({_e(symbol)})</small></a></strong>"
     )
 
 
@@ -310,8 +512,7 @@ def _item_card(item: dict[str, object], statuses: dict[str, str] | None = None) 
     )
     return (
         '<article class="decision-card">'
-        f'<div class="card-head"><strong>{_e(item.get("company_name")) or _e(item.get("symbol"))} '
-        f'<small>({_e(item.get("symbol"))})</small></strong>'
+        f'<div class="card-head">{_company_link(item)}'
         f'<span class="action">{_e(item.get("action"))}</span></div>'
         f'<p>{_e(item.get("reason")) or "Sem justificativa publicada."}</p>'
         f'{thesis_html}'
@@ -348,8 +549,7 @@ def _opportunity_card(item: dict[str, object]) -> str:
     )
     return (
         '<article class="decision-card">'
-        f'<div class="card-head"><strong>{_e(item.get("company_name")) or _e(item.get("symbol"))} '
-        f'<small>({_e(item.get("symbol"))})</small></strong>'
+        f'<div class="card-head">{_company_link(item)}'
         f'<span class="action">{_e(item.get("action")) or "CANDIDATA"}</span></div>'
         f'{drivers_html}'
         f'{thesis_html}'
@@ -546,6 +746,17 @@ border-radius:10px;padding:16px 20px}}.delta h2{{margin-bottom:6px}}.delta-block
 border-top:1px solid var(--line);padding-top:10px}}.review button{{font:inherit;font-size:12px;
 border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:6px;
 padding:3px 9px;cursor:pointer}}.review button:hover{{border-color:var(--muted)}}
+.review button[aria-expanded="true"]{{border-color:var(--muted);background:var(--bg)}}
+.review-panel{{flex:0 0 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}}
+.review-panel select{{font:inherit;font-size:12px;flex:1 1 260px;min-width:0;padding:4px 8px;
+border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)}}
+.review-panel .review-free{{font:inherit;font-size:12px;flex:1 1 200px;min-width:0;padding:4px 8px;
+border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)}}
+.review-panel button.primary{{background:#175cd3;color:#fff;border-color:#175cd3}}
+.review-panel button.primary:hover{{background:#1349a8}}
+.review-error{{flex:0 0 100%;font-size:12px;color:#b42318}}
+a.company-link{{color:inherit;text-decoration:none;border-bottom:1px dotted var(--muted)}}
+a.company-link:hover{{color:#175cd3;border-bottom-color:#175cd3}}
 .status{{font-size:12px;font-weight:700;border-radius:999px;padding:3px 9px;margin-right:auto}}
 .status-novo{{background:#eef2f6;color:var(--muted)}}.status-em_analise{{background:#fff4e5;color:#b54708}}
 .status-decidido{{background:#e7f0ff;color:#175cd3}}.status-executado{{background:#e6f4ea;color:#12805c}}

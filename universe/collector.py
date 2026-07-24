@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import concurrent.futures
+import threading
+
 import argparse
 import json
 import math
@@ -259,6 +262,7 @@ def collect_constituent_batch(
     confirmation_tolerance: float = 0.05,
     quality_policy: Mapping[str, Any] | None = None,
     now: Callable[[], str] = _utc_timestamp,
+    max_workers: int = 1,
 ) -> CollectionBatchResult:
     if retries < 0:
         raise ValueError("retries não pode ser negativo.")
@@ -280,16 +284,25 @@ def collect_constituent_batch(
         provider_policy,
     )
     snapshot_root = Path(raw_snapshot_dir or Path(state_path).parent / "raw_snapshots")
-    attempted = succeeded = failed = skipped = 0
 
-    for constituent in batch.frame_rows:
+    pending = [
+        constituent
+        for constituent in batch.frame_rows
+        if constituent["symbol"] not in state.observations
+    ]
+    skipped = len(batch.frame_rows) - len(pending)
+    attempted = len(pending)
+    counters = {"succeeded": 0, "failed": 0}
+    # Protege o estado compartilhado (observations/failures/contadores) e a
+    # gravacao do checkpoint. O rate limit em si ja e serializado dentro do
+    # ProviderClient, entao o teto global de chamadas/segundo continua valendo
+    # para o conjunto das threads.
+    state_lock = threading.Lock()
+
+    def process(constituent: Mapping[str, Any]) -> None:
         symbol = constituent["symbol"]
-        if symbol in state.observations:
-            skipped += 1
-            continue
-
-        attempted += 1
         last_error: ProviderError | None = None
+        observation: dict[str, Any] | None = None
         try:
             raw = primary_client.execute(
                 "fetch_symbol",
@@ -347,25 +360,41 @@ def collect_constituent_batch(
             observation["universe_source_symbol"] = constituent.get(
                 "source_symbol", symbol
             )
-            state.observations[symbol] = observation
-            state.failures.pop(symbol, None)
-            succeeded += 1
         except ProviderError as exc:
             last_error = exc
 
         timestamp = now()
-        if last_error is not None:
-            previous_attempts = int(state.failures.get(symbol, {}).get("attempts", 0))
-            state.failures[symbol] = {
-                **last_error.to_dict(),
-                "attempts": previous_attempts + last_error.attempts,
-                "last_error": str(last_error),
-                "updated_at": timestamp,
-            }
-            failed += 1
-        state.updated_at = timestamp
-        write_collection_state(state, state_path)
+        with state_lock:
+            if observation is not None:
+                state.observations[symbol] = observation
+                state.failures.pop(symbol, None)
+                counters["succeeded"] += 1
+            else:
+                previous_attempts = int(
+                    state.failures.get(symbol, {}).get("attempts", 0)
+                )
+                state.failures[symbol] = {
+                    **last_error.to_dict(),
+                    "attempts": previous_attempts + last_error.attempts,
+                    "last_error": str(last_error),
+                    "updated_at": timestamp,
+                }
+                counters["failed"] += 1
+            state.updated_at = timestamp
+            write_collection_state(state, state_path)
 
+    workers = max(1, int(max_workers or 1))
+    if workers > 1 and len(pending) > 1:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=workers, thread_name_prefix="atlas-universe"
+        ) as pool:
+            list(pool.map(process, pending))
+    else:
+        for constituent in pending:
+            process(constituent)
+
+    succeeded = counters["succeeded"]
+    failed = counters["failed"]
     completed_total = len(state.observations)
     return CollectionBatchResult(
         batch_number=batch.batch_number,
@@ -511,6 +540,7 @@ def main() -> None:
         secondary_fetcher=build_sec_secondary_provider(ROOT, settings),
         critical_fields=tuple(settings.get("provider_critical_fields", ())),
         quality_policy=quality_policy,
+        max_workers=int(settings.get("provider_max_workers", 4)),
     )
     print(
         f"Lote {result.batch_number}/{result.total_batches}: "

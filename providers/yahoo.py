@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import concurrent.futures
+
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -701,11 +703,19 @@ def fetch_watchlist(
     secondary_fetcher: Callable[..., dict[str, Any]] | None = None,
     secondary_fetchers: Iterable[Callable[..., dict[str, Any]]] = (),
     critical_fields: Iterable[str] = DEFAULT_CRITICAL_FIELDS,
+    max_workers: int = 1,
 ) -> list[dict]:
     """
     `failures`, se informado, recebe "SYMBOL: erro" para cada fetch que
     falhou -- opcional para não quebrar chamadores existentes que só querem
     as linhas coletadas.
+
+    `max_workers` > 1 coleta símbolos em paralelo. O ganho é de latência, não
+    de vazão permitida: o rate limit continua global, porque as threads
+    compartilham o mesmo `ProviderClient` e ele serializa a espera sob lock.
+    Cada símbolo custa ~6 requisições HTTP sequenciais ao Yahoo, e é essa
+    latência (medida em ~3,9 s/símbolo) que o paralelismo sobrepõe. Default 1
+    preserva o comportamento sequencial de quem chama sem o parâmetro.
     """
     rows: list[dict] = []
     critical_fields = tuple(critical_fields)
@@ -738,94 +748,135 @@ def fetch_watchlist(
                 supported,
             )
         )
+    def collect_one(symbol: str, name: str) -> dict:
+        """Coleta um símbolo. Corpo antes inline no laço, agora reentrante.
+
+        Só usa estado compartilhado imutável (`client`, `secondary_boundaries`)
+        e cria o resto localmente, então roda igual em thread única ou em
+        paralelo. O `ProviderClient` serializa o rate limit internamente
+        (`threading.Lock`), de modo que o teto global de chamadas/segundo vale
+        para o conjunto das threads, não por thread.
+        """
+        primary = client.execute(
+            "fetch_symbol",
+            fetch_symbol,
+            symbol,
+            name,
+            period=period,
+            interval=interval,
+        )
+        if raw_snapshot_dir is not None:
+            receipt = store_raw_snapshot(
+                primary,
+                raw_snapshot_dir,
+                provider="Yahoo Finance",
+                symbol=symbol,
+                collected_at=str(primary["as_of"]),
+            )
+            primary["raw_snapshot_hash"] = receipt.sha256
+            primary["raw_snapshot_path"] = str(receipt.path)
+        reconciled = primary
+        secondary_snapshots: dict[str, dict[str, str]] = {}
+        secondary_errors: dict[str, dict[str, Any]] = {}
+        for fetcher, secondary_client, supported in secondary_boundaries:
+            provider_name = secondary_client.provider
+            secondary = None
+            try:
+                secondary = secondary_client.execute(
+                    "fetch_symbol",
+                    fetcher,
+                    symbol,
+                    name,
+                    period=period,
+                    interval=interval,
+                )
+            except ProviderError as secondary_error:
+                error_payload = secondary_error.to_dict()
+                secondary_errors[provider_name] = error_payload
+                if "secondary_provider_error" not in primary:
+                    primary["secondary_provider_error"] = error_payload
+            else:
+                ensure_field_evidence(secondary)
+                if raw_snapshot_dir is not None:
+                    secondary_receipt = store_raw_snapshot(
+                        secondary,
+                        raw_snapshot_dir,
+                        provider=str(secondary.get("source") or "Secondary"),
+                        symbol=symbol,
+                        collected_at=str(
+                            secondary.get("as_of") or primary["as_of"]
+                        ),
+                    )
+                    snapshot_payload = {
+                        "hash": secondary_receipt.sha256,
+                        "path": str(secondary_receipt.path),
+                    }
+                    secondary_snapshots[provider_name] = snapshot_payload
+                    if "secondary_raw_snapshot_hash" not in primary:
+                        primary["secondary_raw_snapshot_hash"] = (
+                            secondary_receipt.sha256
+                        )
+                        primary["secondary_raw_snapshot_path"] = str(
+                            secondary_receipt.path
+                        )
+            reconciled = reconcile_critical_fields(
+                reconciled, secondary, supported
+            )
+        remaining_fields = tuple(
+            field_name
+            for field_name in critical_fields
+            if field_name not in claimed_fields
+        )
+        if remaining_fields:
+            reconciled = reconcile_critical_fields(
+                reconciled, None, remaining_fields
+            )
+        if secondary_snapshots:
+            reconciled["secondary_raw_snapshots"] = secondary_snapshots
+        if secondary_errors:
+            reconciled["secondary_provider_errors"] = secondary_errors
+        return reconciled
+
+    entries: list[tuple[str, str]] = []
     for _, row in watchlist.iterrows():
         symbol = str(row.get("symbol", "")).strip()
         if not symbol:
             continue
-        name = str(row.get("name", "")).strip()
+        entries.append((symbol, str(row.get("name", "")).strip()))
+
+    collected: dict[int, dict] = {}
+    errors: dict[int, str] = {}
+
+    def run(index: int, symbol: str, name: str) -> None:
         try:
-            primary = client.execute(
-                "fetch_symbol",
-                fetch_symbol,
-                symbol,
-                name,
-                period=period,
-                interval=interval,
-            )
-            if raw_snapshot_dir is not None:
-                receipt = store_raw_snapshot(
-                    primary,
-                    raw_snapshot_dir,
-                    provider="Yahoo Finance",
-                    symbol=symbol,
-                    collected_at=str(primary["as_of"]),
-                )
-                primary["raw_snapshot_hash"] = receipt.sha256
-                primary["raw_snapshot_path"] = str(receipt.path)
-            reconciled = primary
-            secondary_snapshots: dict[str, dict[str, str]] = {}
-            secondary_errors: dict[str, dict[str, Any]] = {}
-            for fetcher, secondary_client, supported in secondary_boundaries:
-                provider_name = secondary_client.provider
-                secondary = None
-                try:
-                    secondary = secondary_client.execute(
-                        "fetch_symbol",
-                        fetcher,
-                        symbol,
-                        name,
-                        period=period,
-                        interval=interval,
-                    )
-                except ProviderError as secondary_error:
-                    error_payload = secondary_error.to_dict()
-                    secondary_errors[provider_name] = error_payload
-                    if "secondary_provider_error" not in primary:
-                        primary["secondary_provider_error"] = error_payload
-                else:
-                    ensure_field_evidence(secondary)
-                    if raw_snapshot_dir is not None:
-                        secondary_receipt = store_raw_snapshot(
-                            secondary,
-                            raw_snapshot_dir,
-                            provider=str(secondary.get("source") or "Secondary"),
-                            symbol=symbol,
-                            collected_at=str(
-                                secondary.get("as_of") or primary["as_of"]
-                            ),
-                        )
-                        snapshot_payload = {
-                            "hash": secondary_receipt.sha256,
-                            "path": str(secondary_receipt.path),
-                        }
-                        secondary_snapshots[provider_name] = snapshot_payload
-                        if "secondary_raw_snapshot_hash" not in primary:
-                            primary["secondary_raw_snapshot_hash"] = (
-                                secondary_receipt.sha256
-                            )
-                            primary["secondary_raw_snapshot_path"] = str(
-                                secondary_receipt.path
-                            )
-                reconciled = reconcile_critical_fields(
-                    reconciled, secondary, supported
-                )
-            remaining_fields = tuple(
-                field_name
-                for field_name in critical_fields
-                if field_name not in claimed_fields
-            )
-            if remaining_fields:
-                reconciled = reconcile_critical_fields(
-                    reconciled, None, remaining_fields
-                )
-            if secondary_snapshots:
-                reconciled["secondary_raw_snapshots"] = secondary_snapshots
-            if secondary_errors:
-                reconciled["secondary_provider_errors"] = secondary_errors
-            rows.append(reconciled)
+            collected[index] = collect_one(symbol, name)
             print(f"[OK] {symbol}")
         except Exception as exc:
             print(f"[ERRO] {symbol}: {exc}")
-            if failures is not None:
-                failures.append(f"{symbol}: {exc}")
+            errors[index] = f"{symbol}: {exc}"
+
+    workers = max(1, int(max_workers or 1))
+    if workers > 1 and len(entries) > 1:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=workers, thread_name_prefix="atlas-collect"
+        ) as pool:
+            list(
+                pool.map(
+                    lambda item: run(*item),
+                    [(i, s, n) for i, (s, n) in enumerate(entries)],
+                )
+            )
+    else:
+        for index, (symbol, name) in enumerate(entries):
+            run(index, symbol, name)
+
+    # Ordem de saida determinística: nao depende de qual thread terminou antes,
+    # entao duas execucoes com os mesmos dados produzem o mesmo resultado.
+    for index in range(len(entries)):
+        if index in collected:
+            rows.append(collected[index])
+    if failures is not None:
+        for index in range(len(entries)):
+            if index in errors:
+                failures.append(errors[index])
     return rows

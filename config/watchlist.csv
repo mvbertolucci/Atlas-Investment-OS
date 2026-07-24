@@ -1,41 +1,71 @@
-symbol,name,included_at,note,trigger_condition
-NEM,"Newmont Corporation",2026-07-14,"Screener S&P500 #1 - Basic Materials - Investment Score 79.8",
-FSLR,"First Solar, Inc.",2026-07-14,"Screener S&P500 #2 - Technology - Investment Score 76.6",
-MU,"Micron Technology, Inc.",2026-07-14,"Screener S&P500 #3 - Technology - Investment Score 76.5",
-DECK,"Deckers Outdoor Corporation",2026-07-14,"Screener S&P500 #4 - Consumer Cyclical - Investment Score 74.3",
-CF,"CF Industries Holdings, Inc.",2026-07-14,"Screener S&P500 #5 - Basic Materials - Investment Score 71.8",
-CTSH,"Cognizant Technology Solutions Corporation",2026-07-14,"Screener S&P500 #6 - Technology - Investment Score 70.9",
-EOG,"EOG Resources, Inc.",2026-07-14,"Screener S&P500 #7 - Energy - Investment Score 70.3",
-INTU,"Intuit Inc.",2026-07-14,"Screener S&P500 #8 - Technology - Investment Score 69.9",
-TROW,"T. Rowe Price Group, Inc.",2026-07-14,"Screener S&P500 #10 - Financial Services - Investment Score 68.2",
-INCY,"Incyte Corporation",2026-07-14,"Screener S&P500 #11 - Healthcare - Investment Score 68.2",
-PYPL,"PayPal Holdings, Inc.",2026-07-14,"Screener S&P500 #12 - Financial Services - Investment Score 68.0",
-PHM,"PulteGroup, Inc.",2026-07-14,"Screener S&P500 #14 - Consumer Cyclical - Investment Score 67.9",
-EXE,"Expand Energy Corporation",2026-07-14,"Screener S&P500 #15 - Energy - Investment Score 67.9",
-HIG,"The Hartford Insurance Group, Inc.",2026-07-14,"Screener S&P500 #16 - Financial Services - Investment Score 67.7",
-RMD,"ResMed Inc.",2026-07-14,"Screener S&P500 #18 - Healthcare - Investment Score 66.4",
-AOS,"A. O. Smith Corporation",2026-07-14,"Screener S&P500 #20 - Industrials - Investment Score 65.8",
-AMP,"Ameriprise Financial, Inc.",2026-07-14,"Screener S&P500 #21 - Financial Services - Investment Score 65.8",
-REGN,"Regeneron Pharmaceuticals, Inc.",2026-07-14,"Screener S&P500 #22 - Healthcare - Investment Score 65.7",
-GILD,"Gilead Sciences, Inc.",2026-07-14,"Screener S&P500 #23 - Healthcare - Investment Score 65.6",
-COP,"ConocoPhillips",2026-07-14,"Screener S&P500 #24 - Energy - Investment Score 65.3",
-GOOG,"Alphabet Inc.",2026-07-14,"Screener S&P500 #26 - Communication Services - Investment Score 64.9",
-CPRT,"Copart, Inc.",2026-07-14,"Screener S&P500 #27 - Industrials - Investment Score 64.9",
-GOOGL,"Alphabet Inc.",2026-07-14,"Screener S&P500 #28 - Communication Services - Investment Score 64.8",
-DVN,"Devon Energy Corporation",2026-07-14,"Screener S&P500 #30 - Energy - Investment Score 63.4",
-SNA,"Snap-on Incorporated",2026-07-14,"Screener S&P500 #32 - Industrials - Investment Score 62.9",
-META,"Meta Platforms, Inc.",2026-07-14,"Screener S&P500 #36 - Communication Services - Investment Score 62.0",
-EME,"EMCOR Group, Inc.",2026-07-14,"Screener S&P500 #37 - Industrials - Investment Score 62.0",
-DHI,"D.R. Horton, Inc.",2026-07-14,"Screener S&P500 #42 - Consumer Cyclical - Investment Score 61.4",
-BF-B,"Brown-Forman Corporation",2026-07-14,"Screener S&P500 #43 - Consumer Defensive - Investment Score 60.8",
-BKNG,"Booking Holdings Inc.",2026-07-14,"Screener S&P500 #44 - Consumer Cyclical - Investment Score 60.8",
-FOX,"Fox Corporation",2026-07-14,"Screener S&P500 #45 - Communication Services - Investment Score 60.7",
-FCX,"Freeport-McMoRan Inc.",2026-07-14,"Screener S&P500 #49 - Basic Materials - Investment Score 60.0",
-NUE,"Nucor Corporation",2026-07-14,"Screener S&P500 #61 - Basic Materials - Investment Score 58.8",
-HST,"Host Hotels & Resorts, Inc.",2026-07-14,"Screener S&P500 #69 - Real Estate - Investment Score 57.8",
-MNST,"Monster Beverage Corporation",2026-07-14,"Screener S&P500 #96 - Consumer Defensive - Investment Score 54.3",
-HRL,"Hormel Foods Corporation",2026-07-14,"Screener S&P500 #116 - Consumer Defensive - Investment Score 52.9",
-DLTR,"Dollar Tree, Inc.",2026-07-14,"Screener S&P500 #132 - Consumer Defensive - Investment Score 51.5",
-CEG,"Constellation Energy Corporation",2026-07-14,"Screener S&P500 #176 - Utilities - Investment Score 47.7",
-ATO,"Atmos Energy Corporation",2026-07-14,"Screener S&P500 #184 - Utilities - Investment Score 47.0",
-CSGP,"CoStar Group, Inc.",2026-07-14,"Screener S&P500 #192 - Real Estate - Investment Score 46.4",
+symbol,name,included_at,note,trigger_condition,source,lifecycle_state,analytical_origin,entry_rank,entry_score,review_due_at,promotion_condition,discard_condition
+NEM,Newmont Corporation,2026-07-14,Screener S&P500 #1 - Basic Materials - Investment Score 79.8,,manual,,,,,,,
+FSLR,"First Solar, Inc.",2026-07-14,Screener S&P500 #2 - Technology - Investment Score 76.6,,manual,,,,,,,
+MU,"Micron Technology, Inc.",2026-07-14,Screener S&P500 #3 - Technology - Investment Score 76.5,,manual,,,,,,,
+DECK,Deckers Outdoor Corporation,2026-07-14,Screener S&P500 #4 - Consumer Cyclical - Investment Score 74.3,,manual,,,,,,,
+CF,"CF Industries Holdings, Inc.",2026-07-14,Screener S&P500 #5 - Basic Materials - Investment Score 71.8,,manual,,,,,,,
+CTSH,Cognizant Technology Solutions Corporation,2026-07-14,Screener S&P500 #6 - Technology - Investment Score 70.9,,manual,,,,,,,
+EOG,"EOG Resources, Inc.",2026-07-14,Screener S&P500 #7 - Energy - Investment Score 70.3,,manual,,,,,,,
+INTU,Intuit Inc.,2026-07-14,Screener S&P500 #8 - Technology - Investment Score 69.9,,manual,,,,,,,
+TROW,"T. Rowe Price Group, Inc.",2026-07-14,Screener S&P500 #10 - Financial Services - Investment Score 68.2,,manual,,,,,,,
+INCY,Incyte Corporation,2026-07-14,Screener S&P500 #11 - Healthcare - Investment Score 68.2,,manual,,,,,,,
+PYPL,"PayPal Holdings, Inc.",2026-07-14,Screener S&P500 #12 - Financial Services - Investment Score 68.0,,manual,,,,,,,
+PHM,"PulteGroup, Inc.",2026-07-14,Screener S&P500 #14 - Consumer Cyclical - Investment Score 67.9,,manual,,,,,,,
+EXE,Expand Energy Corporation,2026-07-14,Screener S&P500 #15 - Energy - Investment Score 67.9,,manual,,,,,,,
+HIG,"The Hartford Insurance Group, Inc.",2026-07-14,Screener S&P500 #16 - Financial Services - Investment Score 67.7,,manual,,,,,,,
+RMD,ResMed Inc.,2026-07-14,Screener S&P500 #18 - Healthcare - Investment Score 66.4,,manual,,,,,,,
+AOS,A. O. Smith Corporation,2026-07-14,Screener S&P500 #20 - Industrials - Investment Score 65.8,,manual,,,,,,,
+AMP,"Ameriprise Financial, Inc.",2026-07-14,Screener S&P500 #21 - Financial Services - Investment Score 65.8,,manual,,,,,,,
+REGN,"Regeneron Pharmaceuticals, Inc.",2026-07-14,Screener S&P500 #22 - Healthcare - Investment Score 65.7,,manual,,,,,,,
+GILD,"Gilead Sciences, Inc.",2026-07-14,Screener S&P500 #23 - Healthcare - Investment Score 65.6,,manual,,,,,,,
+COP,ConocoPhillips,2026-07-14,Screener S&P500 #24 - Energy - Investment Score 65.3,,manual,,,,,,,
+GOOG,Alphabet Inc.,2026-07-14,Screener S&P500 #26 - Communication Services - Investment Score 64.9,,manual,,,,,,,
+CPRT,"Copart, Inc.",2026-07-14,Screener S&P500 #27 - Industrials - Investment Score 64.9,,manual,,,,,,,
+GOOGL,Alphabet Inc.,2026-07-14,Screener S&P500 #28 - Communication Services - Investment Score 64.8,,manual,,,,,,,
+DVN,Devon Energy Corporation,2026-07-14,Screener S&P500 #30 - Energy - Investment Score 63.4,,manual,,,,,,,
+SNA,Snap-on Incorporated,2026-07-14,Screener S&P500 #32 - Industrials - Investment Score 62.9,,manual,,,,,,,
+META,"Meta Platforms, Inc.",2026-07-14,Screener S&P500 #36 - Communication Services - Investment Score 62.0,,manual,,,,,,,
+EME,"EMCOR Group, Inc.",2026-07-14,Screener S&P500 #37 - Industrials - Investment Score 62.0,,manual,,,,,,,
+DHI,"D.R. Horton, Inc.",2026-07-14,Screener S&P500 #42 - Consumer Cyclical - Investment Score 61.4,,manual,,,,,,,
+BF-B,Brown-Forman Corporation,2026-07-14,Screener S&P500 #43 - Consumer Defensive - Investment Score 60.8,,manual,,,,,,,
+BKNG,Booking Holdings Inc.,2026-07-14,Screener S&P500 #44 - Consumer Cyclical - Investment Score 60.8,,manual,,,,,,,
+FOX,Fox Corporation,2026-07-14,Screener S&P500 #45 - Communication Services - Investment Score 60.7,,manual,,,,,,,
+FCX,Freeport-McMoRan Inc.,2026-07-14,Screener S&P500 #49 - Basic Materials - Investment Score 60.0,,manual,,,,,,,
+NUE,Nucor Corporation,2026-07-14,Screener S&P500 #61 - Basic Materials - Investment Score 58.8,,manual,,,,,,,
+HST,"Host Hotels & Resorts, Inc.",2026-07-14,Screener S&P500 #69 - Real Estate - Investment Score 57.8,,manual,,,,,,,
+MNST,Monster Beverage Corporation,2026-07-14,Screener S&P500 #96 - Consumer Defensive - Investment Score 54.3,,manual,,,,,,,
+HRL,Hormel Foods Corporation,2026-07-14,Screener S&P500 #116 - Consumer Defensive - Investment Score 52.9,,manual,,,,,,,
+DLTR,"Dollar Tree, Inc.",2026-07-14,Screener S&P500 #132 - Consumer Defensive - Investment Score 51.5,,manual,,,,,,,
+CEG,Constellation Energy Corporation,2026-07-14,Screener S&P500 #176 - Utilities - Investment Score 47.7,,manual,,,,,,,
+ATO,Atmos Energy Corporation,2026-07-14,Screener S&P500 #184 - Utilities - Investment Score 47.0,,manual,,,,,,,
+CSGP,"CoStar Group, Inc.",2026-07-14,Screener S&P500 #192 - Real Estate - Investment Score 46.4,,manual,,,,,,,
+SD,SD,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 75.6.",score > 80,auto,analyzing,broad_market,1,75.6,2026-08-23,score > 80,investment_score < 40.0
+GSL,GSL,2026-07-24,"Auto-inclusão (broad_market): decisão estimada STRONG_BUY, Investment Score 75.4.",score > 80,auto,analyzing,broad_market,2,75.4,2026-08-23,score > 80,investment_score < 40.0
+PRDO,PRDO,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 75.1.",score > 80,auto,analyzing,broad_market,3,75.1,2026-08-23,score > 80,investment_score < 40.0
+MLI,MLI,2026-07-24,"Auto-inclusão (broad_market): decisão estimada STRONG_BUY, Investment Score 74.9.",score > 80,auto,analyzing,broad_market,4,74.9,2026-08-23,score > 80,investment_score < 40.0
+GASS,GASS,2026-07-24,"Auto-inclusão (broad_market): decisão estimada STRONG_BUY, Investment Score 74.6.",score > 80,auto,analyzing,broad_market,5,74.6,2026-08-23,score > 80,investment_score < 40.0
+CMCL,CMCL,2026-07-24,"Auto-inclusão (broad_market): decisão estimada STRONG_BUY, Investment Score 74.0.",score > 80,auto,analyzing,broad_market,6,74.0,2026-08-23,score > 80,investment_score < 40.0
+ATAT,ATAT,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 73.4.",score > 80,auto,analyzing,broad_market,7,73.4,2026-08-23,score > 80,investment_score < 40.0
+BZ,BZ,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 73.3.",score > 80,auto,analyzing,broad_market,8,73.3,2026-08-23,score > 80,investment_score < 40.0
+KGC,KGC,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 73.3.",score > 80,auto,analyzing,broad_market,9,73.3,2026-08-23,score > 80,investment_score < 40.0
+RMR,RMR,2026-07-24,"Auto-inclusão (broad_market): decisão estimada STRONG_BUY, Investment Score 73.2.",score > 80,auto,analyzing,broad_market,10,73.2,2026-08-23,score > 80,investment_score < 40.0
+AU,AU,2026-07-24,"Auto-inclusão (broad_market): decisão estimada STRONG_BUY, Investment Score 73.2.",score > 80,auto,analyzing,broad_market,11,73.2,2026-08-23,score > 80,investment_score < 40.0
+YB,YB,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 72.8.",score > 80,auto,analyzing,broad_market,13,72.8,2026-08-23,score > 80,investment_score < 40.0
+SSRM,SSRM,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 72.5.",score > 80,auto,analyzing,broad_market,14,72.5,2026-08-23,score > 80,investment_score < 40.0
+FSM,FSM,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 71.7.",score > 80,auto,analyzing,broad_market,16,71.7,2026-08-23,score > 80,investment_score < 40.0
+AEM,AEM,2026-07-24,"Auto-inclusão (broad_market): decisão estimada STRONG_BUY, Investment Score 71.6.",score > 80,auto,analyzing,broad_market,17,71.6,2026-08-23,score > 80,investment_score < 40.0
+OGC,OGC,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 71.4.",score > 80,auto,analyzing,broad_market,19,71.4,2026-08-23,score > 80,investment_score < 40.0
+B,B,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 71.4.",score > 80,auto,analyzing,broad_market,20,71.4,2026-08-23,score > 80,investment_score < 40.0
+CGAU,CGAU,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 71.3.",score > 80,auto,analyzing,broad_market,21,71.3,2026-08-23,score > 80,investment_score < 40.0
+DHT,DHT,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 70.9.",score > 80,auto,analyzing,broad_market,22,70.9,2026-08-23,score > 80,investment_score < 40.0
+DRD,DRD,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 70.7.",score > 80,auto,analyzing,broad_market,23,70.7,2026-08-23,score > 80,investment_score < 40.0
+BLBD,BLBD,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 70.7.",score > 80,auto,analyzing,broad_market,24,70.7,2026-08-23,score > 80,investment_score < 40.0
+STNG,STNG,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 70.7.",score > 80,auto,analyzing,broad_market,25,70.7,2026-08-23,score > 80,investment_score < 40.0
+PDD,PDD,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 70.6.",score > 80,auto,analyzing,broad_market,26,70.6,2026-08-23,score > 80,investment_score < 40.0
+TSM,TSM,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 70.6.",score > 80,auto,analyzing,broad_market,27,70.6,2026-08-23,score > 80,investment_score < 40.0
+GNTX,GNTX,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 70.5.",score > 80,auto,analyzing,broad_market,28,70.5,2026-08-23,score > 80,investment_score < 40.0
+SBS,SBS,2026-07-24,"Auto-inclusão (broad_market): decisão estimada STRONG_BUY, Investment Score 70.4.",score > 80,auto,analyzing,broad_market,29,70.4,2026-08-23,score > 80,investment_score < 40.0
+YMM,YMM,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 69.8.",score > 70,auto,analyzing,broad_market,32,69.8,2026-08-23,score > 70,investment_score < 40.0
+EBF,EBF,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 69.8.",score > 70,auto,analyzing,broad_market,33,69.8,2026-08-23,score > 70,investment_score < 40.0
+ZTO,ZTO,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 69.4.",score > 70,auto,analyzing,broad_market,34,69.4,2026-08-23,score > 70,investment_score < 40.0
+PLAB,PLAB,2026-07-24,"Auto-inclusão (broad_market): decisão estimada BUY, Investment Score 69.4.",score > 70,auto,analyzing,broad_market,35,69.4,2026-08-23,score > 70,investment_score < 40.0

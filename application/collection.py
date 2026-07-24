@@ -233,6 +233,8 @@ class CollectionApplicationService:
                 rate_limit_per_second=float(
                     settings.get("provider_rate_limit_per_second", 2)
                 ),
+                # nota: o paralelismo entra via `max_workers` abaixo; o teto de
+                # chamadas/segundo continua valendo para o conjunto das threads.
             ),
             raw_snapshot_dir=resolve_raw_snapshot_path(
                 self.root,
@@ -264,6 +266,7 @@ class CollectionApplicationService:
                     ),
                 )
             ),
+            max_workers=int(settings.get("provider_max_workers", 4)),
         )
 
         for row in rows:

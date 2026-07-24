@@ -66,6 +66,9 @@ th { color: var(--muted); font-weight: 600; }
 .footer { margin-top: 2rem; color: var(--muted); font-size: 0.78rem; }
 .alert { color: var(--sell); background: var(--sell-bg); border-radius: 0.4rem; padding: 0.4rem 0.6rem; margin: 0.25rem 0; font-size: 0.82rem; }
 .symbol-link { color: inherit; text-decoration: underline; text-decoration-style: dotted; }
+.symbol-link.full-page { float: right; font-size: 0.72rem; font-weight: 600; opacity: 0.75;
+  text-decoration: none; }
+.symbol-link.full-page:hover { opacity: 1; text-decoration: underline; }
 .ticker-detail { border-top: 2px solid var(--border); padding-top: 0.75rem; margin-top: 1.5rem; }
 .ticker-detail h3 { margin: 0 0 0.15rem; }
 .ticker-detail .card > summary { cursor: pointer; font-weight: 600; }
@@ -145,7 +148,8 @@ def render_informational_signals(context: ReportContext) -> str:
         ).replace("não incluído neste run.", "")
     cards = "\n".join(
         f'<div class="informational-card">'
-        f'<a class="symbol-link" href="#{_e(item.anchor_id)}"><strong>{_e(item.symbol)}</strong></a> '
+        f'<a class="symbol-link company-link" data-anchor="{_e(item.anchor_id)}" '
+        f'href="/company/{_e(item.symbol)}"><strong>{_e(item.symbol)}</strong></a> '
         f'{_pill("ACOMPANHAR")} {_e(item.name)}'
         f'<br>{_e(item.message)}'
         + (
@@ -178,7 +182,8 @@ def render_portfolio(context: ReportContext) -> str:
 
     rows_html = "\n".join(
         "<tr>"
-        f'<td><a class="symbol-link" href="#{_e(row.anchor_id)}">{_e(row.symbol)}</a></td>'
+        f'<td><a class="symbol-link company-link" data-anchor="{_e(row.anchor_id)}" '
+        f'href="/company/{_e(row.symbol)}">{_e(row.symbol)}</a></td>'
         f"<td>{_e(row.name)}</td>"
         f"<td>{row.score:.1f}" + ("</td>" if row.score is not None else "—</td>")
         + f"<td>{_delta_html(row.score_delta)}</td>"
@@ -229,7 +234,8 @@ def render_watchlist(context: ReportContext) -> str:
 
     rows_html = "\n".join(
         "<tr>"
-        f'<td><a class="symbol-link" href="#{_e(row.anchor_id)}">{_e(row.symbol)}</a></td>'
+        f'<td><a class="symbol-link company-link" data-anchor="{_e(row.anchor_id)}" '
+        f'href="/company/{_e(row.symbol)}">{_e(row.symbol)}</a></td>'
         f"<td>{_e(row.name)}</td>"
         f"<td>{_e(row.effective_state)}</td>"
         f"<td>{_e(row.analytical_origin)}</td>"
@@ -621,7 +627,9 @@ def _ticker_detail_html(detail: TickerDetail) -> str:
 
     return f"""
 <section class="ticker-detail" id="{_e(detail.anchor_id)}">
-<h3>{_e(detail.symbol)} — {_e(detail.name)} <span class="meta">{_e(detail.sector)}</span></h3>
+<h3>{_e(detail.symbol)} — {_e(detail.name)} <span class="meta">{_e(detail.sector)}</span>
+<a class="symbol-link company-link full-page" data-anchor="{_e(detail.anchor_id)}"
+ href="/company/{_e(detail.symbol)}">ver página completa →</a></h3>
 <p class="meta">
 origem: {_e(detail.origin)} ·
 {_pill(detail.action)} <span class="engine">[{_e(detail.action_engine)}]</span> ·
@@ -687,6 +695,26 @@ def render_footer(context: ReportContext) -> str:
 """
 
 
+# Símbolo aponta para a página da empresa (`/company/SYM`, servida por
+# api.server). Aberto via file:// não há servidor, então cai para a âncora da
+# seção de detalhe dentro do próprio relatório -- que funciona offline. Sem
+# dependência externa: o contrato do relatório continua valendo.
+_REPORT_SCRIPT = """<script>
+(function () {
+  if (location.protocol !== "file:") return;
+  document.querySelectorAll("a.company-link").forEach(function (a) {
+    if (a.classList.contains("full-page")) {
+      // Sem servidor não há página completa: o link viraria um auto-link.
+      a.style.display = "none";
+      return;
+    }
+    var anchor = a.getAttribute("data-anchor");
+    if (anchor) a.setAttribute("href", "#" + anchor);
+  });
+})();
+</script>"""
+
+
 def page_shell(title: str, body: str) -> str:
     """
     Envelope HTML auto-contido comum (doctype/head/style) -- reaproveitado
@@ -697,7 +725,8 @@ def page_shell(title: str, body: str) -> str:
         '<html lang="pt-BR"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         f"<title>{_e(title)}</title>"
-        f"<style>{_STYLE}</style></head><body>{body}</body></html>"
+        f"<style>{_STYLE}</style></head><body>{body}"
+        f"{_REPORT_SCRIPT}</body></html>"
     )
 
 

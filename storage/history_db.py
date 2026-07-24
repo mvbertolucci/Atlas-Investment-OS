@@ -179,6 +179,7 @@ class HistoryDatabase:
             "observed_risk_penalty": "REAL",
             "risk_uncertainty_penalty": "REAL",
             "field_evidence_json": "TEXT",
+            "analysis_values_json": "TEXT",
             "raw_snapshot_hash": "TEXT",
             "raw_snapshot_path": "TEXT",
             "earnings_date": "TEXT",
@@ -422,6 +423,41 @@ class HistoryDatabase:
             params=(str(symbol).strip().upper(),),
         )
 
+    @staticmethod
+    def _analysis_values(row: pd.Series) -> str | None:
+        """Serializa os valores escalares da linha de análise.
+
+        O `field_evidence` já registra *situação/fonte/data* de cada campo, mas
+        não o número: métricas que o Atlas deriva em memória (RSI, momentum,
+        EV/EBITDA, médias móveis, dívida líquida) ficavam sem valor persistido,
+        e a página da empresa não tinha como exibi-las.
+
+        Estritamente aditivo e sem efeito sobre o modelo: nada aqui volta para
+        scoring, decisão ou política -- é evidência de leitura. Colunas não
+        escalares (o próprio `field_evidence`, DataFrames de balanço) ficam de
+        fora; elas já têm armazenamento próprio.
+        """
+        values: dict[str, object] = {}
+        for key, value in row.items():
+            name = str(key)
+            if name == "field_evidence" or isinstance(value, (dict, list, tuple, set)):
+                continue
+            try:
+                if value is None or pd.isna(value):
+                    continue
+            except (TypeError, ValueError):
+                pass
+            if isinstance(value, (bool, int, float, str)):
+                values[name] = value
+            else:
+                try:
+                    values[name] = value.item()
+                except (AttributeError, ValueError):
+                    values[name] = str(value)
+        if not values:
+            return None
+        return json.dumps(values, ensure_ascii=False, sort_keys=True, default=str)
+
     def save_snapshot(
         self,
         df: pd.DataFrame,
@@ -501,6 +537,7 @@ class HistoryDatabase:
                     # em favor de `Decision`). `Recommendation` é fallback
                     # para snapshots legados/df antigos.
                     row.get("Score Band", row.get("Recommendation")),
+                    self._analysis_values(row),
                 )
             )
 
@@ -540,12 +577,13 @@ class HistoryDatabase:
                 earnings_date,
                 quantity,
                 is_candidate,
-                recommendation
+                recommendation,
+                analysis_values_json
             )
             VALUES
             (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             rows,
