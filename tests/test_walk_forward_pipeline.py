@@ -113,3 +113,45 @@ def test_manifest_counts_unresolved_delistings_honestly(tmp_path: Path) -> None:
     # campos deduplicados e ordenados: proveniência determinística
     assert manifest.tracked_fields == ("revenues", "total_assets")
     assert manifest.governed_config_hashes
+
+
+def test_price_observations_carry_the_no_lookahead_convention(tmp_path: Path) -> None:
+    """Sem preço o backtest RODA e não mede nada: valuation e timing caem em
+    neutro e o replay vira um mar de AVOID que parece veredicto do modelo.
+    Medido na 1a versao deste pipeline: 473 de 501 em AVOID."""
+    from backtesting.walk_forward_pipeline import load_price_observations
+
+    prices = tmp_path / "prices"
+    prices.mkdir()
+    (prices / "AAA.csv").write_text(
+        "Date,Open,High,Low,Close,Adj Close,Volume,Dividends,Stock Splits\n"
+        "2026-01-02,10,11,9,10.5,10.5,1000,0,0\n"
+        "2026-01-05,10.5,12,10,11.0,11.0,1200,0,0\n",
+        encoding="utf-8",
+    )
+
+    observations, splits = load_price_observations(prices)
+
+    assert {o.field_name for o in observations} == {"price"}
+    assert [o.value for o in observations] == [10.5, 11.0]
+    first = observations[0]
+    # o fechamento do pregão só é conhecível no dia seguinte
+    assert not first.is_available("2026-01-02T23:00:00+00:00")
+    assert first.is_available("2026-01-03T00:00:00+00:00")
+    assert splits == ()
+
+
+def test_empty_price_file_is_skipped_not_fatal(tmp_path: Path) -> None:
+    """5 dos 502 constituintes vieram sem histórico (BK/CTRA/DAY/HOLX/MMC);
+    eles entram como delisting não resolvido no manifesto, não derrubam a
+    montagem."""
+    from backtesting.walk_forward_pipeline import load_price_observations
+
+    prices = tmp_path / "prices"
+    prices.mkdir()
+    (prices / "VAZIO.csv").write_text("Date,Close\n", encoding="utf-8")
+
+    observations, splits = load_price_observations(prices)
+
+    assert observations == ()
+    assert splits == ()
