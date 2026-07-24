@@ -121,6 +121,22 @@ def reason_for_field(
     return f"{label}: {phrase}."
 
 
+def _lookup(values: Any, field: str) -> Any:
+    """Valor do campo em `values`, que pode ser dict OU `pandas.Series`.
+
+    `values or {}` parece inofensivo e quebra em produção: uma Series não
+    tem valor-verdade, e o `or` levanta ValueError. Foi assim que a geração
+    do dashboard caiu na primeira execução real depois da ADR-050 -- os
+    testes passavam porque todos passavam dict.
+    """
+    if values is None:
+        return None
+    try:
+        return values.get(field)
+    except (AttributeError, TypeError):
+        return None
+
+
 def build_missing_reasons(
     fields: Sequence[str],
     field_evidence: Mapping[str, Any] | None,
@@ -139,7 +155,7 @@ def build_missing_reasons(
     for field in fields:
         reason = reason_for_field(field, field_evidence)
         note = materiality_note(
-            field, (values or {}).get(str(field)), sector=sector
+            field, _lookup(values, str(field)), sector=sector
         )
         out.append(
             {
