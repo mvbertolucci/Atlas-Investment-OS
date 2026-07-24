@@ -64,6 +64,20 @@ _BUY_DECISIONS = {"STRONG_BUY", "BUY", "ACCUMULATE"}
 _MISSING_PLACEHOLDERS = {"", "nenhum", "none", "-", "n/a"}
 
 
+def _row_value(row: Any, name: str) -> Any:
+    """Lê um campo de uma linha do frame sem depender do valor-verdade dela.
+
+    `row` é uma `pandas.Series`: `row or {}` levanta ValueError ("truth value
+    of a Series is ambiguous"), então o acesso precisa ser explícito.
+    """
+    if row is None:
+        return None
+    try:
+        return row.get(name)
+    except AttributeError:
+        return None
+
+
 def _missing_evidence(report: Any) -> tuple[str, ...]:
     """Campos de evidência genuinamente ausentes, sem os placeholders "Nenhum".
 
@@ -253,6 +267,12 @@ class ReportingApplicationService:
             if "field_evidence" in frame.columns
             else {}
         )
+        # Valor e setor alimentam a nota de materialidade (ADR-050): sem o
+        # último valor conhecido não dá para medir a distância até o limiar,
+        # e sem o setor não dá para reconhecer isenção de deal breaker.
+        row_by_symbol = {
+            str(row.get("symbol", "")).upper(): row for _, row in frame.iterrows()
+        }
         company_context = {}
         for report in company_reports:
             missing = _missing_evidence(report)
@@ -268,6 +288,12 @@ class ReportingApplicationService:
                 "missing_evidence_detail": build_missing_reasons(
                     missing,
                     field_evidence_by_symbol.get(str(report.symbol).upper(), {}),
+                    # `row` é uma Series do pandas: nunca usar `or {}` nela,
+                    # o valor-verdade é ambíguo e levanta ValueError.
+                    values=row_by_symbol.get(str(report.symbol).upper()),
+                    sector=_row_value(
+                        row_by_symbol.get(str(report.symbol).upper()), "sector"
+                    ),
                 ),
             }
         decision_queue = build_decision_queue(

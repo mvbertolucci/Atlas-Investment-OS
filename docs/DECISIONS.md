@@ -53,6 +53,7 @@ Detailed architecture decisions live in `docs/adr/`. This file is the index and 
 | ADR-047 | Freshness anchors on the issuer's own reporting cadence, and TTM flow metrics are dated by the latest quarter instead of the annual statement (MSFT flow fields were a full year mis-dated; 324 stale fields → 0 across the book) | Accepted 2026-07-24 |
 | ADR-048 | Remove `roe` from critical cross-vendor agreement — Yahoo's TTM ROE and the secondary's differently-based ROE can't meet a 5% bar by construction; ADR-047 unmasked the latent disagreement, which was nulling the field and suppressing CLF's SELL | Accepted 2026-07-24 |
 | ADR-049 | Derive `roe` and `operating_cashflow` from statements when the vendor omits the key (JNJ: 173 info keys, no returnOnEquity) — only formulas measured against Yahoo's own values were kept; free_cashflow/quick_ratio/current_ratio deliberately rejected | Accepted 2026-07-24 |
+| ADR-050 | Annotate what a data gap can actually change, derived from governed config — 37 of 77 fields only cost Data Freshness, 2 are threshold-only, and a scored field's ceiling is factor_weight x feature_weight x 100; never claims the decision is unaffected | Accepted 2026-07-24 |
 
 ## Recording a new decision
 
