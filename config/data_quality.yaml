@@ -19,6 +19,18 @@ freshness:
   acceptable_score: 70
   stale_score: 0
 
+  # Fundamento não envelhece pelo relógio: envelhece quando o período
+  # SEGUINTE já deveria ter sido publicado. A janela de 35 dias acima mede a
+  # cadência da NOSSA coleta e continua valendo para mercado/analista; para
+  # fundamentos ela é inatingível por construção (um trimestre dura ~91 dias).
+  # O intervalo entre períodos vem do próprio emissor, medido pelo provider,
+  # o que cobre trimestral (~91d) e semestral (~182d, Reino Unido) sem
+  # configuração por ticker; só o prazo de arquivamento é fixo.
+  period_cadence_categories: [fundamentals]
+  default_reporting_period_days: 91
+  filing_lag_days: 45
+  max_reporting_period_days: 400
+
 # Ausência estrutural é diferente de falha de coleta: esses campos saem do
 # denominador de cobertura e não contam como feature crítica ausente.
 not_applicable_by_sector:

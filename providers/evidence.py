@@ -155,6 +155,30 @@ def field_status(record: Mapping[str, Any], field_name: str) -> DataValueStatus:
     return DataValueStatus.PRESENT if _valid(record.get(field_name)) else DataValueStatus.MISSING
 
 
+def _resolve_reporting_period_days(
+    record: Mapping[str, Any],
+    freshness: Mapping[str, Any],
+) -> float:
+    """Cadência de divulgação do emissor, com fallback e teto.
+
+    O provider mede o intervalo entre períodos consecutivos do próprio
+    emissor (`_reporting_period_days`), o que separa um trimestral (~91d) de
+    um semestral (~182d, típico do Reino Unido) sem configuração por ticker.
+    O teto evita que uma série de períodos malformada -- ou uma empresa com
+    histórico só anual -- vire uma janela larga demais e passe a esconder
+    falha de coleta de verdade.
+    """
+    default_days = float(freshness.get("default_reporting_period_days", 91.0))
+    maximum_days = float(freshness.get("max_reporting_period_days", 400.0))
+    try:
+        measured = float(record.get("_reporting_period_days") or 0.0)
+    except (TypeError, ValueError):
+        return default_days
+    if measured <= 0:
+        return default_days
+    return min(measured, maximum_days)
+
+
 def apply_sector_applicability(
     record: dict[str, Any],
     policy: Mapping[str, Any] | None,
@@ -185,6 +209,12 @@ def apply_sector_applicability(
     record["field_evidence"] = evidence
     freshness = (policy or {}).get("freshness") or {}
     stale_after_days = float(freshness.get("acceptable_days", 35.0))
+    period_categories = {
+        str(name)
+        for name in (freshness.get("period_cadence_categories") or ())
+    }
+    reporting_period_days = _resolve_reporting_period_days(record, freshness)
+    filing_lag_days = float(freshness.get("filing_lag_days", 45.0))
     evaluated_at = datetime.now(timezone.utc)
     for field_name, payload in list(evidence.items()):
         current = FieldEvidence.from_dict(payload)
@@ -198,11 +228,24 @@ def apply_sector_applicability(
         except (TypeError, ValueError):
             continue
         age_days = (evaluated_at - timestamp.astimezone(timezone.utc)).total_seconds() / 86400
-        if age_days > stale_after_days:
+        # Um fundamento não envelhece pelo relógio: ele envelhece quando o
+        # período SEGUINTE já deveria ter sido publicado e não o temos. Datar
+        # pelo relógio marcava como defasado todo emissor no meio do próprio
+        # ciclo de divulgação -- um trimestral fica >35 dias na maior parte da
+        # vida útil do dado, e um semestral, quase sempre.
+        if field_name.startswith("_") or current.category not in period_categories:
+            limit, reason = stale_after_days, f"older than {stale_after_days:g} days"
+        else:
+            limit = reporting_period_days + filing_lag_days
+            reason = (
+                f"next period overdue (period {reporting_period_days:g}d "
+                f"+ filing {filing_lag_days:g}d)"
+            )
+        if age_days > limit:
             evidence[field_name] = replace(
                 current,
                 status=DataValueStatus.STALE,
-                detail=f"older than {stale_after_days:g} days",
+                detail=reason,
             ).to_dict()
     record["field_evidence"] = evidence
     return record

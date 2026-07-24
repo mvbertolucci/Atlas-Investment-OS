@@ -349,16 +349,26 @@ def _confidence_explanation(item: dict[str, object]) -> str:
             "fatores exigidos."
         )
     # Ação certa depende da causa: divergência de fontes não se resolve
-    # recoletando; gap de coleta sim.
+    # recoletando; gap de coleta sim. E quando nenhum campo obrigatório falta,
+    # não sabemos que recoletar resolve -- afirmar isso mandava o usuário
+    # executar uma ação inútil (relatado ao vivo em AVAV, cuja cobertura era
+    # puxada por campos secundários, não por falha de coleta).
     if any_source_divergence:
         action = (
             "As fontes divergem no valor — recoletar não resolve. Verifique qual "
             "fonte está certa ou ajuste a tolerância de reconciliação do campo."
         )
-    else:
+    elif missing:
         action = (
             f"Atualizar evidência: recolete {_e(symbol)} "
             "(skill <code>atualizar-ticker</code>) e rode novamente."
+        )
+    else:
+        action = (
+            "Nenhum campo obrigatório está faltando — a cobertura é puxada por "
+            "campos secundários. Recoletar só ajuda se algum deles falhou na "
+            f'coleta: confira situação e data campo a campo em <a href="/company/{_e(symbol)}">'
+            f"{_e(symbol)}</a> antes de recoletar."
         )
     return (
         '<div class="lowconf">'

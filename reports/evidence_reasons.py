@@ -52,6 +52,15 @@ def humanize_field(field: str) -> str:
 def _status_phrase(status: str | None, detail: str | None) -> str:
     base = _STATUS_REASON.get(str(status or "").lower(), "não foi coletado")
     if status == "stale" and detail:
+        # Desde a ADR-047, `stale` num fundamento não significa mais "passou do
+        # relógio": significa que o período SEGUINTE já venceu o prazo de
+        # arquivamento e não o temos — ou seja, existe dado mais novo publicado.
+        # A distinção importa porque só nesse caso recoletar resolve.
+        if "next period overdue" in str(detail):
+            return (
+                "o período seguinte já venceu o prazo de divulgação e não foi "
+                "coletado"
+            )
         return f"{base} ({detail})"
     if status == "not_applicable" and detail:
         return f"{base} — {detail}"

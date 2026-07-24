@@ -332,3 +332,34 @@ def test_monitor_items_go_into_collapsed_section() -> None:
     head, _, tail = html.partition("<details>")
     assert "Agir agora" in head
     assert "Acompanhar" in tail or "Acompanhar" in html
+
+
+def test_low_coverage_without_missing_field_does_not_assert_recollection() -> None:
+    """Caso real AVAV (2026-07-24): confiança baixa, nenhum campo obrigatório
+    faltando. Mandar recoletar era orientar uma ação inútil -- não havia gap de
+    coleta, a cobertura era puxada por campos secundários."""
+    queue = build_decision_queue(
+        priority={
+            "sell": {
+                "items": [
+                    {"symbol": "AVAV", "action": "REVISAR", "reason": "confiança",
+                     "priority": 0}
+                ]
+            }
+        },
+        company_context={
+            "AVAV": {
+                "company_name": "AeroVironment",
+                "decision_confidence": 37.5,
+                "data_coverage": 62.2,
+                "missing_evidence": (),
+            }
+        },
+        generated_at="2026-07-24T10:00:00",
+    )
+    html = render_decision_cockpit(queue)
+
+    assert "Nenhum campo obrigatório está faltando" in html
+    assert "Recoletar só ajuda se algum deles falhou na coleta" in html
+    assert "atualizar-ticker" not in html
+    assert 'href="/company/AVAV"' in html

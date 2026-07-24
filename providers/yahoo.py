@@ -337,6 +337,40 @@ def _statement_date(statement: pd.DataFrame | None) -> str | None:
     return max(dates).date().isoformat() if len(dates) else None
 
 
+def _period_ends(*statements: "pd.DataFrame | None") -> list[pd.Timestamp]:
+    """Datas de fim de período presentes nas demonstrações, ordenadas."""
+    collected: list[pd.Timestamp] = []
+    for statement in statements:
+        if statement is None or statement.empty or len(statement.columns) == 0:
+            continue
+        dates = pd.to_datetime(statement.columns, errors="coerce", utc=True)
+        collected.extend(date for date in dates if not pd.isna(date))
+    return sorted(set(collected))
+
+
+def _reporting_period_days(*statements: "pd.DataFrame | None") -> int | None:
+    """Intervalo típico entre períodos consecutivos do próprio emissor.
+
+    Deriva a cadência de divulgação em vez de assumir trimestre: emissores
+    do Reino Unido e boa parte da Europa reportam semestralmente (BTI, ~182
+    dias), enquanto o padrão americano é trimestral (~91). Sem isso, uma
+    constante trimestral marca um semestral como defasado durante metade do
+    ciclo dele -- que é exatamente o falso positivo que esta função existe
+    para evitar.
+    """
+    period_ends = _period_ends(*statements)
+    if len(period_ends) < 2:
+        return None
+    gaps = [
+        (later - earlier).days
+        for earlier, later in zip(period_ends, period_ends[1:])
+        if (later - earlier).days > 0
+    ]
+    if not gaps:
+        return None
+    return int(pd.Series(gaps).median())
+
+
 def _earnings_date(info: dict[str, Any]) -> str | None:
     """Normaliza a data de earnings atribuída pelo provider, quando houver."""
     value = info.get("earningsTimestamp") or info.get("earningsTimestampStart")
@@ -529,8 +563,26 @@ def fetch_symbol(
     balance_date = _unix_date(info.get("mostRecentQuarter")) or _statement_date(
         balance_sheet
     )
-    income_date = _statement_date(income_statement)
-    cashflow_date = _statement_date(cashflow)
+    # Os valores de fluxo abaixo vêm de `info` (defaultKeyStatistics /
+    # financialData), que o Yahoo publica em base *trailing twelve months* --
+    # verificado contra o quadro anual: MSFT trazia ebitda=184.5bi no `info`
+    # contra 160.2bi no exercício FY2025 encerrado em 30/06/2025. Datá-los
+    # pelo fim do exercício anual (o que se fazia aqui) carimba um número que
+    # cobre até o último trimestre com uma data de até 12 meses atrás, e o
+    # motor de frescor então os marcava como defasados sem que houvesse nada
+    # mais recente a coletar. O fim de período correto de um TTM é o último
+    # trimestre fechado.
+    # `balance_date` já é `mostRecentQuarter`, que vem dentro de `info` -- não
+    # custa requisição nova. Medido contra `quarterly_financials` em 4
+    # emissores: idêntico em MSFT/AVAV, 2 dias de diferença em JNJ (calendário
+    # 52/53 semanas), e mais robusto em BTI, onde o quadro trimestral de
+    # resultado voltou vazio. Dois dias são ruído para uma regra medida em
+    # meses, e buscar os quadros trimestrais de resultado/caixa custaria +2
+    # requisições por símbolo -- 33% a mais sobre as 6 que a ADR-046 usou para
+    # dimensionar a paralelização, com a coleta ampla já limitada pelo teto de
+    # 2 req/s.
+    ttm_period_end = balance_date or _statement_date(income_statement)
+    ttm_cashflow_period_end = balance_date or _statement_date(cashflow)
     observed_at_by_field = {
         field_name: observed_at
         for observed_at, fields in (
@@ -542,14 +594,14 @@ def fetch_symbol(
                 ),
             ),
             (
-                income_date,
+                ttm_period_end,
                 (
                     "roe", "roa", "gross_margin", "operating_margin",
                     "ebitda_margin", "net_margin", "ebitda",
                 ),
             ),
             (
-                cashflow_date,
+                ttm_cashflow_period_end,
                 ("free_cashflow", "operating_cashflow"),
             ),
         )
@@ -562,6 +614,15 @@ def fetch_symbol(
             "enterprise_value": market_observed_at,
         }
     )
+    # Cadência de divulgação do próprio emissor, para a política de frescor
+    # decidir quando o período seguinte já deveria ter saído. Prefixo `_`
+    # mantém o campo fora de `field_evidence` (não é um dado observado).
+    # `quarterly_balance_sheet` já era buscado antes desta mudança, e sozinho
+    # mede a cadência tão bem quanto os três quadros juntos (verificado:
+    # BTI 182d, MSFT 91d, AVAV 92d, JNJ 91d -- idêntico nos dois caminhos).
+    reporting_period_days = _reporting_period_days(quarterly_balance_sheet)
+    if reporting_period_days:
+        record["_reporting_period_days"] = reporting_period_days
     short_interest_date = _unix_date(info.get("dateShortInterest"))
     if short_interest_date:
         observed_at_by_field["short_float"] = short_interest_date
