@@ -4,7 +4,7 @@ import concurrent.futures
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
 import pandas as pd
 import yfinance as yf
@@ -348,6 +348,76 @@ def _statement_date(statement: pd.DataFrame | None) -> str | None:
     dates = pd.to_datetime(statement.columns, errors="coerce", utc=True)
     dates = dates[~pd.isna(dates)]
     return max(dates).date().isoformat() if len(dates) else None
+
+
+def _statement_row(statement: "pd.DataFrame | None", label: str):
+    """Linha da demonstração pelo rótulo, já sem períodos vazios."""
+    if statement is None or statement.empty:
+        return None
+    for index in statement.index:
+        if str(index) == label:
+            series = statement.loc[index].dropna()
+            return series if len(series) else None
+    return None
+
+
+def _derive_roe(info: Mapping[str, Any], quarterly_balance: "pd.DataFrame | None"):
+    """ROE na mesma definição do Yahoo: lucro TTM sobre patrimônio MÉDIO.
+
+    Medido contra os tickers em que o Yahoo publica o campo: usar o
+    patrimônio final subestima o ROE em 5-12% de forma sistemática (MSFT
+    0,3022 vs 0,3401; META 0,2897 vs 0,3293), porque o Yahoo usa a média
+    entre o trimestre corrente e o de quatro trimestres atrás. Com a média,
+    o erro cai para <=0,4% (MSFT/GD/LMT/META 0,0%, CVX 0,4%, JBS 0,3%).
+
+    A definição importa: o score compara percentis na seção cruzada, então
+    um campo derivado por régua diferente da dos outros ~2.900 papéis
+    distorce a comparação em vez de completá-la.
+    """
+    equity = _statement_row(quarterly_balance, "Stockholders Equity")
+    if equity is None or len(equity) < 2:
+        return None
+    margin = _safe_float(info.get("profitMargins"))
+    revenue = _safe_float(info.get("totalRevenue"))
+    if margin is None or revenue is None:
+        return None
+    older = equity.iloc[min(4, len(equity) - 1)]
+    average_equity = (equity.iloc[0] + older) / 2
+    if not average_equity:
+        return None
+    return (margin * revenue) / average_equity
+
+
+def _derive_current_ratio(quarterly_balance: "pd.DataFrame | None"):
+    """Ativo circulante / passivo circulante -- reproduz o Yahoo exatamente
+    (MSFT 1,283, CVX 1,094, GD 1,384, LMT 1,135, META 2,348: idênticos).
+
+    Retorna None para emissor sem circulante segregado no balanço (bancos e
+    seguradoras, ex.: BRK-B), em vez de inventar um número.
+    """
+    assets = _statement_row(quarterly_balance, "Current Assets")
+    liabilities = _statement_row(quarterly_balance, "Current Liabilities")
+    if assets is None or liabilities is None or not liabilities.iloc[0]:
+        return None
+    return assets.iloc[0] / liabilities.iloc[0]
+
+
+def _derive_operating_cashflow(quarterly_cashflow: "pd.DataFrame | None"):
+    """Soma dos 4 trimestres -- reproduz o `operatingCashflow` do Yahoo
+    (erro <=0,1% em MSFT/CVX/GD/LMT/META).
+
+    `free_cashflow` NÃO é derivado aqui de propósito: o `freeCashflow` do
+    Yahoo é *levered* (após juros e amortização), e somar a linha
+    "Free Cash Flow" dos trimestres erra de 17% a 97% (MSFT 72,9bi contra
+    37,0bi publicados). `quick_ratio` idem: o Yahoo exclui mais que estoque,
+    e (circulante - estoque)/passivo erra de 3,6% a 16,4%. Preencher esses
+    dois com uma definição própria injetaria viés sistemático na seção
+    cruzada -- pior que a ausência, porque some silenciosamente.
+    """
+    operating = _statement_row(quarterly_cashflow, "Operating Cash Flow")
+    if operating is None or len(operating) < 4:
+        return None
+    return float(operating.iloc[:4].sum())
 
 
 def _period_ends(*statements: "pd.DataFrame | None") -> list[pd.Timestamp]:
@@ -696,6 +766,42 @@ def fetch_symbol(
         # on it, so it is left null rather than adding an unused derivation.
         record["ev_to_revenue"] = None
         record["ev_to_ebitda"] = _derive_ev_ebitda(resolved_ev, record.get("ebitda"))
+    # Lacuna de cobertura do fornecedor (ADR-049): para alguns emissores o
+    # Yahoo simplesmente não traz certas chaves no `info` -- ausentes, não
+    # nulas. Medido em 2026-07-24, JNJ vinha sem returnOnEquity/freeCashflow/
+    # operatingCashflow/quickRatio/currentRatio (173 chaves, contra 180 do
+    # MSFT), e `roe` é feature obrigatória: a ausência travava a confiança em
+    # 59, abaixo do gate de 70, bloqueando decisão. Os insumos, porém, estão
+    # nas demonstrações que já baixamos. Só os três campos cuja derivação foi
+    # medida contra o próprio Yahoo são preenchidos; ver as docstrings.
+    derived_fallbacks: dict[str, Any] = {}
+    if not raw_presence.get("roe"):
+        derived_fallbacks["roe"] = _derive_roe(info, quarterly_balance_sheet)
+    # `current_ratio` NÃO é derivado, apesar da fórmula reproduzir o Yahoo
+    # exatamente: ele está em `provider_critical_fields` e portanto já tem
+    # caminho de fallback secundário. Medido ao vivo no JNJ, derivar piorava o
+    # campo -- o `quarterly_balance_sheet` do Yahoo parava em 2026-03-31
+    # enquanto o SEC já tinha o 10-Q de junho, então o valor derivado (1,0252)
+    # entrava como primário, deslocava o secundário mais fresco (1,0889),
+    # discordava dele em 5,85% (acima da tolerância de 5%) e os dois eram
+    # descartados: `present` virava `invalid`. Derivação é para campo SEM
+    # outra fonte; onde há secundário, ele vem primeiro.
+    if not raw_presence.get("operating_cashflow"):
+        # Busca preguiçosa: o quadro trimestral de caixa é a única requisição
+        # extra desta mudança, e só é paga pelos emissores que têm a lacuna
+        # (6 de 117 na coleta medida), não pelo universo inteiro -- preserva
+        # o orçamento de 6 chamadas/símbolo da ADR-046.
+        derived_fallbacks["operating_cashflow"] = _derive_operating_cashflow(
+            _safe_statement(t, "quarterly_cashflow")
+        )
+    derived_fields = tuple(
+        name for name, value in derived_fallbacks.items() if value is not None
+    )
+    for field_name in derived_fields:
+        record[field_name] = derived_fallbacks[field_name]
+        raw_presence[field_name] = True
+        raw_values[field_name] = derived_fallbacks[field_name]
+        observed_at_by_field.setdefault(field_name, balance_date or ttm_period_end)
     annotated = ensure_field_evidence(
         record,
         source="Yahoo Finance",
@@ -713,6 +819,20 @@ def fetch_symbol(
                 "Yahoo provider TTM value; not directly comparable to one "
                 "annual SEC filing"
             )
+    # Valor derivado precisa ser auditável: a página da empresa e o relatório
+    # mostram fonte e detalhe por campo, então quem lê vê que o número não
+    # veio do fornecedor -- e por qual fórmula veio.
+    _DERIVATION_DETAIL = {
+        "roe": "derived from profit_margin, total_revenue, average equity "
+               "(vendor key absent; matches Yahoo definition within 0.4%)",
+        "operating_cashflow": "derived from 4 quarterly operating cash flows "
+                              "(vendor key absent; matches Yahoo within 0.1%)",
+    }
+    for field_name in derived_fields:
+        evidence = annotated["field_evidence"].get(field_name)
+        if isinstance(evidence, dict):
+            evidence["source"] = "Atlas derived"
+            evidence["detail"] = _DERIVATION_DETAIL[field_name]
     market_cap_evidence = annotated["field_evidence"].get("market_cap")
     if computed_market_cap is not None and isinstance(market_cap_evidence, dict):
         market_cap_evidence["detail"] = (
