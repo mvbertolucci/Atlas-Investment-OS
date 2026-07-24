@@ -206,9 +206,19 @@ def select_next_incomplete_batch(
     *,
     batch_size: int,
     completed_symbols: Iterable[str],
+    exhausted_symbols: Iterable[str] = (),
 ) -> TickerBatch | None:
+    """Primeiro lote com símbolo ainda pendente, ou None se não houver.
+
+    `exhausted_symbols` são os que já esgotaram as tentativas: contam como
+    resolvidos para efeito de avanço. Sem isso, um símbolo que falha de forma
+    determinística prende a seleção no mesmo lote para sempre -- medido ao
+    vivo com BK, que bateu 55 tentativas contra a SEC pelo mesmo erro
+    enquanto a coleta parava em 69 de 502. Marteladas repetidas num
+    regulador que exige identificação justamente para barrar abuso.
+    """
     ordered = _ordered_tickers(tickers)
-    completed = set(completed_symbols)
+    resolved = set(completed_symbols) | set(exhausted_symbols)
     if batch_size <= 0:
         raise ValueError("batch_size deve ser positivo.")
     total_batches = math.ceil(len(ordered) / batch_size) if ordered else 0
@@ -216,9 +226,27 @@ def select_next_incomplete_batch(
         batch = select_ticker_batch(
             ordered, batch_size=batch_size, batch_number=batch_number
         )
-        if any(symbol not in completed for symbol in batch.tickers):
+        if any(symbol not in resolved for symbol in batch.tickers):
             return batch
     return None
+
+
+def exhausted_symbols(
+    state: "SecEdgarCollectionState",
+    *,
+    max_attempts: int,
+) -> tuple[str, ...]:
+    """Símbolos que já esgotaram as tentativas -- desistir é deliberado.
+
+    O checkpoint sempre contou `attempts`; ninguém lia o contador para parar.
+    """
+    if max_attempts <= 0:
+        return ()
+    return tuple(
+        symbol
+        for symbol, failure in sorted(state.failures.items())
+        if int((failure or {}).get("attempts", 0)) >= max_attempts
+    )
 
 
 @dataclass(frozen=True)
@@ -331,6 +359,33 @@ def _load_tickers_from_csv(path: str | Path) -> tuple[str, ...]:
         )
 
 
+def load_cik_overrides_from_csv(path: str | Path) -> dict[str, str]:
+    """CIK declarado no próprio arquivo de universo, por ticker.
+
+    O mapa ticker->CIK da SEC é o de HOJE; um universo de backtest é
+    point-in-time. Toda empresa que trocou de ticker entre as duas datas
+    falha na busca por símbolo -- medido: BK (BNY Mellon) está na SEC como
+    `BNY`, e o snapshot de 2026-01-01 ainda diz `BK`.
+
+    O CIK não muda quando o ticker muda: é exatamente o identificador
+    estável desenhado para isso, e o arquivo de constituintes já o traz.
+    Preferir o mapa da SEC e cair aqui só quando ele não conhecer o símbolo
+    mantém a fonte primária no comando e resolve a renomeação sem
+    heurística.
+    """
+    overrides: dict[str, str] = {}
+    try:
+        with Path(path).open(encoding="utf-8", newline="") as handle:
+            for row in csv.DictReader(handle):
+                symbol = (row.get("symbol") or "").strip().upper()
+                cik = (row.get("cik") or "").strip()
+                if symbol and cik:
+                    overrides[symbol] = cik
+    except (OSError, csv.Error):
+        return {}
+    return overrides
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
@@ -343,6 +398,16 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=10)
     parser.add_argument("--batch-number", type=int)
     parser.add_argument("--retries", type=int, default=2)
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=3,
+        help=(
+            "Tentativas por símbolo antes de abandoná-lo e seguir. Sem "
+            "isto, um símbolo que falha de forma determinística prende a "
+            "coleta no mesmo lote indefinidamente."
+        ),
+    )
     parser.add_argument(
         "--user-agent",
         default=os.environ.get(USER_AGENT_ENV_VAR),
@@ -362,15 +427,29 @@ def main() -> None:
 
     tickers = _load_tickers_from_csv(args.tickers_file)
     cik_by_ticker = fetch_ticker_cik_map(user_agent=args.user_agent)
+    # O mapa da SEC vem primeiro; o arquivo de universo só cobre o que ele
+    # não conhece (renomeação de ticker desde a data do snapshot).
+    for symbol, cik in load_cik_overrides_from_csv(args.tickers_file).items():
+        cik_by_ticker.setdefault(symbol, cik)
 
     if args.batch_number is None:
+        state = load_collection_state(args.state)
+        given_up = exhausted_symbols(state, max_attempts=args.max_attempts)
         batch = select_next_incomplete_batch(
             tickers,
             batch_size=args.batch_size,
-            completed_symbols=load_collection_state(args.state).observations_by_symbol,
+            completed_symbols=state.observations_by_symbol,
+            exhausted_symbols=given_up,
         )
         if batch is None:
-            print("Coleta já está completa.")
+            if given_up:
+                print(
+                    f"Coleta concluída, com {len(given_up)} símbolo(s) "
+                    f"abandonado(s) após {args.max_attempts} tentativas: "
+                    f"{', '.join(given_up)}."
+                )
+            else:
+                print("Coleta já está completa.")
             return
     else:
         batch = select_ticker_batch(
