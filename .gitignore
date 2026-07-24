@@ -29,15 +29,12 @@ output/relatorios/history/*
 output/dados/*
 !output/dados/.gitkeep
 
-# Banco local do usuário
-data/*.db
-data/*.sqlite
-data/*.sqlite3
-data/research_universe_collection*.json
-data/research_universe_collection*.tmp
-data/raw_snapshots/
-data/provider_cache/
-data/*.log
+# Banco local do usuário e artefatos de coleta. Mesmo padrão de logs/ e
+# output/: nada em data/ é versionado além do .gitkeep. A lista anterior
+# enumerava artefatos por nome e vazava a cada nome novo -- os nomes são
+# inventados por execução (research_universe_refresh_2930.csv, 552KB, escapou
+# porque a regra cobria `research_universe_collection*`, não `_refresh_*`).
+data/*
 !data/.gitkeep
 
 # Arquivos temporários do Excel
