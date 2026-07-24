@@ -204,7 +204,28 @@ def apply_deal_breakers(
         ),
         errors="coerce",
     )
-    record_missing(net_debt_values, net_debt_ebitda_exempt, "net_debt_ebitda")
+    # Lacuna provadamente inócua (ADR-051). `net_debt = total_debt -
+    # total_cash`, e caixa nunca é negativo, então `net_debt <= total_debt`.
+    # Com `ebitda > 0`, isso dá um teto: `net_debt_ebitda <=
+    # total_debt/ebitda`. Se o TETO já está abaixo do limiar, nenhum valor de
+    # caixa faz o deal breaker disparar -- a lacuna não pode mudar a decisão,
+    # e cobrar penalidade de incerteza por ela é punir o desconhecido onde o
+    # conhecido já responde. Medido em 2026-07-24: CVX (teto 1,198), HIG
+    # (0,783) e CALM (0,000) contra limiar de 4,0, todos pagando 3,0 pontos.
+    #
+    # A guarda de `ebitda > 0` não é formalidade: com EBITDA negativo a
+    # divisão inverte o sentido da desigualdade e o teto deixa de ser teto.
+    net_debt_ebitda_harmless = _gap_cannot_breach_ceiling(
+        result,
+        numerator_ceiling="total_debt",
+        denominator="ebitda",
+        threshold=float(max_net_debt_ebitda),
+    )
+    record_missing(
+        net_debt_values,
+        net_debt_ebitda_exempt | net_debt_ebitda_harmless,
+        "net_debt_ebitda",
+    )
     add_penalty(
         (net_debt_values > float(max_net_debt_ebitda))
         & ~net_debt_ebitda_exempt,
@@ -309,6 +330,37 @@ def apply_deal_breakers(
     ).round(1)
 
     return result
+
+
+def _gap_cannot_breach_ceiling(
+    frame: pd.DataFrame,
+    *,
+    numerator_ceiling: str,
+    denominator: str,
+    threshold: float,
+) -> pd.Series:
+    """Linhas onde o valor ausente NÃO pode cruzar o limiar, por limites.
+
+    Uma razão cujo numerador tem teto conhecido e denominador positivo tem
+    teto conhecido. Se esse teto já está abaixo do limiar, o valor real --
+    seja ele qual for -- também está. Não é estimativa nem heurística: é o
+    conhecido respondendo pelo desconhecido.
+
+    Retorna False (conservador) sempre que os insumos não sustentam a
+    conclusão: numerador ou denominador ausente, ou denominador <= 0, onde a
+    divisão inverte a desigualdade e o teto deixa de valer.
+    """
+    ceiling = pd.to_numeric(
+        frame.get(numerator_ceiling, pd.Series(None, index=frame.index)),
+        errors="coerce",
+    )
+    base = pd.to_numeric(
+        frame.get(denominator, pd.Series(None, index=frame.index)),
+        errors="coerce",
+    )
+    usable = ceiling.notna() & base.notna() & (base > 0)
+    bound = (ceiling / base.where(base > 0)).where(usable)
+    return (bound < threshold).fillna(False)
 
 
 def score_dataframe(
