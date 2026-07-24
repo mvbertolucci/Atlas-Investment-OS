@@ -95,12 +95,13 @@ def test_provider_operational_policy_is_pinned() -> None:
     assert settings["provider_max_retries"] == 2
     assert settings["provider_backoff_seconds"] == pytest.approx(0.5)
     assert settings["provider_rate_limit_per_second"] == pytest.approx(2)
+    # roe saiu em ADR-048: Yahoo (TTM) e Finnhub usam definições diferentes,
+    # e exigir 5% de concordância entre elas é inatingível por construção.
     assert settings["provider_critical_fields"] == [
         "total_cash",
         "ebitda",
         "free_cashflow",
         "current_ratio",
-        "roe",
     ]
     assert settings["raw_snapshot_path"] == "data/raw_snapshots"
     assert settings["sec_secondary_enabled"] is True
